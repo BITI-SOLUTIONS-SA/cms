@@ -121,6 +121,30 @@ namespace CMS.Data
         public DbSet<InventoryTransactionType> InventoryTransactionTypes { get; set; }
         public DbSet<InventoryTransactionStatus> InventoryTransactionStatuses { get; set; }
 
+        // ===== CATÁLOGOS CONTABLES (admin schema) =====
+        public DbSet<JournalEntryTypeOrigin> JournalEntryTypeOrigins { get; set; }
+        public DbSet<TypeAccounting> TypeAccountings { get; set; }
+        public DbSet<ChartOfAccountsType> ChartOfAccountsTypes { get; set; }
+        public DbSet<JournalEntryClass> JournalEntryClasses { get; set; }
+        public DbSet<JournalEntryStatus> JournalEntryStatuses { get; set; }
+
+        // ===== CATÁLOGOS DE ENTIDADES Y CONSECUTIVOS (admin schema) =====
+        /// <summary>
+        /// Tipos de entidad del sistema - Tabla CENTRAL
+        /// </summary>
+        public DbSet<EntityType> EntityTypes { get; set; }
+
+        /// <summary>
+        /// Tipos de documentos por entidad - Tabla CENTRAL
+        /// </summary>
+        public DbSet<EntityDocument> EntityDocuments { get; set; }
+
+        /// <summary>
+        /// Catálogo CAByS (Bienes y Servicios, 13 díg.) - Tabla CENTRAL (admin.cabys)
+        /// Compartido por todas las compañías para Facturación Electrónica CR v4.4
+        /// </summary>
+        public DbSet<CabysCode> CabysCodes { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

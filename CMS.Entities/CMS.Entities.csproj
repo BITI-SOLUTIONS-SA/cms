@@ -1,6 +1,6 @@
 <!-- ================================================================================ -->
 <!-- ARCHIVO: CMS.Entities/CMS.Entities.csproj -->
-<!-- CONFIGURACIÓN: Capa de entidades (modelos de base de datos) -->
+<!-- CONFIGURACIï¿½N: Capa de entidades (modelos de base de datos) -->
 <!-- ================================================================================ -->
 <Project Sdk="Microsoft.NET.Sdk">
 
@@ -11,5 +11,9 @@
 		<RootNamespace>CMS.Entities</RootNamespace>
 		<AssemblyName>CMS.Entities</AssemblyName>
 	</PropertyGroup>
+
+	<ItemGroup>
+	  <Folder Include="Company\" />
+	</ItemGroup>
 
 </Project>

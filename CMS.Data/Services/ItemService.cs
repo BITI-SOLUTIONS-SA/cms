@@ -206,6 +206,11 @@ namespace CMS.Data.Services
             existing.TrackLots = item.TrackLots;
             existing.TrackSerialNumbers = item.TrackSerialNumbers;
 
+            // Facturación electrónica (Fase B)
+            existing.IdCustomer = item.IdCustomer;
+            existing.TaxRateCode = item.TaxRateCode;
+            existing.CabysCode = item.CabysCode;
+
             // Auditoría - El trigger de la BD actualiza record_date y updated_by
             existing.RecordDate = DateTime.UtcNow;
             existing.UpdatedBy = updatedBy ?? "SYSTEM";

@@ -39,7 +39,9 @@ namespace CMS.Data.Services
                 new Claim(JwtRegisteredClaimNames.Name, userName),
                 new Claim(JwtRegisteredClaimNames.Email, email),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                new Claim("userId", userId.ToString())
+                new Claim("userId", userId.ToString()),
+                // cms_username se usa en auditoría (created_by / updated_by)
+                new Claim("cms_username", userName)
             };
 
             // Agregar companyId si se proporciona (para auth local)

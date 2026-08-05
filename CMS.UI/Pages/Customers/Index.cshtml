@@ -1,0 +1,209 @@
+@page
+@model CMS.UI.Pages.Customers.IndexModel
+@{
+    ViewData["Title"] = "Clientes";
+}
+
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col">
+            <h2 class="mb-0"><i class="bi bi-people-fill me-2"></i>Clientes</h2>
+            <p class="text-light small mb-0">Maestro de clientes, proveedores y emisores de facturación electrónica</p>
+        </div>
+        <div class="col-auto">
+            <a asp-page="Create" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-1"></i>Nuevo Cliente
+            </a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>@Model.ErrorMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i>@TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>@TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table id="customersTable" class="table table-dark table-hover table-sm">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Nombre</th>
+                            <th>Identification</th>
+                            <th>Tipo</th>
+                            <th>Email</th>
+                            <th>Teléfono</th>
+                            <th class="text-center">Emisor</th>
+                            <th class="text-center">Estado</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var customer in Model.Customers)
+                        {
+                            <tr>
+                                <td>
+                                    <strong class="text-light">@customer.Code</strong>
+                                </td>
+                                <td>
+                                    <div class="text-light">@customer.Name</div>
+                                    @if (!string.IsNullOrEmpty(customer.CommercialName))
+                                    {
+                                        <small class="text-light">@customer.CommercialName</small>
+                                    }
+                                </td>
+                                <td class="text-light">
+                                    @if (!string.IsNullOrEmpty(customer.Identification))
+                                    {
+                                        <span>@customer.Identification</span>
+                                    }
+                                    else if (!string.IsNullOrEmpty(customer.ForeignIdentification))
+                                    {
+                                        <span class="badge bg-secondary">@customer.ForeignIdentification</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (customer.CustomerType == "Customer")
+                                    {
+                                        <span class="badge bg-info">Cliente</span>
+                                    }
+                                    else if (customer.CustomerType == "Supplier")
+                                    {
+                                        <span class="badge bg-warning text-dark">Proveedor</span>
+                                    }
+                                    else if (customer.CustomerType == "Both")
+                                    {
+                                        <span class="badge bg-purple">Ambos</span>
+                                    }
+                                    else if (customer.CustomerType == "Issuer")
+                                    {
+                                        <span class="badge bg-success">Emisor</span>
+                                    }
+                                </td>
+                                <td class="text-light">
+                                    @if (!string.IsNullOrEmpty(customer.Email))
+                                    {
+                                        <a href="mailto:@customer.Email" class="text-light">@customer.Email</a>
+                                    }
+                                </td>
+                                <td class="text-light">
+                                    @if (!string.IsNullOrEmpty(customer.Phone))
+                                    {
+                                        <span>@customer.Phone</span>
+                                    }
+                                    else if (!string.IsNullOrEmpty(customer.Mobile))
+                                    {
+                                        <span><i class="bi bi-phone me-1"></i>@customer.Mobile</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-secondary">Cliente</span>
+                                </td>
+                                <td class="text-center">
+                                    @if (customer.IsActive)
+                                    {
+                                        <span class="badge bg-success">Activo</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger">Inactivo</span>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    <a asp-page="Details" asp-route-id="@customer.Id" class="btn btn-sm btn-outline-info" title="Ver detalles">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a asp-page="Edit" asp-route-id="@customer.Id" class="btn btn-sm btn-outline-warning" title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" title="Eliminar"
+                                            onclick="confirmDelete(@customer.Id, '@customer.Code')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmación de eliminación -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark">
+            <div class="modal-header">
+                <h5 class="modal-title text-light">Confirmar eliminación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-light">
+                ¿Está seguro que desea eliminar el cliente <strong id="deleteCustomerCode"></strong>?
+                <p class="small text-light mt-2">
+                    Si el cliente tiene documentos o credenciales asociadas, solo se marcará como inactivo.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form method="post" id="deleteForm">
+                    <input type="hidden" name="id" id="deleteCustomerId" />
+                    <button type="submit" class="btn btn-danger" asp-page-handler="Delete">Eliminar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // DataTables
+        $(document).ready(function () {
+            $('#customersTable').DataTable({
+                language: {
+                    url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
+                },
+                order: [[1, 'asc']],
+                pageLength: 25,
+                responsive: true
+            });
+        });
+
+        // Confirmación de eliminación
+        function confirmDelete(id, code) {
+            document.getElementById('deleteCustomerId').value = id;
+            document.getElementById('deleteCustomerCode').textContent = code;
+            new bootstrap.Modal(document.getElementById('deleteModal')).show();
+        }
+
+        // Mover modal al final del body
+        document.addEventListener('DOMContentLoaded', function () {
+            var modal = document.getElementById('deleteModal');
+            if (modal) document.body.appendChild(modal);
+        });
+    </script>
+
+    <style>
+        small, .form-text, small.text-muted, .text-muted small { color: #cbd5e1 !important; }
+    </style>
+}

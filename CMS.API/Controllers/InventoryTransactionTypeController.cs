@@ -13,6 +13,7 @@ using CMS.Entities.Admin;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace CMS.API.Controllers
 {
@@ -31,9 +32,8 @@ namespace CMS.API.Controllers
         }
 
         private string GetCurrentUser() =>
-            User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Name)?.Value
-            ?? User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
-            ?? "system";
+            User.FindFirstValue("cms_username") ?? User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
+            ?? "SYSTEM";
 
         // ================================================================
         // GET /api/inventory-transaction-type

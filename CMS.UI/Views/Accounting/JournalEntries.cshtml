@@ -62,10 +62,10 @@
                     <label class="form-label text-light">Estado</label>
                     <select id="filterStatus" class="form-select">
                         <option value="">Todos</option>
-                        <option value="Draft">Borrador</option>
-                        <option value="Posted" selected>Contabilizado</option>
-                        <option value="Reversed">Revertido</option>
-                        <option value="Cancelled">Cancelado</option>
+                        <option value="1">Borrador</option>
+                        <option value="2" selected>Contabilizado</option>
+                        <option value="3">Revertido</option>
+                        <option value="4">Cancelado</option>
                     </select>
                 </div>
                 <div class="col-6 col-md-2">
@@ -392,6 +392,9 @@
         const JE_TOKEN = '@ViewBag.ApiToken';
         const COA_API = '@ViewBag.ApiBaseUrl/api/ChartOfAccounts';
         const CC_API = '@ViewBag.ApiBaseUrl/api/CostCenter';
+        // ⭐ El CURRENT_MENU_ID se obtiene dinámicamente desde el menú actual del usuario
+        // El backend lo resuelve usando la tabla sinai.consecutive
+        const CURRENT_MENU_ID = @ViewBag.CurrentMenuId;
     </script>
     <script src="~/js/journalEntries.js"></script>
     <script>

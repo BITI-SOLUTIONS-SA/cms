@@ -344,9 +344,9 @@ public class CostCenterService : ICostCenterService
         {
             await using var context = await _contextFactory.CreateDbContextAsync(companyId);
 
-            // Verificar en journal_entry_line
+            // Verificar en journal_entry_line (ahora usa FK real id_cost_center)
             var hasJournalEntries = await context.Set<JournalEntryLine>()
-                .AnyAsync(jel => jel.CostCenterCode == idCostCenter.ToString());
+                .AnyAsync(jel => jel.IdCostCenter == idCostCenter);
 
             return hasJournalEntries;
         }

@@ -1,0 +1,303 @@
+@{
+    ViewData["Title"] = "Emisores Facturadores";
+}
+@*
+    VISTA: ElectronicInvoice/Issuers.cshtml — Gestión de emisores + carga segura del
+    certificado .p12 (cifrado AES-256 en el servidor; el secreto nunca se devuelve).
+    AUTOR: EAMR, BITI SOLUTIONS S.A
+*@
+<style>
+    small, .form-text, small.text-muted, .text-muted small { color: #cbd5e1 !important; }
+    .ei-card { background-color: #16213e; border: 1px solid #24304f; }
+</style>
+
+<div class="container-fluid py-3 text-light">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-building me-2"></i>Emisores Facturadores</h4>
+        <div>
+            <a asp-action="Index" class="btn btn-outline-light btn-sm"><i class="bi bi-list"></i> Comprobantes</a>
+            <button class="btn btn-success btn-sm" id="newIssuerBtn"><i class="bi bi-plus-lg"></i> Nuevo emisor</button>
+        </div>
+    </div>
+
+    <div class="card ei-card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-dark table-hover table-sm">
+                    <thead>
+                        <tr><th>Nombre</th><th>Identificación</th><th>Ambiente</th><th>Certificado</th><th></th></tr>
+                    </thead>
+                    <tbody id="issuersBody">
+                        <tr><td colspan="5" class="text-center text-muted">Cargando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Nuevo emisor -->
+<div class="modal fade" id="issuerModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header"><h5 class="modal-title">Nuevo Emisor</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-3"><label class="form-label">Código</label><input id="i_code" class="form-control"></div>
+                    <div class="col-md-3">
+                        <label class="form-label">Tipo ID</label>
+                        <select id="i_idType" class="form-select">
+                            <option value="01">Física</option><option value="02" selected>Jurídica</option>
+                            <option value="03">DIMEX</option><option value="04">NITE</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3"><label class="form-label">Identificación</label><input id="i_ident" class="form-control"></div>
+                    <div class="col-md-3">
+                        <label class="form-label">Ambiente</label>
+                        <select id="i_env" class="form-select"><option value="stag">Sandbox</option><option value="prod">Producción</option></select>
+                    </div>
+                    <div class="col-md-6"><label class="form-label">Nombre / Razón social</label><input id="i_name" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Nombre comercial</label><input id="i_comm" class="form-control"></div>
+                    <div class="col-md-4"><label class="form-label">Actividad económica (6 díg.)</label><input id="i_act" class="form-control" maxlength="6"></div>
+                    <div class="col-md-4"><label class="form-label">Correo</label><input id="i_email" type="email" class="form-control"></div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <div class="form-check"><input class="form-check-input" type="checkbox" id="i_master">
+                            <label class="form-check-label" for="i_master">Es el emisor master (la empresa misma)</label></div>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <div class="form-check"><input class="form-check-input" type="checkbox" id="i_special_regime">
+                            <label class="form-check-label" for="i_special_regime">Régimen especial (Ley 8707 / Registrofiscal8707)</label></div>
+                    </div>
+                    <div class="col-md-4" id="i_special_regime_code_wrap" style="display:none;">
+                        <label class="form-label">Código de régimen especial <span class="text-danger">*</span></label>
+                        <input id="i_special_regime_code" class="form-control" maxlength="20">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-success" id="saveIssuerBtn">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Cargar certificado .p12 (doble ambiente) -->
+<div class="modal fade" id="certModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header"><h5 class="modal-title"><i class="bi bi-shield-lock"></i> Credenciales de Facturación Electrónica</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="c_issuerId">
+
+                <!-- Ambiente activo -->
+                <div class="alert alert-secondary d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>Ambiente activo:</strong>
+                        <span id="activeEnvBadge" class="badge bg-secondary">—</span>
+                        <small class="d-block text-muted">Determina qué credencial y endpoints de Hacienda se usan al emitir.</small>
+                    </div>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-secondary" id="setEnvStag">Usar Pruebas</button>
+                        <button type="button" class="btn btn-outline-danger" id="setEnvProd">Usar Producción</button>
+                    </div>
+                </div>
+
+                <!-- Pestañas Pruebas / Producción -->
+                <ul class="nav nav-tabs" role="tablist">
+                    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabStag" type="button">
+                        <i class="bi bi-flask"></i> Pruebas (Sandbox) <span id="stagStatusDot"></span></button></li>
+                    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabProd" type="button">
+                        <i class="bi bi-broadcast"></i> Producción <span id="prodStatusDot"></span></button></li>
+                </ul>
+                <div class="tab-content pt-3">
+                    <div class="tab-pane fade show active" id="tabStag">
+                        @await Html.PartialAsync("_CredentialForm", "stag")
+                    </div>
+                    <div class="tab-pane fade" id="tabProd">
+                        @await Html.PartialAsync("_CredentialForm", "prod")
+                    </div>
+                </div>
+                <div id="certResult" class="mt-2"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(function () {
+    // Mover modales al body para evitar problemas de z-index con el sidebar.
+    document.addEventListener('DOMContentLoaded', function () {
+        ['issuerModal', 'certModal'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) document.body.appendChild(el);
+        });
+    });
+
+    const EMAIL_RE = /^[^\s@@]+@@[^\s@@]+\.[^\s@@]{2,}$/;
+
+    async function loadIssuers() {
+        const r = await fetch('/api/billingissuer');
+        const list = r.ok ? await r.json() : [];
+        const body = document.getElementById('issuersBody');
+        if (!list.length) { body.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Sin emisores</td></tr>'; return; }
+        body.innerHTML = list.map(i => `
+            <tr>
+                <td>${i.isMaster ? '★ ' : ''}${i.name}</td>
+                <td>${i.identification}</td>
+                <td><span class="badge bg-${i.environment === 'prod' ? 'danger' : 'secondary'}">${i.environment === 'prod' ? 'Producción' : 'Sandbox'}</span></td>
+                <td id="cert_${i.id}"><span class="text-muted">verificando...</span></td>
+                <td><button class="btn btn-sm btn-outline-info loadCert" data-id="${i.id}"><i class="bi bi-shield-lock"></i> Certificado</button></td>
+            </tr>`).join('');
+        body.querySelectorAll('.loadCert').forEach(b => b.addEventListener('click', () => openCert(b.dataset.id)));
+        list.forEach(i => refreshCertStatus(i.id));
+    }
+
+    async function refreshCertStatus(id) {
+        try {
+            const r = await fetch(`/api/billingissuer/${id}/credentials`);
+            const d = await r.json();
+            const cell = document.getElementById('cert_' + id);
+            if (!cell) return;
+            function tag(s, label) {
+                if (!s.hasCredential) return `<span class="badge bg-warning">${label}: sin cert</span>`;
+                if (s.isExpired) return `<span class="badge bg-danger">${label}: expirado</span>`;
+                return `<span class="badge bg-success">${label}: válido</span>`;
+            }
+            const active = d.activeEnvironment === 'prod' ? 'Producción' : 'Pruebas';
+            cell.innerHTML = `${tag(d.sandbox,'Pruebas')} ${tag(d.production,'Prod')} <small class="text-info d-block">Activo: ${active}</small>`;
+        } catch { }
+    }
+
+    let currentOverview = null;
+
+    async function openCert(id) {
+        document.getElementById('c_issuerId').value = id;
+        document.getElementById('certResult').innerHTML = '';
+        await loadOverview(id);
+        new bootstrap.Modal(document.getElementById('certModal')).show();
+    }
+
+    async function loadOverview(id) {
+        try {
+            const r = await fetch(`/api/billingissuer/${id}/credentials`);
+            currentOverview = await r.json();
+            const badge = document.getElementById('activeEnvBadge');
+            const isProd = currentOverview.activeEnvironment === 'prod';
+            badge.textContent = isProd ? 'Producción' : 'Pruebas';
+            badge.className = 'badge ' + (isProd ? 'bg-danger' : 'bg-secondary');
+
+            fillCertInfo('Stag', currentOverview.sandbox);
+            fillCertInfo('Prod', currentOverview.production);
+        } catch { }
+    }
+
+    function fillCertInfo(suffix, s) {
+        const el = document.getElementById('certInfo' + suffix);
+        if (!el) return;
+        if (!s || !s.hasCredential) el.innerHTML = '<span class="badge bg-warning">Sin certificado</span>';
+        else if (s.isExpired) el.innerHTML = '<span class="badge bg-danger">Certificado expirado</span>';
+        else el.innerHTML = `<span class="badge bg-success">Certificado válido</span> <small>vigente hasta ${new Date(s.certNotAfter).toLocaleDateString('es-CR')}</small>`;
+    }
+
+    async function setActiveEnv(env) {
+        const id = document.getElementById('c_issuerId').value;
+        const r = await fetch(`/api/billingissuer/${id}/active-environment`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ environment: env })
+        });
+        const d = await r.json();
+        const cls = r.ok ? 'alert-success' : 'alert-danger';
+        document.getElementById('certResult').innerHTML = `<div class="alert ${cls}">${d.message || 'Error'}</div>`;
+        if (r.ok) { await loadOverview(id); refreshCertStatus(id); }
+    }
+
+    document.getElementById('setEnvStag').addEventListener('click', () => setActiveEnv('stag'));
+    document.getElementById('setEnvProd').addEventListener('click', () => setActiveEnv('prod'));
+
+    document.getElementById('newIssuerBtn').addEventListener('click', () =>
+        new bootstrap.Modal(document.getElementById('issuerModal')).show());
+
+    // Mostrar/ocultar el código de régimen especial según el checkbox
+    document.getElementById('i_special_regime').addEventListener('change', function () {
+        const wrap = document.getElementById('i_special_regime_code_wrap');
+        wrap.style.display = this.checked ? '' : 'none';
+        if (!this.checked) document.getElementById('i_special_regime_code').value = '';
+    });
+
+    document.getElementById('saveIssuerBtn').addEventListener('click', async () => {
+        const email = document.getElementById('i_email').value;
+        if (!EMAIL_RE.test(email)) { alert('Correo inválido.'); return; }
+        const isSpecialRegime = document.getElementById('i_special_regime').checked;
+        const specialRegimeCode = document.getElementById('i_special_regime_code').value.trim();
+        if (isSpecialRegime && !specialRegimeCode) {
+            alert('El código de régimen especial es obligatorio cuando el emisor está en régimen especial.');
+            return;
+        }
+        const payload = {
+            code: document.getElementById('i_code').value,
+            isMaster: document.getElementById('i_master').checked,
+            identificationType: document.getElementById('i_idType').value,
+            identification: document.getElementById('i_ident').value,
+            name: document.getElementById('i_name').value,
+            commercialName: document.getElementById('i_comm').value,
+            economicActivity: document.getElementById('i_act').value,
+            isSpecialRegime: isSpecialRegime,
+            specialRegimeCode: isSpecialRegime ? specialRegimeCode : null,
+            email: email,
+            environment: document.getElementById('i_env').value
+        };
+        const r = await fetch('/api/billingissuer', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        });
+        if (r.ok) { bootstrap.Modal.getInstance(document.getElementById('issuerModal')).hide(); loadIssuers(); }
+        else { const d = await r.json(); alert(d.message || 'Error al guardar'); }
+    });
+
+    // Handler de carga por ambiente (pestañas Pruebas/Producción)
+    document.addEventListener('click', async function (e) {
+        const btn = e.target.closest('.saveCertBtn');
+        if (!btn) return;
+        const env = btn.dataset.env;
+        const suffix = btn.dataset.suffix;
+        const file = document.getElementById('c_file' + suffix).files[0];
+        const pin = document.getElementById('c_pin' + suffix).value;
+        if (!file || !pin) { alert('Seleccione el .p12 e ingrese el PIN.'); return; }
+
+        const buf = await file.arrayBuffer();
+        const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+        const id = document.getElementById('c_issuerId').value;
+        const payload = {
+            issuerId: parseInt(id),
+            environment: env,
+            p12Base64: b64,
+            pin: pin,
+            oAuthUsername: document.getElementById('c_oauthUser' + suffix).value,
+            oAuthPassword: document.getElementById('c_oauthPass' + suffix).value
+        };
+        btn.disabled = true; const orig = btn.innerHTML; btn.textContent = 'Cifrando...';
+        try {
+            const r = await fetch(`/api/billingissuer/${id}/credential`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+            });
+            const d = await r.json();
+            const cls = r.ok ? 'alert-success' : 'alert-danger';
+            document.getElementById('certResult').innerHTML =
+                `<div class="alert ${cls}">${r.ok
+                    ? `Certificado (${env}) cargado y cifrado. Vigente hasta ${new Date(d.certNotAfter).toLocaleDateString('es-CR')}.`
+                    : (d.message || 'Error')}</div>`;
+            if (r.ok) { await loadOverview(id); refreshCertStatus(id); }
+        } finally {
+            btn.disabled = false; btn.innerHTML = orig;
+        }
+    });
+
+    loadIssuers();
+})();
+</script>
+}

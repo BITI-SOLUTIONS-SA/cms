@@ -84,9 +84,33 @@ namespace CMS.API.Controllers
                 // =====================================================================
                 // 3. FILTRAR MENÚS SEGÚN PERMISOS DEL TOKEN
                 // =====================================================================
-                var filteredMenus = allMenus
+
+                // Paso 3a: ítems que pasan el filtro de permisos directamente
+                var directlyAllowed = allMenus
                     .Where(m => string.IsNullOrEmpty(m.PERMISSION_KEY) ||
-                               permissions.Contains(m.PERMISSION_KEY))
+                                permissions.Contains(m.PERMISSION_KEY))
+                    .ToHashSet();
+
+                // Paso 3b: "bubble-up" — si un ítem es accesible, todos sus ancestros
+                // deben incluirse aunque tengan un PERMISSION_KEY que no sea un permiso
+                // real (p.ej. menús contenedor como "General Accounting")
+                var allowedIds = directlyAllowed.Select(m => m.ID_MENU).ToHashSet();
+
+                var allMenusById = allMenus.ToDictionary(m => m.ID_MENU);
+
+                foreach (var menu in directlyAllowed.ToList())
+                {
+                    var parentId = menu.ID_PARENT;
+                    while (parentId != 0 && allMenusById.TryGetValue(parentId, out var parent))
+                    {
+                        if (allowedIds.Add(parent.ID_MENU))
+                            directlyAllowed.Add(parent);
+                        parentId = parent.ID_PARENT;
+                    }
+                }
+
+                var filteredMenus = allMenus
+                    .Where(m => allowedIds.Contains(m.ID_MENU))
                     .ToList();
 
                 _logger.LogInformation("🔒 Menús filtrados: {Filtered}/{Total}",
@@ -226,8 +250,8 @@ namespace CMS.API.Controllers
                     RecordDate = DateTime.UtcNow,
                     CreateDate = DateTime.UtcNow,
                     RowPointer = Guid.NewGuid(),
-                    CreatedBy = User.Identity?.Name ?? "SYSTEM",
-                    UpdatedBy = User.Identity?.Name ?? "SYSTEM"
+                    CreatedBy = User.FindFirstValue("cms_username") ?? User.FindFirstValue(System.Security.Claims.ClaimTypes.Name) ?? "SYSTEM",
+                    UpdatedBy = User.FindFirstValue("cms_username") ?? User.FindFirstValue(System.Security.Claims.ClaimTypes.Name) ?? "SYSTEM"
                 };
 
                 _db.Menus.Add(menu);
@@ -275,7 +299,7 @@ namespace CMS.API.Controllers
                 menu.ORDER = dto.Order;
                 menu.PERMISSION_KEY = dto.PermissionKey;
                 menu.IS_ACTIVE = dto.IsActive;
-                menu.UpdatedBy = User.Identity?.Name ?? "SYSTEM";
+                menu.UpdatedBy = User.FindFirstValue("cms_username") ?? User.FindFirstValue(System.Security.Claims.ClaimTypes.Name) ?? "SYSTEM";
 
                 await _db.SaveChangesAsync();
 

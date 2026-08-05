@@ -20,13 +20,33 @@ namespace CMS.UI.Controllers
     {
         private readonly ILogger<AdminController> _logger;
         private readonly AdminApiService _adminApiService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IConfiguration _configuration;
 
         public AdminController(
             ILogger<AdminController> logger,
-            AdminApiService adminApiService)
+            AdminApiService adminApiService,
+            IHttpContextAccessor httpContextAccessor,
+            IConfiguration configuration)
         {
-            _logger = logger;
-            _adminApiService = adminApiService;
+            _logger               = logger;
+            _adminApiService      = adminApiService;
+            _httpContextAccessor  = httpContextAccessor;
+            _configuration        = configuration;
+        }
+
+        private string GetApiToken() =>
+            _httpContextAccessor.HttpContext?.Session.GetString("ApiToken")
+            ?? _httpContextAccessor.HttpContext?.Session.GetString("JwtToken")
+            ?? string.Empty;
+
+        private string GetApiBaseUrl()
+        {
+            var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development";
+            var baseUrl = _configuration[$"ApiSettings:{environment}:BaseUrl"];
+            return baseUrl ?? (environment == "Production"
+                ? _configuration["ApiSettings:Production:BaseUrl"] ?? string.Empty
+                : _configuration["ApiSettings:Development:BaseUrl"] ?? string.Empty);
         }
 
         #region Audit Trail
@@ -366,6 +386,91 @@ namespace CMS.UI.Controllers
             }
 
             return RedirectToAction(nameof(System));
+        }
+
+        #endregion
+
+        #region Entity Types & Documents
+
+        /// <summary>
+        /// Vista de Entity Types
+        /// GET: /Admin/EntityTypes
+        /// </summary>
+        [RequirePermission("Admin.EntityTypes.View")]
+        public IActionResult EntityTypes()
+        {
+            return View();
+        }
+
+        /// <summary>
+        /// Vista de Entity Documents
+        /// GET: /Admin/EntityDocuments
+        /// </summary>
+        [RequirePermission("Admin.EntityDocuments.View")]
+        public IActionResult EntityDocuments()
+        {
+            return View();
+        }
+
+        #endregion
+
+        #region Catálogos Contables
+
+        /// <summary>
+        /// Mantenimiento de Tipos de Origen de Asientos de Diario.
+        /// GET: /Admin/JournalEntryTypeOrigins
+        /// </summary>
+        [RequirePermission("Admin.JournalEntryTypeOrigins.View")]
+        public IActionResult JournalEntryTypeOrigins()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken   = GetApiToken();
+            return View();
+        }
+
+        /// <summary>
+        /// Mantenimiento de Tipos de Contabilidad.
+        /// GET: /Admin/TypeAccountings
+        /// </summary>
+        [RequirePermission("Admin.TypeAccountings.View")]
+        public IActionResult TypeAccountings()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken   = GetApiToken();
+            return View();
+        }
+
+        /// <summary>
+        /// GET: /Admin/ChartOfAccountsType
+        /// </summary>
+        [RequirePermission("Admin.ChartOfAccountsType.View")]
+        public IActionResult ChartOfAccountsType()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken   = GetApiToken();
+            return View();
+        }
+
+        /// <summary>
+        /// GET: /Admin/JournalEntryClass
+        /// </summary>
+        [RequirePermission("Admin.JournalEntryClass.View")]
+        public IActionResult JournalEntryClass()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken   = GetApiToken();
+            return View();
+        }
+
+        /// <summary>
+        /// GET: /Admin/JournalEntryStatus
+        /// </summary>
+        [RequirePermission("Admin.JournalEntryStatus.View")]
+        public IActionResult JournalEntryStatus()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken   = GetApiToken();
+            return View();
         }
 
         #endregion

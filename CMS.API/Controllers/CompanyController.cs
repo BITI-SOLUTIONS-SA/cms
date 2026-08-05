@@ -184,8 +184,8 @@ namespace CMS.API.Controllers
                     LOCKOUT_DURATION_MINUTES = 15,
                     CreateDate = DateTime.UtcNow,
                     RecordDate = DateTime.UtcNow,
-                    CreatedBy = User.Identity?.Name ?? "SYSTEM",
-                    UpdatedBy = User.Identity?.Name ?? "SYSTEM"
+                    CreatedBy = User.FindFirstValue("cms_username") ?? User.FindFirstValue(System.Security.Claims.ClaimTypes.Name) ?? "SYSTEM",
+                    UpdatedBy = User.FindFirstValue("cms_username") ?? User.FindFirstValue(System.Security.Claims.ClaimTypes.Name) ?? "SYSTEM"
                 };
 
                 _db.Companies.Add(company);
@@ -233,11 +233,11 @@ namespace CMS.API.Controllers
                 company.MAX_FAILED_LOGIN_ATTEMPTS = dto.MaxFailedLoginAttempts;
                 company.LOCKOUT_DURATION_MINUTES = dto.LockoutDurationMinutes;
                 company.RecordDate = DateTime.UtcNow;
-                company.UpdatedBy = User.Identity?.Name ?? "SYSTEM";
+                company.UpdatedBy = User.FindFirstValue("cms_username") ?? User.FindFirstValue(System.Security.Claims.ClaimTypes.Name) ?? "SYSTEM";
 
                 await _db.SaveChangesAsync();
 
-                _logger.LogInformation("✅ Compañía actualizada: {Id} - {Name}", id, company.COMPANY_NAME);
+                _logger.LogInformation("Compañía actualizada: {Id} - {Name}", id, company.COMPANY_NAME);
 
                 return NoContent();
             }
@@ -270,7 +270,7 @@ namespace CMS.API.Controllers
 
                 company.IS_ACTIVE = !company.IS_ACTIVE;
                 company.RecordDate = DateTime.UtcNow;
-                company.UpdatedBy = User.Identity?.Name ?? "SYSTEM";
+                company.UpdatedBy = User.FindFirstValue("cms_username") ?? User.FindFirstValue(System.Security.Claims.ClaimTypes.Name) ?? "SYSTEM";
 
                 await _db.SaveChangesAsync();
 

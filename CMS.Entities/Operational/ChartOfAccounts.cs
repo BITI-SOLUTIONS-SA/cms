@@ -70,11 +70,13 @@ namespace CMS.Entities.Operational
 
         // ===== TIPO DE CUENTA =====
 
-        /// <summary>Tipo de cuenta: Asset, Liability, Equity, Revenue, Expense, Off-Balance</summary>
-        [Required]
-        [MaxLength(30)]
-        [Column("account_type")]
-        public string AccountType { get; set; } = string.Empty;
+        /// <summary>
+        /// FK lógica cross-DB a cms.admin.chart_of_accounts_type(id_chart_of_accounts_type).
+        /// Valores: 1=asset, 2=liability, 3=equity, 4=revenue, 5=expense, 6=off_balance.
+        /// Default = 1 (Activo).
+        /// </summary>
+        [Column("id_chart_of_accounts_type")]
+        public int IdChartOfAccountsType { get; set; } = 1;
 
         /// <summary>Subclasificación: Current, Non-Current, Operating, Financial, etc.</summary>
         [MaxLength(50)]

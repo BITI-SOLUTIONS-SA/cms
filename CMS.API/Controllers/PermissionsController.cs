@@ -4,6 +4,7 @@ using CMS.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace CMS.API.Controllers
 {
@@ -121,8 +122,8 @@ namespace CMS.API.Controllers
                     RecordDate = DateTime.UtcNow,
                     CreateDate = DateTime.UtcNow,
                     RowPointer = Guid.NewGuid(),
-                    CreatedBy = User.Identity?.Name ?? "system",
-                    UpdatedBy = User.Identity?.Name ?? "system"
+                    CreatedBy = User.FindFirstValue("cms_username") ?? "SYSTEM",
+                    UpdatedBy = User.FindFirstValue("cms_username") ?? "SYSTEM"
                 };
 
                 _db.Permissions.Add(permission);
@@ -161,7 +162,7 @@ namespace CMS.API.Controllers
                 permission.DESCRIPTION = dto.Description ?? permission.DESCRIPTION;
                 permission.MODULE = dto.Module ?? permission.MODULE;
                 permission.IS_ACTIVE = dto.IsActive;
-                permission.UpdatedBy = User.Identity?.Name ?? "system";
+                permission.UpdatedBy = User.FindFirstValue("cms_username") ?? "SYSTEM";
 
                 await _db.SaveChangesAsync();
 
@@ -220,7 +221,7 @@ namespace CMS.API.Controllers
                     return NotFound(new { message = "Permiso no encontrado" });
 
                 permission.IS_ACTIVE = !permission.IS_ACTIVE;
-                permission.UpdatedBy = User.Identity?.Name ?? "system";
+                permission.UpdatedBy = User.FindFirstValue("cms_username") ?? "SYSTEM";
 
                 await _db.SaveChangesAsync();
 

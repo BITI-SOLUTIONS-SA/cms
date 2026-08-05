@@ -18,8 +18,8 @@ namespace CMS.Data.Services
         // ===== CONSULTAS =====
         Task<List<JournalEntry>> GetJournalEntriesAsync(
             int companyId,
-            string? status = null,
-            string? entryType = null,
+            int? idJournalEntryStatus = null,
+            int? idTypeAccounting = null,
             DateOnly? dateFrom = null,
             DateOnly? dateTo = null,
             string? search = null);
@@ -29,13 +29,13 @@ namespace CMS.Data.Services
         Task<bool> EntryNumberExistsAsync(int companyId, string entryNumber, int? excludeId = null);
 
         // ===== CRUD =====
-        Task<JournalEntry> CreateJournalEntryAsync(int companyId, JournalEntry entry, string currentUser);
+        Task<JournalEntry> CreateJournalEntryAsync(int companyId, JournalEntry entry, int idMenu, int userId, string currentUser);
         Task<JournalEntry> UpdateJournalEntryAsync(int companyId, JournalEntry entry, string currentUser);
         Task DeleteJournalEntryAsync(int companyId, int idJournalEntry);
 
         // ===== OPERACIONES CONTABLES =====
         Task<JournalEntry> PostJournalEntryAsync(int companyId, int idJournalEntry, int userId, string currentUser);
-        Task<JournalEntry> ReverseJournalEntryAsync(int companyId, int idJournalEntry, DateOnly reversalDate, int idCancelReason, int userId, string currentUser);
+        Task<JournalEntry> ReverseJournalEntryAsync(int companyId, int idJournalEntry, DateOnly reversalDate, int idCancelReason, int idMenu, int userId, string currentUser);
         Task<JournalEntry> CancelJournalEntryAsync(int companyId, int idJournalEntry, int idCancelReason, int userId, string currentUser);
         Task<JournalEntry> ApproveJournalEntryAsync(int companyId, int idJournalEntry, int userId, string notes, string currentUser);
 
@@ -47,13 +47,17 @@ namespace CMS.Data.Services
     public class JournalEntryService : IJournalEntryService
     {
         private readonly ICompanyDbContextFactory _contextFactory;
+        private readonly CMS.Data.Services.Interfaces.IConsecutiveService _consecutiveService;
         private readonly ILogger<JournalEntryService> _logger;
+        private const int ENTITY_DOCUMENT_ID_JOURNAL_ENTRY = 1; // ID del documento "Journal Entry" en admin.entity_document
 
         public JournalEntryService(
             ICompanyDbContextFactory contextFactory,
+            CMS.Data.Services.Interfaces.IConsecutiveService consecutiveService,
             ILogger<JournalEntryService> logger)
         {
             _contextFactory = contextFactory;
+            _consecutiveService = consecutiveService;
             _logger = logger;
         }
 
@@ -61,8 +65,8 @@ namespace CMS.Data.Services
 
         public async Task<List<JournalEntry>> GetJournalEntriesAsync(
             int companyId,
-            string? status = null,
-            string? entryType = null,
+            int? idJournalEntryStatus = null,
+            int? idTypeAccounting = null,
             DateOnly? dateFrom = null,
             DateOnly? dateTo = null,
             string? search = null)
@@ -71,11 +75,11 @@ namespace CMS.Data.Services
 
             var query = context.JournalEntries.AsQueryable();
 
-            if (!string.IsNullOrWhiteSpace(status))
-                query = query.Where(je => je.Status == status);
+            if (idJournalEntryStatus.HasValue)
+                query = query.Where(je => je.IdJournalEntryStatus == idJournalEntryStatus.Value);
 
-            if (!string.IsNullOrWhiteSpace(entryType))
-                query = query.Where(je => je.EntryType == entryType);
+            if (idTypeAccounting.HasValue)
+                query = query.Where(je => je.IdTypeAccounting == idTypeAccounting.Value);
 
             if (dateFrom.HasValue)
                 query = query.Where(je => je.PostingDate >= dateFrom.Value);
@@ -170,7 +174,7 @@ namespace CMS.Data.Services
 
         // ===== CRUD =====
 
-        public async Task<JournalEntry> CreateJournalEntryAsync(int companyId, JournalEntry entry, string currentUser)
+        public async Task<JournalEntry> CreateJournalEntryAsync(int companyId, JournalEntry entry, int idMenu, int userId, string currentUser)
         {
             await using var context = await _contextFactory.CreateDbContextAsync(companyId);
 
@@ -181,11 +185,20 @@ namespace CMS.Data.Services
                 throw new InvalidOperationException(string.Join("; ", validationErrors));
             }
 
-            // Generar número de asiento si no existe
+            // ⭐ GENERACIÓN AUTOMÁTICA DEL ENTRY_NUMBER USANDO CONSECUTIVO JERÁRQUICO
             if (string.IsNullOrWhiteSpace(entry.EntryNumber))
             {
-                var period = $"{entry.PostingDate.Year}-{entry.PostingDate.Month:D2}";
-                entry.EntryNumber = await GetNextEntryNumberAsync(companyId, period);
+                _logger.LogInformation(
+                    "🔢 Generando consecutivo automático para Journal Entry en compañía {CompanyId}, menú {MenuId}",
+                    companyId, idMenu);
+
+                entry.EntryNumber = await _consecutiveService.GenerateNextNumberAsync(
+                    companyId,
+                    idMenu,
+                    ENTITY_DOCUMENT_ID_JOURNAL_ENTRY,
+                    userId);
+
+                _logger.LogInformation("✅ Entry number generado: {EntryNumber}", entry.EntryNumber);
             }
 
             // Verificar unicidad del número
@@ -210,12 +223,17 @@ namespace CMS.Data.Services
 
             // Agregar líneas con números secuenciales
             int lineNumber = 1;
+            // Leer el default de centro de costo una sola vez para todas las líneas
+            var defaultCostCenterId = await GetDefaultCostCenterIdAsync(context);
             foreach (var line in entry.Lines)
             {
-                line.IdJournalEntry = entry.IdJournalEntry;
+                line.IdJournalEntry     = entry.IdJournalEntry;
                 line.IdJournalEntryLine = lineNumber++;
-                line.CreatedBy = currentUser;
-                line.UpdatedBy = currentUser;
+                // Aplicar centro de costo default si no viene definido en la línea
+                if (line.IdCostCenter == 0 && defaultCostCenterId.HasValue)
+                    line.IdCostCenter = defaultCostCenterId.Value;
+                line.CreatedBy  = currentUser;
+                line.UpdatedBy  = currentUser;
                 line.CreateDate = DateTime.UtcNow;
                 line.RecordDate = DateTime.UtcNow;
                 context.JournalEntryLines.Add(line);
@@ -260,13 +278,13 @@ namespace CMS.Data.Services
             }
 
             // Actualizar encabezado
-            existing.EntryNumber = entry.EntryNumber;
-            existing.EntryType = entry.EntryType;
-            existing.Reference = entry.Reference;
-            existing.EntryDate = entry.EntryDate;
+            existing.EntryNumber        = entry.EntryNumber;
+            existing.IdTypeAccounting   = entry.IdTypeAccounting;
+            existing.Reference          = entry.Reference;
+            existing.EntryDate          = entry.EntryDate;
             existing.PostingDate = entry.PostingDate;
-            existing.CurrencyCode = entry.CurrencyCode;
-            existing.ExchangeRate = entry.ExchangeRate;
+            existing.CurrencyLocal = entry.CurrencyLocal;
+            existing.CurrencyExchange = entry.CurrencyExchange;
             existing.RequiresApproval = entry.RequiresApproval;
             existing.UpdatedBy = currentUser;
             existing.RecordDate = DateTime.UtcNow;
@@ -283,12 +301,17 @@ namespace CMS.Data.Services
 
             // Agregar líneas nuevas
             int lineNumber = 1;
+            // Leer el default de centro de costo una sola vez para todas las líneas
+            var defaultCostCenterId = await GetDefaultCostCenterIdAsync(context);
             foreach (var line in entry.Lines)
             {
-                line.IdJournalEntry = entry.IdJournalEntry;
+                line.IdJournalEntry     = entry.IdJournalEntry;
                 line.IdJournalEntryLine = lineNumber++;
-                line.CreatedBy = currentUser;
-                line.UpdatedBy = currentUser;
+                // Aplicar centro de costo default si no viene definido en la línea
+                if (line.IdCostCenter == 0 && defaultCostCenterId.HasValue)
+                    line.IdCostCenter = defaultCostCenterId.Value;
+                line.CreatedBy  = currentUser;
+                line.UpdatedBy  = currentUser;
                 line.CreateDate = DateTime.UtcNow;
                 line.RecordDate = DateTime.UtcNow;
                 context.JournalEntryLines.Add(line);
@@ -391,7 +414,7 @@ namespace CMS.Data.Services
             return entry;
         }
 
-        public async Task<JournalEntry> ReverseJournalEntryAsync(int companyId, int idJournalEntry, DateOnly reversalDate, int idCancelReason, int userId, string currentUser)
+        public async Task<JournalEntry> ReverseJournalEntryAsync(int companyId, int idJournalEntry, DateOnly reversalDate, int idCancelReason, int idMenu, int userId, string currentUser)
         {
             await using var context = await _contextFactory.CreateDbContextAsync(companyId);
 
@@ -424,13 +447,14 @@ namespace CMS.Data.Services
             // Crear asiento de reversión
             var reversalEntry = new JournalEntry
             {
-                EntryNumber = await GetNextEntryNumberAsync(companyId, reversalDate.ToString("yyyy-MM")),
-                EntryType = JournalEntryType.Reversal,
-                Reference = $"REV-{originalEntry.EntryNumber}",
+                // ⭐ NO generar entry_number aquí - el servicio lo hará automáticamente
+                EntryNumber       = string.Empty, // Se genera en CreateJournalEntryAsync
+                IdTypeAccounting  = originalEntry.IdTypeAccounting,
+                Reference         = $"REV-{originalEntry.EntryNumber}",
                 EntryDate = reversalDate,
                 PostingDate = reversalDate,
-                CurrencyCode = originalEntry.CurrencyCode,
-                ExchangeRate = originalEntry.ExchangeRate,
+                CurrencyLocal = originalEntry.CurrencyLocal,
+                CurrencyExchange = originalEntry.CurrencyExchange,
                 Status = JournalEntryStatus.Draft,
                 IsReversing = true,
                 IdReversedEntry = originalEntry.IdJournalEntry,
@@ -445,28 +469,20 @@ namespace CMS.Data.Services
                 reversalEntry.Lines.Add(new JournalEntryLine
                 {
                     IdChartOfAccounts = originalLine.IdChartOfAccounts,
-                    LineDescription = $"REVERSIÓN: {originalLine.LineDescription}",
-                    Reference = originalLine.Reference,
-                    DebitAmount = originalLine.CreditAmount,    // INVERTIR
-                    CreditAmount = originalLine.DebitAmount,     // INVERTIR
-                    CurrencyCode = originalLine.CurrencyCode,
-                    ExchangeRate = originalLine.ExchangeRate,
-                    DebitAmountBase = originalLine.CreditAmountBase,
-                    CreditAmountBase = originalLine.DebitAmountBase,
-                    CostCenterCode = originalLine.CostCenterCode,
-                    CostCenterName = originalLine.CostCenterName,
-                    ProjectCode = originalLine.ProjectCode,
-                    ProjectName = originalLine.ProjectName,
-                    DepartmentCode = originalLine.DepartmentCode,
-                    DepartmentName = originalLine.DepartmentName,
-                    BusinessPartnerType = originalLine.BusinessPartnerType,
-                    BusinessPartnerCode = originalLine.BusinessPartnerCode,
-                    BusinessPartnerName = originalLine.BusinessPartnerName
+                    Description       = $"REVERSIÓN: {originalLine.Description}",
+                    Reference         = originalLine.Reference,
+                    DebitAmount       = originalLine.CreditAmount,   // INVERTIR
+                    CreditAmount      = originalLine.DebitAmount,    // INVERTIR
+                    IdCostCenter                = originalLine.IdCostCenter,
+                    IdJournalEntryTypeOrigin    = originalLine.IdJournalEntryTypeOrigin,
+                    IdDocumentOrigin            = originalLine.IdDocumentOrigin
                 });
             }
 
-            // Crear asiento de reversión
-            var createdReversal = await CreateJournalEntryAsync(companyId, reversalEntry, currentUser);
+            // ⭐ Crear asiento de reversión usando el idMenu proporcionado
+            // El consecutivo se resuelve desde sinai.consecutive según el menú
+            var createdReversal = await CreateJournalEntryAsync(
+                companyId, reversalEntry, idMenu, userId, currentUser);
 
             // Contabilizar automáticamente
             await PostJournalEntryAsync(companyId, createdReversal.IdJournalEntry, userId, currentUser);
@@ -611,7 +627,7 @@ namespace CMS.Data.Services
                     if (line.IdChartOfAccounts <= 0)
                         errors.Add($"Línea {i + 1}: La cuenta contable es requerida");
 
-                    if (string.IsNullOrWhiteSpace(line.LineDescription))
+                    if (string.IsNullOrWhiteSpace(line.Description))
                         errors.Add($"Línea {i + 1}: La descripción es requerida");
 
                     if (line.DebitAmount == 0 && line.CreditAmount == 0)
@@ -622,10 +638,28 @@ namespace CMS.Data.Services
 
                     if (line.DebitAmount < 0 || line.CreditAmount < 0)
                         errors.Add($"Línea {i + 1}: Los montos no pueden ser negativos");
+
+                    if (line.IdCostCenter == 0)
+                        errors.Add($"Línea {i + 1}: El centro de costo es requerido");
                 }
             }
 
             return errors;
+        }
+
+        // ===== HELPERS PRIVADOS =====
+
+        /// <summary>
+        /// Lee el parámetro global 'cost_center_default' de la BD de la compañía.
+        /// Retorna el id_cost_center configurado, o null si no existe / no tiene valor.
+        /// </summary>
+        private static async Task<int?> GetDefaultCostCenterIdAsync(CompanyDbContext context)
+        {
+            var param = await context.GlobalParameters
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Code == "cost_center_default" && p.IsActive);
+
+            return param?.ValueInteger;
         }
     }
 }

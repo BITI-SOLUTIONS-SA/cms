@@ -615,6 +615,101 @@
         }
       }
     },
+    "/api/Cabys/search": {
+      "get": {
+        "tags": [
+          "Cabys"
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CabysDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CabysDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CabysDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Cabys/{code}": {
+      "get": {
+        "tags": [
+          "Cabys"
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CabysDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CabysDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CabysDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Catalog/countries": {
       "get": {
         "tags": [
@@ -725,10 +820,11 @@
             }
           },
           {
-            "name": "accountType",
+            "name": "idChartOfAccountsType",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "format": "int32"
             }
           },
           {
@@ -969,6 +1065,140 @@
         }
       }
     },
+    "/api/chart-of-accounts-type": {
+      "get": {
+        "tags": [
+          "ChartOfAccountsType"
+        ],
+        "parameters": [
+          {
+            "name": "isActive",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "ChartOfAccountsType"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChartOfAccountsTypeDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChartOfAccountsTypeDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChartOfAccountsTypeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/chart-of-accounts-type/{id}": {
+      "get": {
+        "tags": [
+          "ChartOfAccountsType"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "ChartOfAccountsType"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChartOfAccountsTypeDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChartOfAccountsTypeDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChartOfAccountsTypeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "ChartOfAccountsType"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/Company": {
       "get": {
         "tags": [
@@ -1137,6 +1367,246 @@
       "patch": {
         "tags": [
           "Company"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Consecutive": {
+      "get": {
+        "tags": [
+          "Consecutive"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConsecutiveDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConsecutiveDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConsecutiveDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Consecutive"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsecutiveCreateDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsecutiveCreateDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsecutiveCreateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsecutiveDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsecutiveDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsecutiveDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Consecutive/active": {
+      "get": {
+        "tags": [
+          "Consecutive"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConsecutiveDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConsecutiveDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConsecutiveDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Consecutive/{id}": {
+      "get": {
+        "tags": [
+          "Consecutive"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsecutiveDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsecutiveDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsecutiveDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Consecutive"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsecutiveUpdateDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsecutiveUpdateDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsecutiveUpdateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsecutiveDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsecutiveDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsecutiveDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Consecutive"
         ],
         "parameters": [
           {
@@ -1643,6 +2113,898 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/Currency/active": {
+      "get": {
+        "tags": [
+          "Currency"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CurrencyDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CurrencyDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CurrencyDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Currency/code/{code}": {
+      "get": {
+        "tags": [
+          "Currency"
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrencyDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrencyDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrencyDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Customer": {
+      "get": {
+        "tags": [
+          "Customer"
+        ],
+        "parameters": [
+          {
+            "name": "includeInactive",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Customer"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Customer"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Customer"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Customer"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Customer"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Customer"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/Customer"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Customer/issuers": {
+      "get": {
+        "tags": [
+          "Customer"
+        ],
+        "parameters": [
+          {
+            "name": "includeInactive",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Customer"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Customer"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Customer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/Customer/{id}": {
+      "get": {
+        "tags": [
+          "Customer"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Customer"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Customer"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Customer"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/Customer"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Customer"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Customer/by-code/{code}": {
+      "get": {
+        "tags": [
+          "Customer"
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Customer/by-identification/{identification}": {
+      "get": {
+        "tags": [
+          "Customer"
+        ],
+        "parameters": [
+          {
+            "name": "identification",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Customer/company-owner": {
+      "get": {
+        "tags": [
+          "Customer"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/Customer/exists/{code}": {
+      "get": {
+        "tags": [
+          "Customer"
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "excludeId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/CustomerBillingCredential": {
+      "get": {
+        "tags": [
+          "CustomerBillingCredential"
+        ],
+        "parameters": [
+          {
+            "name": "includeInactive",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CustomerBillingCredential"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CustomerBillingCredential"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CustomerBillingCredential"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "CustomerBillingCredential"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerBillingCredential"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerBillingCredential"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerBillingCredential"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerBillingCredential"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerBillingCredential"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerBillingCredential"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/CustomerBillingCredential/search-issuers": {
+      "get": {
+        "tags": [
+          "CustomerBillingCredential"
+        ],
+        "parameters": [
+          {
+            "name": "searchTerm",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "identificationType",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeInactive",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IssuerSearchResultDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IssuerSearchResultDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IssuerSearchResultDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/CustomerBillingCredential/issuers": {
+      "get": {
+        "tags": [
+          "CustomerBillingCredential"
+        ],
+        "parameters": [
+          {
+            "name": "includeInactive",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CustomerBillingCredential"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CustomerBillingCredential"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CustomerBillingCredential"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/CustomerBillingCredential/receptors": {
+      "get": {
+        "tags": [
+          "CustomerBillingCredential"
+        ],
+        "parameters": [
+          {
+            "name": "includeInactive",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CustomerBillingCredential"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CustomerBillingCredential"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CustomerBillingCredential"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/CustomerBillingCredential/company-owner": {
+      "get": {
+        "tags": [
+          "CustomerBillingCredential"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerBillingCredential"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerBillingCredential"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerBillingCredential"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/CustomerBillingCredential/{id}": {
+      "get": {
+        "tags": [
+          "CustomerBillingCredential"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerBillingCredential"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerBillingCredential"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerBillingCredential"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "CustomerBillingCredential"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerBillingCredential"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerBillingCredential"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerBillingCredential"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerBillingCredential"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerBillingCredential"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerBillingCredential"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "CustomerBillingCredential"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }
@@ -2219,6 +3581,371 @@
         }
       }
     },
+    "/api/einvoice/diagnostics/generate-sample": {
+      "post": {
+        "tags": [
+          "EInvoiceDiagnostics"
+        ],
+        "parameters": [
+          {
+            "name": "issuerId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "documentType",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": "01"
+            }
+          },
+          {
+            "name": "cabys",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": "2118401010109"
+            }
+          },
+          {
+            "name": "price",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double",
+              "default": 10000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/einvoice/diagnostics/ping-hacienda": {
+      "get": {
+        "tags": [
+          "EInvoiceDiagnostics"
+        ],
+        "parameters": [
+          {
+            "name": "environment",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": "stag"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/einvoice/diagnostics/issuer/{issuerId}/readiness": {
+      "get": {
+        "tags": [
+          "EInvoiceDiagnostics"
+        ],
+        "parameters": [
+          {
+            "name": "issuerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/ElectronicInvoice/emit": {
+      "post": {
+        "tags": [
+          "ElectronicInvoice"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmitDocumentDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmitDocumentDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmitDocumentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmitResultDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmitResultDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmitResultDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ElectronicInvoice": {
+      "get": {
+        "tags": [
+          "ElectronicInvoice"
+        ],
+        "parameters": [
+          {
+            "name": "issuerId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ElectronicDocumentSummaryDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ElectronicDocumentSummaryDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ElectronicDocumentSummaryDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ElectronicInvoice/{id}": {
+      "get": {
+        "tags": [
+          "ElectronicInvoice"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/ElectronicInvoice/{id}/xml": {
+      "get": {
+        "tags": [
+          "ElectronicInvoice"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/ElectronicInvoice/{id}/pdf": {
+      "get": {
+        "tags": [
+          "ElectronicInvoice"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/ElectronicInvoice/{id}/logs": {
+      "get": {
+        "tags": [
+          "ElectronicInvoice"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/ElectronicInvoice/{id}/process": {
+      "post": {
+        "tags": [
+          "ElectronicInvoice"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/ElectronicInvoice/{id}/poll-status": {
+      "post": {
+        "tags": [
+          "ElectronicInvoice"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/ElectronicInvoice/{id}/backfill": {
+      "post": {
+        "tags": [
+          "ElectronicInvoice"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/employees": {
       "get": {
         "tags": [
@@ -2602,6 +4329,785 @@
         "responses": {
           "200": {
             "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/EntityDocument": {
+      "get": {
+        "tags": [
+          "EntityDocument"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EntityDocumentDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EntityDocumentDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EntityDocumentDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "EntityDocument"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntityDocumentCreateDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntityDocumentCreateDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntityDocumentCreateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityDocumentDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityDocumentDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityDocumentDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/EntityDocument/active": {
+      "get": {
+        "tags": [
+          "EntityDocument"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EntityDocumentDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EntityDocumentDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EntityDocumentDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/EntityDocument/bytype/{entityTypeId}": {
+      "get": {
+        "tags": [
+          "EntityDocument"
+        ],
+        "parameters": [
+          {
+            "name": "entityTypeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EntityDocumentDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EntityDocumentDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EntityDocumentDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/EntityDocument/{id}": {
+      "get": {
+        "tags": [
+          "EntityDocument"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityDocumentDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityDocumentDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityDocumentDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "EntityDocument"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntityDocumentUpdateDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntityDocumentUpdateDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntityDocumentUpdateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityDocumentDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityDocumentDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityDocumentDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "EntityDocument"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/EntityType": {
+      "get": {
+        "tags": [
+          "EntityType"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EntityTypeDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EntityTypeDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EntityTypeDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "EntityType"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntityTypeCreateDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntityTypeCreateDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntityTypeCreateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityTypeDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityTypeDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityTypeDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/EntityType/active": {
+      "get": {
+        "tags": [
+          "EntityType"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EntityTypeDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EntityTypeDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EntityTypeDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/EntityType/{id}": {
+      "get": {
+        "tags": [
+          "EntityType"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityTypeDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityTypeDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityTypeDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "EntityType"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntityTypeUpdateDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntityTypeUpdateDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntityTypeUpdateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityTypeDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityTypeDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityTypeDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "EntityType"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/ExchangeRate": {
+      "get": {
+        "tags": [
+          "ExchangeRate"
+        ],
+        "parameters": [
+          {
+            "name": "isActive",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExchangeRateDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExchangeRateDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExchangeRateDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "ExchangeRate"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExchangeRateDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExchangeRateDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExchangeRateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExchangeRateDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExchangeRateDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExchangeRateDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ExchangeRate/{id}": {
+      "get": {
+        "tags": [
+          "ExchangeRate"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExchangeRateDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExchangeRateDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExchangeRateDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "ExchangeRate"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExchangeRateDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExchangeRateDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExchangeRateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExchangeRateDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExchangeRateDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExchangeRateDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "ExchangeRate"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/ExchangeRate/byCode/{code}": {
+      "get": {
+        "tags": [
+          "ExchangeRate"
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExchangeRateDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExchangeRateDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExchangeRateDto"
+                }
+              }
+            }
           }
         }
       }
@@ -4777,7 +7283,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StringStringStringStringDateTime<>f__AnonymousType100"
+                  "$ref": "#/components/schemas/StringStringStringStringDateTime<>f__AnonymousType125"
                 }
               }
             }
@@ -5162,26 +7668,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/InventoryTransactionLineDto"
-                }
+                "$ref": "#/components/schemas/SaveLinesDto"
               }
             },
             "text/json": {
               "schema": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/InventoryTransactionLineDto"
-                }
+                "$ref": "#/components/schemas/SaveLinesDto"
               }
             },
             "application/*+json": {
               "schema": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/InventoryTransactionLineDto"
-                }
+                "$ref": "#/components/schemas/SaveLinesDto"
               }
             }
           }
@@ -6218,6 +8715,61 @@
         }
       }
     },
+    "/api/Item/for-billing": {
+      "get": {
+        "tags": [
+          "Item"
+        ],
+        "parameters": [
+          {
+            "name": "customerId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BillingItemDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BillingItemDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BillingItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Item/units-of-measure": {
       "get": {
         "tags": [
@@ -6696,17 +9248,19 @@
         ],
         "parameters": [
           {
-            "name": "status",
+            "name": "idJournalEntryStatus",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "format": "int32"
             }
           },
           {
-            "name": "entryType",
+            "name": "idTypeAccounting",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "format": "int32"
             }
           },
           {
@@ -7576,6 +10130,408 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/journal-entry-class": {
+      "get": {
+        "tags": [
+          "JournalEntryClass"
+        ],
+        "parameters": [
+          {
+            "name": "isActive",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "JournalEntryClass"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalEntryClassDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalEntryClassDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalEntryClassDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/journal-entry-class/{id}": {
+      "get": {
+        "tags": [
+          "JournalEntryClass"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "JournalEntryClass"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalEntryClassDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalEntryClassDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalEntryClassDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "JournalEntryClass"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/journal-entry-status": {
+      "get": {
+        "tags": [
+          "JournalEntryStatus"
+        ],
+        "parameters": [
+          {
+            "name": "isActive",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "JournalEntryStatus"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalEntryStatusDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalEntryStatusDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalEntryStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/journal-entry-status/{id}": {
+      "get": {
+        "tags": [
+          "JournalEntryStatus"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "JournalEntryStatus"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalEntryStatusDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalEntryStatusDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalEntryStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "JournalEntryStatus"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/journal-entry-type-origin": {
+      "get": {
+        "tags": [
+          "JournalEntryTypeOrigin"
+        ],
+        "parameters": [
+          {
+            "name": "isActive",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "JournalEntryTypeOrigin"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalEntryTypeOriginDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalEntryTypeOriginDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalEntryTypeOriginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/journal-entry-type-origin/{id}": {
+      "get": {
+        "tags": [
+          "JournalEntryTypeOrigin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "JournalEntryTypeOrigin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalEntryTypeOriginDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalEntryTypeOriginDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalEntryTypeOriginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "JournalEntryTypeOrigin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }
@@ -10039,6 +12995,75 @@
         }
       }
     },
+    "/api/Supplier/search-receptors": {
+      "get": {
+        "tags": [
+          "Supplier"
+        ],
+        "parameters": [
+          {
+            "name": "searchTerm",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "identificationType",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "supplierType",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeInactive",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReceptorSearchResultDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReceptorSearchResultDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReceptorSearchResultDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Support/request": {
       "post": {
         "tags": [
@@ -10497,6 +13522,140 @@
           },
           {
             "name": "maintenanceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/type-accounting": {
+      "get": {
+        "tags": [
+          "TypeAccounting"
+        ],
+        "parameters": [
+          {
+            "name": "isActive",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "TypeAccounting"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TypeAccountingDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TypeAccountingDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/TypeAccountingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/type-accounting/{id}": {
+      "get": {
+        "tags": [
+          "TypeAccounting"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "TypeAccounting"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TypeAccountingDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TypeAccountingDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/TypeAccountingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "TypeAccounting"
+        ],
+        "parameters": [
+          {
+            "name": "id",
             "in": "path",
             "required": true,
             "schema": {
@@ -12676,6 +15835,74 @@
         },
         "additionalProperties": false
       },
+      "BillingItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "salePrice": {
+            "type": "number",
+            "format": "double"
+          },
+          "taxRate": {
+            "type": "number",
+            "format": "double"
+          },
+          "taxRateCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "cabysCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "idCustomer": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CabysDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "taxRate": {
+            "type": "number",
+            "format": "double"
+          },
+          "taxRateCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "category": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "CancelRequest": {
         "type": "object",
         "properties": {
@@ -12757,9 +15984,9 @@
           "hasChildren": {
             "type": "boolean"
           },
-          "accountType": {
-            "type": "string",
-            "nullable": true
+          "idChartOfAccountsType": {
+            "type": "integer",
+            "format": "int32"
           },
           "accountClass": {
             "type": "string",
@@ -12865,6 +16092,31 @@
           "updatedBy": {
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ChartOfAccountsTypeDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isActive": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -13587,6 +16839,183 @@
         },
         "additionalProperties": false
       },
+      "ConsecutiveCreateDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "idEntityType": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idEntityDocument": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idMenu": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "mask": {
+            "type": "string",
+            "nullable": true
+          },
+          "length": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "initialValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "finalValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ConsecutiveDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "idEntityType": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idEntityDocument": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idMenu": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "entityTypeCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "entityTypeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "entityDocumentCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "entityDocumentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "menuName": {
+            "type": "string",
+            "nullable": true
+          },
+          "menuUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "mask": {
+            "type": "string",
+            "nullable": true
+          },
+          "length": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "initialValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "finalValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastUser": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "lastDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ConsecutiveUpdateDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "idEntityType": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idEntityDocument": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idMenu": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "mask": {
+            "type": "string",
+            "nullable": true
+          },
+          "length": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "initialValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "finalValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
       "ContainerNumberResponse": {
         "type": "object",
         "properties": {
@@ -13986,6 +17415,14 @@
               "$ref": "#/components/schemas/InventoryTransactionLineDto"
             },
             "nullable": true
+          },
+          "groupNotesByDestId": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "nullable": true
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -14094,6 +17531,19 @@
           },
           "trackSerialNumbers": {
             "type": "boolean",
+            "nullable": true
+          },
+          "idCustomer": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "taxRateCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "cabysCode": {
+            "type": "string",
             "nullable": true
           },
           "labelItem": {
@@ -14205,6 +17655,431 @@
               "$ref": "#/components/schemas/BillingInvoice"
             },
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CurrencyDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "symbol": {
+            "type": "string",
+            "nullable": true
+          },
+          "minorUnit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isCrypto": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Customer": {
+        "required": [
+          "code",
+          "createdBy",
+          "name",
+          "updatedBy"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "maxLength": 30,
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "commercialName": {
+            "maxLength": 200,
+            "type": "string",
+            "nullable": true
+          },
+          "customerType": {
+            "maxLength": 20,
+            "type": "string",
+            "nullable": true
+          },
+          "identificationType": {
+            "maxLength": 2,
+            "type": "string",
+            "nullable": true
+          },
+          "identification": {
+            "maxLength": 20,
+            "type": "string",
+            "nullable": true
+          },
+          "foreignIdentification": {
+            "maxLength": 20,
+            "type": "string",
+            "nullable": true
+          },
+          "creditLimit": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "creditDays": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "paymentTerms": {
+            "maxLength": 50,
+            "type": "string",
+            "nullable": true
+          },
+          "discountPct": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "priceList": {
+            "maxLength": 30,
+            "type": "string",
+            "nullable": true
+          },
+          "idAssignedSalesperson": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "idParentCustomer": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "province": {
+            "maxLength": 1,
+            "type": "string",
+            "nullable": true
+          },
+          "canton": {
+            "maxLength": 2,
+            "type": "string",
+            "nullable": true
+          },
+          "district": {
+            "maxLength": 2,
+            "type": "string",
+            "nullable": true
+          },
+          "otherSigns": {
+            "maxLength": 250,
+            "type": "string",
+            "nullable": true
+          },
+          "gpsLatitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "gpsLongitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "phoneCode": {
+            "maxLength": 3,
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "maxLength": 20,
+            "type": "string",
+            "nullable": true
+          },
+          "mobile": {
+            "maxLength": 20,
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "maxLength": 160,
+            "type": "string",
+            "nullable": true
+          },
+          "website": {
+            "maxLength": 200,
+            "type": "string",
+            "nullable": true
+          },
+          "contactName": {
+            "maxLength": 200,
+            "type": "string",
+            "nullable": true
+          },
+          "contactPosition": {
+            "maxLength": 100,
+            "type": "string",
+            "nullable": true
+          },
+          "notes": {
+            "maxLength": 2000,
+            "type": "string",
+            "nullable": true
+          },
+          "internalNotes": {
+            "maxLength": 2000,
+            "type": "string",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "blockedReason": {
+            "maxLength": 500,
+            "type": "string",
+            "nullable": true
+          },
+          "createDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recordDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "maxLength": 30,
+            "minLength": 1,
+            "type": "string"
+          },
+          "updatedBy": {
+            "maxLength": 30,
+            "minLength": 1,
+            "type": "string"
+          },
+          "rowPointer": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parentCustomer": {
+            "$ref": "#/components/schemas/Customer"
+          },
+          "childCustomers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Customer"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CustomerBillingCredential": {
+        "required": [
+          "createdBy",
+          "email",
+          "environment",
+          "identification",
+          "identificationType",
+          "name",
+          "updatedBy"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idCustomer": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "environment": {
+            "maxLength": 10,
+            "minLength": 1,
+            "type": "string"
+          },
+          "isIssuer": {
+            "type": "boolean"
+          },
+          "isCompanyOwner": {
+            "type": "boolean"
+          },
+          "isSpecialRegime": {
+            "type": "boolean"
+          },
+          "specialRegimeCode": {
+            "maxLength": 20,
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "commercialName": {
+            "maxLength": 200,
+            "type": "string",
+            "nullable": true
+          },
+          "identificationType": {
+            "maxLength": 2,
+            "minLength": 1,
+            "type": "string"
+          },
+          "identification": {
+            "maxLength": 20,
+            "minLength": 1,
+            "type": "string"
+          },
+          "foreignIdentification": {
+            "maxLength": 20,
+            "type": "string",
+            "nullable": true
+          },
+          "economicActivity": {
+            "maxLength": 6,
+            "type": "string",
+            "nullable": true
+          },
+          "province": {
+            "maxLength": 1,
+            "type": "string",
+            "nullable": true
+          },
+          "canton": {
+            "maxLength": 2,
+            "type": "string",
+            "nullable": true
+          },
+          "district": {
+            "maxLength": 2,
+            "type": "string",
+            "nullable": true
+          },
+          "otherSigns": {
+            "maxLength": 250,
+            "type": "string",
+            "nullable": true
+          },
+          "gpsLatitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "gpsLongitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "phoneCode": {
+            "maxLength": 3,
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "maxLength": 20,
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "maxLength": 160,
+            "minLength": 1,
+            "type": "string"
+          },
+          "p12Cipher": {
+            "type": "string",
+            "format": "byte",
+            "nullable": true
+          },
+          "p12Iv": {
+            "type": "string",
+            "format": "byte",
+            "nullable": true
+          },
+          "pinCipher": {
+            "type": "string",
+            "format": "byte",
+            "nullable": true
+          },
+          "pinIv": {
+            "type": "string",
+            "format": "byte",
+            "nullable": true
+          },
+          "oAuthUsername": {
+            "maxLength": 160,
+            "type": "string",
+            "nullable": true
+          },
+          "oAuthPasswordCipher": {
+            "type": "string",
+            "format": "byte",
+            "nullable": true
+          },
+          "oAuthPasswordIv": {
+            "type": "string",
+            "format": "byte",
+            "nullable": true
+          },
+          "certNotBefore": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "certNotAfter": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "keyVersion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "createDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recordDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "maxLength": 30,
+            "minLength": 1,
+            "type": "string"
+          },
+          "updatedBy": {
+            "maxLength": 30,
+            "minLength": 1,
+            "type": "string"
+          },
+          "rowPointer": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "customer": {
+            "$ref": "#/components/schemas/Customer"
           }
         },
         "additionalProperties": false
@@ -14414,6 +18289,292 @@
             "type": "string",
             "nullable": true,
             "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ElectronicDocumentSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "documentType": {
+            "type": "string",
+            "nullable": true
+          },
+          "clave": {
+            "type": "string",
+            "nullable": true
+          },
+          "consecutive": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "haciendaStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "haciendaDetail": {
+            "type": "string",
+            "nullable": true
+          },
+          "issueDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "total": {
+            "type": "number",
+            "format": "double"
+          },
+          "currency": {
+            "type": "string",
+            "nullable": true
+          },
+          "saleCondition": {
+            "type": "string",
+            "nullable": true
+          },
+          "fullyReversed": {
+            "type": "boolean"
+          },
+          "fullyPaid": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EmitDocumentDto": {
+        "type": "object",
+        "properties": {
+          "issuerId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "receptorId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "documentType": {
+            "type": "string",
+            "nullable": true
+          },
+          "saleCondition": {
+            "type": "string",
+            "nullable": true
+          },
+          "creditTerm": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "paymentMethod": {
+            "type": "string",
+            "nullable": true
+          },
+          "currency": {
+            "type": "string",
+            "nullable": true
+          },
+          "exchangeRate": {
+            "type": "number",
+            "format": "double"
+          },
+          "branch": {
+            "type": "string",
+            "nullable": true
+          },
+          "terminal": {
+            "type": "string",
+            "nullable": true
+          },
+          "isExonerated": {
+            "type": "boolean"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmitLineDto"
+            },
+            "nullable": true
+          },
+          "references": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmitReferenceDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "EmitLineDto": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "cabysCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "itemCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "number",
+            "format": "double"
+          },
+          "unitMeasure": {
+            "type": "string",
+            "nullable": true
+          },
+          "unitPrice": {
+            "type": "number",
+            "format": "double"
+          },
+          "priceIncludesTax": {
+            "type": "boolean"
+          },
+          "taxRatePercent": {
+            "type": "number",
+            "format": "double"
+          },
+          "taxRateCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "discountAmount": {
+            "type": "number",
+            "format": "double"
+          },
+          "discountNature": {
+            "type": "string",
+            "nullable": true
+          },
+          "isService": {
+            "type": "boolean"
+          },
+          "isExonerated": {
+            "type": "boolean"
+          },
+          "exonDocumentType": {
+            "type": "string",
+            "nullable": true
+          },
+          "exonDocumentNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "exonInstitution": {
+            "type": "string",
+            "nullable": true
+          },
+          "exonDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "exonPercent": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EmitLogDto": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "step": {
+            "type": "string",
+            "nullable": true
+          },
+          "level": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "EmitReferenceDto": {
+        "type": "object",
+        "properties": {
+          "refDocumentType": {
+            "type": "string",
+            "nullable": true
+          },
+          "refClave": {
+            "type": "string",
+            "nullable": true
+          },
+          "refDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "refCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "refReason": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "EmitResultDto": {
+        "type": "object",
+        "properties": {
+          "documentId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "clave": {
+            "type": "string",
+            "nullable": true
+          },
+          "consecutive": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "sentToHacienda": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "logs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmitLogDto"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -14664,6 +18825,209 @@
           "message": {
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "EntityDocumentCreateDto": {
+        "type": "object",
+        "properties": {
+          "idEntityType": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EntityDocumentDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idEntityType": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "entityTypeCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "entityTypeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EntityDocumentUpdateDto": {
+        "type": "object",
+        "properties": {
+          "idEntityType": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EntityTypeCreateDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EntityTypeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EntityTypeUpdateDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ExchangeRateDto": {
+        "type": "object",
+        "properties": {
+          "idExchangeRate": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "displayOrder": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false
@@ -15669,6 +20033,71 @@
         },
         "additionalProperties": false
       },
+      "IssuerSearchResultDto": {
+        "type": "object",
+        "properties": {
+          "idCredential": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idCustomer": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "identification": {
+            "type": "string",
+            "nullable": true
+          },
+          "identificationType": {
+            "type": "string",
+            "nullable": true
+          },
+          "commercialName": {
+            "type": "string",
+            "nullable": true
+          },
+          "economicActivity": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "phoneCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerType": {
+            "type": "string",
+            "nullable": true
+          },
+          "environment": {
+            "type": "string",
+            "nullable": true
+          },
+          "isCompanyOwner": {
+            "type": "boolean"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
       "ItemDto": {
         "type": "object",
         "properties": {
@@ -15773,6 +20202,18 @@
           },
           "trackSerialNumbers": {
             "type": "boolean"
+          },
+          "idCustomer": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "taxRateCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "cabysCode": {
+            "type": "string",
+            "nullable": true
           },
           "labelItem": {
             "type": "string",
@@ -16004,6 +20445,31 @@
         },
         "additionalProperties": false
       },
+      "JournalEntryClassDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
       "JournalEntryDto": {
         "type": "object",
         "properties": {
@@ -16015,9 +20481,17 @@
             "type": "string",
             "nullable": true
           },
-          "entryType": {
-            "type": "string",
-            "nullable": true
+          "idTypeAccounting": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idJournalEntryClass": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idJournalEntryStatus": {
+            "type": "integer",
+            "format": "int32"
           },
           "reference": {
             "type": "string",
@@ -16031,13 +20505,18 @@
             "type": "string",
             "nullable": true
           },
-          "currencyCode": {
-            "type": "string",
+          "idMenu": {
+            "type": "integer",
+            "format": "int32",
             "nullable": true
           },
-          "exchangeRate": {
-            "type": "number",
-            "format": "double"
+          "currencyLocal": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "currencyExchange": {
+            "type": "integer",
+            "format": "int32"
           },
           "status": {
             "type": "string",
@@ -16138,7 +20617,7 @@
             "type": "string",
             "nullable": true
           },
-          "lineDescription": {
+          "description": {
             "type": "string",
             "nullable": true
           },
@@ -16154,86 +20633,75 @@
             "type": "number",
             "format": "double"
           },
-          "currencyCode": {
-            "type": "string",
-            "nullable": true
-          },
-          "exchangeRate": {
-            "type": "number",
-            "format": "double"
-          },
-          "debitAmountBase": {
-            "type": "number",
-            "format": "double"
-          },
-          "creditAmountBase": {
-            "type": "number",
-            "format": "double"
-          },
-          "costCenterCode": {
-            "type": "string",
-            "nullable": true
+          "idCostCenter": {
+            "type": "integer",
+            "format": "int32"
           },
           "costCenterName": {
             "type": "string",
             "nullable": true
           },
-          "projectCode": {
+          "idJournalEntryTypeOrigin": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idDocumentOrigin": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "JournalEntryStatusDto": {
+        "type": "object",
+        "properties": {
+          "code": {
             "type": "string",
             "nullable": true
           },
-          "projectName": {
+          "description": {
             "type": "string",
             "nullable": true
           },
-          "departmentCode": {
+          "icon": {
             "type": "string",
             "nullable": true
           },
-          "departmentName": {
+          "color": {
             "type": "string",
             "nullable": true
           },
-          "businessPartnerType": {
-            "type": "string",
-            "nullable": true
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
           },
-          "businessPartnerCode": {
-            "type": "string",
-            "nullable": true
-          },
-          "businessPartnerName": {
-            "type": "string",
-            "nullable": true
-          },
-          "dueDate": {
-            "type": "string",
-            "nullable": true
-          },
-          "taxCode": {
-            "type": "string",
-            "nullable": true
-          },
-          "taxRate": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "taxAmount": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "isReconciled": {
+          "isActive": {
             "type": "boolean"
-          },
-          "reconciliationDate": {
+          }
+        },
+        "additionalProperties": false
+      },
+      "JournalEntryTypeOriginDto": {
+        "type": "object",
+        "properties": {
+          "code": {
             "type": "string",
             "nullable": true
           },
-          "reconciliationRef": {
+          "description": {
             "type": "string",
             "nullable": true
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isActive": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -17158,6 +21626,67 @@
           "signature": {
             "type": "string",
             "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReceptorSearchResultDto": {
+        "type": "object",
+        "properties": {
+          "idSupplier": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "commercialName": {
+            "type": "string",
+            "nullable": true
+          },
+          "identificationType": {
+            "type": "string",
+            "nullable": true
+          },
+          "identification": {
+            "type": "string",
+            "nullable": true
+          },
+          "foreignIdentification": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "phoneCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "supplierType": {
+            "type": "string",
+            "nullable": true
+          },
+          "economicActivity": {
+            "type": "string",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -17851,6 +22380,10 @@
           "idCancelReason": {
             "type": "integer",
             "format": "int32"
+          },
+          "idMenu": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false
@@ -17990,6 +22523,27 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/StopUpsertDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SaveLinesDto": {
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InventoryTransactionLineDto"
+            },
+            "nullable": true
+          },
+          "groupNotesByDestId": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "nullable": true
             },
             "nullable": true
           }
@@ -18180,7 +22734,7 @@
         },
         "additionalProperties": false
       },
-      "StringStringStringStringDateTime<>f__AnonymousType100": {
+      "StringStringStringStringDateTime<>f__AnonymousType125": {
         "type": "object",
         "properties": {
           "status": {
@@ -19043,6 +23597,31 @@
         },
         "additionalProperties": false
       },
+      "TypeAccountingDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
       "TypeId": {
         "required": [
           "createdBy",
@@ -19371,6 +23950,19 @@
           },
           "trackSerialNumbers": {
             "type": "boolean"
+          },
+          "idCustomer": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "taxRateCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "cabysCode": {
+            "type": "string",
+            "nullable": true
           },
           "labelItem": {
             "type": "string",

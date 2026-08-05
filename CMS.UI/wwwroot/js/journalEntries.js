@@ -108,14 +108,14 @@ const JE = (() => {
 
     async function load() {
         try {
-            const status = document.getElementById('filterStatus')?.value || '';
+            const idJournalEntryStatus = document.getElementById('filterStatus')?.value || '';
             const type = document.getElementById('filterType')?.value || '';
             const dateFrom = document.getElementById('filterDateFrom')?.value || '';
             const dateTo = document.getElementById('filterDateTo')?.value || '';
             const search = document.getElementById('filterSearch')?.value || '';
 
             let url = `${JE_API}?`;
-            if (status) url += `status=${encodeURIComponent(status)}&`;
+            if (idJournalEntryStatus) url += `idJournalEntryStatus=${encodeURIComponent(idJournalEntryStatus)}&`;
             if (type) url += `entryType=${encodeURIComponent(type)}&`;
             if (dateFrom) url += `dateFrom=${encodeURIComponent(dateFrom)}&`;
             if (dateTo) url += `dateTo=${encodeURIComponent(dateTo)}&`;
@@ -140,7 +140,7 @@ const JE = (() => {
 
     function clearFilters() {
         document.getElementById('filterSearch').value = '';
-        document.getElementById('filterStatus').value = 'Posted';
+        document.getElementById('filterStatus').value = '2'; // 2 = Posted
         document.getElementById('filterType').value = '';
         setDefaultDates();
         load();
@@ -219,23 +219,16 @@ const JE = (() => {
         document.getElementById('idJournalEntry').value = '0';
         document.getElementById('modalTitle').innerHTML = '<i class="bi bi-plus-lg me-2"></i>Nuevo Asiento de Diario';
 
-        // Generar siguiente número
+        // ⭐ Entry Number se genera automáticamente en el backend usando consecutivos jerárquicos
+        // El número se asigna al momento de guardar según el menú actual (CURRENT_MENU_ID)
+        document.getElementById('entryNumber').value = '[Se generará automáticamente]';
+        document.getElementById('entryNumber').style.fontStyle = 'italic';
+        document.getElementById('entryNumber').style.color = '#9ca3af';
+
         const today = new Date();
         const period = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
         document.getElementById('period').value = period;
         document.getElementById('fiscalYear').value = today.getFullYear();
-
-        try {
-            const response = await fetch(`${JE_API}/next-number?period=${period}`, {
-                headers: { 'Authorization': `Bearer ${JE_TOKEN}` }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                document.getElementById('entryNumber').value = data.nextNumber;
-            }
-        } catch (error) {
-            console.error('Error getting next number:', error);
-        }
 
         // Resetear campos
         document.getElementById('entryType').value = 'Manual';
@@ -274,7 +267,12 @@ const JE = (() => {
             document.getElementById('idJournalEntry').value = currentEntry.idJournalEntry;
             document.getElementById('modalTitle').innerHTML = `<i class="bi bi-pencil me-2"></i>Editar Asiento: ${escapeHtml(currentEntry.entryNumber)}`;
 
-            document.getElementById('entryNumber').value = currentEntry.entryNumber;
+            // Restaurar estilo normal del entry_number cuando se edita un asiento existente
+            const entryNumberInput = document.getElementById('entryNumber');
+            entryNumberInput.value = currentEntry.entryNumber;
+            entryNumberInput.style.fontStyle = 'normal';
+            entryNumberInput.style.color = '';
+
             document.getElementById('entryType').value = currentEntry.entryType || 'Manual';
             document.getElementById('entryDate').value = currentEntry.entryDate || '';
             document.getElementById('postingDate').value = currentEntry.postingDate || '';
@@ -316,6 +314,7 @@ const JE = (() => {
 
             const data = {
                 idJournalEntry: id,
+                idMenu: CURRENT_MENU_ID, // ⭐ ID del menú actual para consecutivo jerárquico
                 entryNumber: document.getElementById('entryNumber').value,
                 entryType: document.getElementById('entryType').value,
                 description: document.getElementById('description').value,
@@ -467,7 +466,11 @@ const JE = (() => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${JE_TOKEN}`
                 },
-                body: JSON.stringify({ reversalDate, reason })
+                body: JSON.stringify({ 
+                    reversalDate, 
+                    idCancelReason: 1, // Por ahora usar razón por defecto - TODO: obtener de un selector
+                    idMenu: CURRENT_MENU_ID // ⭐ Enviar el menú actual para resolver consecutivo
+                })
             });
 
             if (!response.ok) {

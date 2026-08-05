@@ -154,6 +154,19 @@
     <script>
         // Timezone de la compañía activa (formato: "UTC-06:00"). Usado para convertir fechas UTC en la UI.
         window.companyTimezone = '@(Context.Session.GetString("CompanyTimeZone") ?? "UTC+00:00")';
+
+        // Copiar token JWT al sessionStorage para peticiones fetch desde JavaScript
+        @if (Context.Session.GetString("ApiToken") != null)
+        {
+            <text>
+            (function() {
+                const token = '@Context.Session.GetString("ApiToken")';
+                if (token && token !== '') {
+                    sessionStorage.setItem('jwt_token', token);
+                }
+            })();
+            </text>
+        }
     </script>
 
     @await RenderSectionAsync("Scripts", required: false)

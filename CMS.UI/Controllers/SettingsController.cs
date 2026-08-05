@@ -228,5 +228,35 @@ namespace CMS.UI.Controllers
             ViewBag.ApiToken   = GetApiToken();
             return View();
         }
+
+        // =====================================================
+        // CONSECUTIVOS
+        // =====================================================
+
+        /// <summary>
+        /// Pantalla de mantenimiento de Consecutivos de Documentos.
+        /// GET: /Settings/Consecutives
+        /// </summary>
+        public IActionResult Consecutives()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken   = GetApiToken();
+            return View();
+        }
+
+        // =====================================================
+        // TIPOS DE TASA DE CAMBIO
+        // =====================================================
+
+        /// <summary>
+        /// Pantalla de mantenimiento de Tipos de Tasa de Cambio.
+        /// GET: /Settings/ExchangeRates
+        /// </summary>
+        public IActionResult ExchangeRates()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken   = GetApiToken();
+            return View();
+        }
     }
 }

@@ -11,6 +11,7 @@ using CMS.Entities.Admin;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace CMS.API.Controllers
 {
@@ -272,7 +273,7 @@ namespace CMS.API.Controllers
                 document.FILE_NAME = file.FileName;
                 document.CONTENT_TYPE = file.ContentType;
                 document.RecordDate = DateTime.UtcNow;
-                document.UpdatedBy = User.Identity?.Name ?? "SYSTEM";
+                document.UpdatedBy = User.FindFirstValue("cms_username") ?? "SYSTEM";
 
                 await _db.SaveChangesAsync();
 

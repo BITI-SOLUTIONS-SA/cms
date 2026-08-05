@@ -90,6 +90,20 @@ namespace CMS.Entities.Operational
         [Column("id_menu")]
         public int IdMenu { get; set; }
 
+        /// <summary>
+        /// FK real a sinai.journal_entry.id_journal_entry (misma BD/schema de compañía).
+        /// Asiento contable generado por este movimiento de inventario.
+        /// Los registros históricos (creados antes de existir esta integración) apuntan
+        /// al Asiento Genérico del Sistema (id_journal_entry = 0), que no representa
+        /// una transacción contable real.
+        /// </summary>
+        [Column("id_journal_entry")]
+        public int IdJournalEntry { get; set; }
+
+        // Navegación
+        [ForeignKey(nameof(IdJournalEntry))]
+        public JournalEntry? JournalEntry { get; set; }
+
         // ===== BODEGAS =====
 
         /// <summary>FK lógica a {schema}.warehouse — bodega de origen</summary>
@@ -284,7 +298,6 @@ namespace CMS.Entities.Operational
         [Column("received_by_user_id")]
         public int? ReceivedByUserId { get; set; }
 
-        [MaxLength(500)]
         [Column("notes")]
         public string? Notes { get; set; }
 

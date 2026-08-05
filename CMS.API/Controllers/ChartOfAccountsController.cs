@@ -10,7 +10,6 @@ using CMS.Data.Services;
 using CMS.Entities.Operational;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
 namespace CMS.API.Controllers
@@ -40,9 +39,9 @@ namespace CMS.API.Controllers
 
         private string GetCurrentUser()
         {
-            return User.FindFirst(JwtRegisteredClaimNames.Name)?.Value
-                ?? User.FindFirst(ClaimTypes.Name)?.Value
-                ?? "system";
+            return User.FindFirstValue("cms_username")
+                ?? User.FindFirstValue(ClaimTypes.Name)
+                ?? "SYSTEM";
         }
 
         // ============================================================
@@ -51,7 +50,7 @@ namespace CMS.API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAccounts(
             [FromQuery] string? search = null,
-            [FromQuery] string? accountType = null,
+            [FromQuery] int? idChartOfAccountsType = null,
             [FromQuery] bool? isDetail = null,
             [FromQuery] bool? isActive = null,
             [FromQuery] int page = 1,
@@ -61,7 +60,7 @@ namespace CMS.API.Controllers
             {
                 var companyId = GetCurrentCompanyId();
                 var (items, total) = await _service.GetAccountsAsync(
-                    companyId, search, accountType, isDetail, isActive, page, pageSize);
+                    companyId, search, idChartOfAccountsType, isDetail, isActive, page, pageSize);
 
                 return Ok(new
                 {
@@ -285,7 +284,7 @@ namespace CMS.API.Controllers
                 IsHeader = entity.IsHeader,
                 IsDetail = entity.IsDetail,
                 HasChildren = entity.HasChildren,
-                AccountType = entity.AccountType,
+                IdChartOfAccountsType = entity.IdChartOfAccountsType,
                 AccountClass = entity.AccountClass,
                 NormalBalance = entity.NormalBalance,
                 IsDebitBalance = entity.IsDebitBalance,
@@ -330,7 +329,7 @@ namespace CMS.API.Controllers
                 AccountLevel = dto.AccountLevel,
                 IsHeader = dto.IsHeader,
                 IsDetail = dto.IsDetail,
-                AccountType = dto.AccountType,
+                IdChartOfAccountsType = dto.IdChartOfAccountsType,
                 AccountClass = dto.AccountClass,
                 NormalBalance = dto.NormalBalance,
                 IsDebitBalance = dto.IsDebitBalance,
@@ -378,7 +377,8 @@ namespace CMS.API.Controllers
         public bool IsHeader { get; set; } = false;
         public bool IsDetail { get; set; } = true;
         public bool HasChildren { get; set; } = false;
-        public string AccountType { get; set; } = string.Empty;
+        /// <summary>FK lógica cross-DB → cms.admin.chart_of_accounts_type (1=asset, 2=liability, 3=equity, 4=revenue, 5=expense, 6=off_balance)</summary>
+        public int IdChartOfAccountsType { get; set; } = 1;
         public string? AccountClass { get; set; }
         public string NormalBalance { get; set; } = "Debit";
         public bool IsDebitBalance { get; set; } = true;

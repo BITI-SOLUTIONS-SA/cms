@@ -621,12 +621,12 @@ namespace CMS.API.Controllers
                 // Establecer la nueva compañía Admin
                 company.IS_ADMIN_COMPANY = true;
                 company.RecordDate = DateTime.UtcNow;
-                company.UpdatedBy = User.Identity?.Name ?? "SYSTEM";
+                company.UpdatedBy = User.FindFirstValue("cms_username") ?? User.FindFirstValue(ClaimTypes.Name) ?? "SYSTEM";
 
                 await _db.SaveChangesAsync();
 
                 _logger.LogInformation("✅ Compañía Admin cambiada a: {CompanyName} ({CompanyId}) por {User}",
-                    company.COMPANY_NAME, company.ID, User.Identity?.Name);
+                    company.COMPANY_NAME, company.ID, User.FindFirstValue("cms_username") ?? User.FindFirstValue(ClaimTypes.Name));
 
                 return Ok(new
                 {

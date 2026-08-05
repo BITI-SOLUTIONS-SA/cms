@@ -264,9 +264,9 @@ function buildCard(w) {
             <div class="d-flex gap-2" style="font-size:1rem;">
               ${flags.join('')}
             </div>
-            ${w.city ? `<small class="text-muted"><i class="bi bi-geo-alt me-1"></i>${escHtml(w.city)}</small>` : ''}
+            ${w.city ? `<small class="text-light" style="opacity:.85;"><i class="bi bi-geo-alt me-1"></i>${escHtml(w.city)}</small>` : ''}
           </div>
-          ${w.responsibleName ? `<div class="mt-2 pt-2 border-top border-secondary border-opacity-25"><small class="text-muted"><i class="bi bi-person me-1"></i>${escHtml(w.responsibleName)}</small></div>` : ''}
+          ${w.responsibleName ? `<div class="mt-2 pt-2 border-top border-secondary border-opacity-25"><small class="text-light" style="opacity:.85;"><i class="bi bi-person me-1"></i>${escHtml(w.responsibleName)}</small></div>` : ''}
         </div>
       </div>
     </div>`;
@@ -283,8 +283,8 @@ function renderList(items, container) {
           <td class="text-white fw-semibold">${escHtml(w.name)}</td>
           <td><span class="badge" style="background:${type.color}22; color:${type.color};"><i class="bi ${type.icon} me-1"></i>${type.label}</span></td>
           <td><span class="badge ${level.badge} bg-opacity-20">${level.label}</span></td>
-          <td class="text-muted small">${w.city || '-'}</td>
-          <td class="text-muted small">${w.responsibleName || '-'}</td>
+          <td class="text-light small">${w.city || '-'}</td>
+          <td class="text-light small">${w.responsibleName || '-'}</td>
           <td>${w.isActive ? '<span class="badge bg-success bg-opacity-20 text-success">Activa</span>' : '<span class="badge bg-danger bg-opacity-20 text-danger">Inactiva</span>'}</td>
           <td onclick="event.stopPropagation()">
             <div class="d-flex gap-1">

@@ -56,7 +56,7 @@ namespace CMS.API.Controllers
         {
             // El JWT local usa JwtRegisteredClaimNames.Name que se mapea como "name"
             // También verificar ClaimTypes.Name para compatibilidad con otros esquemas
-            return User.FindFirst(JwtRegisteredClaimNames.Name)?.Value ??
+            return User.FindFirstValue("cms_username") ??
                    User.FindFirst(ClaimTypes.Name)?.Value ?? 
                    User.FindFirst("preferred_username")?.Value ??
                    User.FindFirst("name")?.Value;
@@ -252,6 +252,48 @@ namespace CMS.API.Controllers
         }
 
         /// <summary>
+        /// Lista ítems para el modal de emisión de comprobantes, filtrados por cliente.
+        /// Devuelve solo los campos requeridos (código, nombre, precio, CAByS, IVA).
+        /// GET: api/item/for-billing?customerId=1&search=xxx
+        /// </summary>
+        [HttpGet("for-billing")]
+        public async Task<ActionResult<List<BillingItemDto>>> GetItemsForBilling(
+            [FromQuery] int? customerId = null,
+            [FromQuery] string? search = null)
+        {
+            try
+            {
+                var companyId = GetCurrentCompanyId();
+                // Reutiliza el listado paginado del servicio (primera página amplia).
+                var (items, _) = await _itemService.GetItemsAsync(
+                    companyId, search, null, null, true, null, null, 1, 200);
+
+                var result = items
+                    .Where(i => i.IsSellable && (customerId == null || i.IdCustomer == customerId.Value))
+                    .Select(i => new BillingItemDto
+                    {
+                        Id = i.Id,
+                        Code = i.Code,
+                        Name = i.Name,
+                        Description = i.Description,
+                        SalePrice = i.SalePrice,
+                        TaxRate = i.TaxRate,
+                        TaxRateCode = i.TaxRateCode,
+                        CabysCode = i.CabysCode,
+                        IdCustomer = i.IdCustomer
+                    })
+                    .ToList();
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error obteniendo ítems para facturación");
+                return StatusCode(500, new { message = "Error interno del servidor" });
+            }
+        }
+
+        /// <summary>
         /// Crea un nuevo artículo
         /// POST: api/item
         /// </summary>
@@ -296,6 +338,11 @@ namespace CMS.API.Controllers
                     IsPurchasable = request.IsPurchasable ?? true,
                     TrackLots = request.TrackLots ?? false,
                     TrackSerialNumbers = request.TrackSerialNumbers ?? false,
+
+                    // Facturación electrónica (Fase B)
+                    IdCustomer = request.IdCustomer ?? 1,
+                    TaxRateCode = string.IsNullOrWhiteSpace(request.TaxRateCode) ? "08" : request.TaxRateCode,
+                    CabysCode = string.IsNullOrWhiteSpace(request.CabysCode) ? "9799000000000" : request.CabysCode,
 
                     // Label Item fields
                     LabelItem = request.LabelItem,
@@ -355,6 +402,11 @@ namespace CMS.API.Controllers
                     IsPurchasable = request.IsPurchasable,
                     TrackLots = request.TrackLots,
                     TrackSerialNumbers = request.TrackSerialNumbers,
+
+                    // Facturación electrónica (Fase B)
+                    IdCustomer = request.IdCustomer ?? 1,
+                    TaxRateCode = string.IsNullOrWhiteSpace(request.TaxRateCode) ? "08" : request.TaxRateCode,
+                    CabysCode = string.IsNullOrWhiteSpace(request.CabysCode) ? "9799000000000" : request.CabysCode,
 
                     // Label Item fields
                     LabelItem = request.LabelItem,
@@ -748,6 +800,11 @@ namespace CMS.API.Controllers
                     TrackLots = item.TrackLots,
                     TrackSerialNumbers = item.TrackSerialNumbers,
 
+                    // Facturación electrónica (Fase B)
+                    IdCustomer = item.IdCustomer,
+                    TaxRateCode = item.TaxRateCode,
+                    CabysCode = item.CabysCode,
+
                     // Label Item fields
                     LabelItem = item.LabelItem,
                     LabelPrice = item.LabelPrice,
@@ -786,6 +843,20 @@ namespace CMS.API.Controllers
 
         // ===== REQUEST/RESPONSE DTOS =====
 
+        /// <summary>DTO ligero para el modal de selección de ítems en emisión de comprobantes.</summary>
+        public class BillingItemDto
+        {
+            public int Id { get; set; }
+            public string Code { get; set; } = string.Empty;
+            public string Name { get; set; } = string.Empty;
+            public string? Description { get; set; }
+            public decimal SalePrice { get; set; }
+            public decimal TaxRate { get; set; }
+            public string TaxRateCode { get; set; } = "08";
+            public string CabysCode { get; set; } = string.Empty;
+            public int IdCustomer { get; set; }
+        }
+
         public class ItemListResponse
         {
             public List<ItemDto> Items { get; set; } = new();
@@ -822,6 +893,11 @@ namespace CMS.API.Controllers
             public bool IsPurchasable { get; set; }
             public bool TrackLots { get; set; }
             public bool TrackSerialNumbers { get; set; }
+
+            // Facturación electrónica (Fase B)
+            public int IdCustomer { get; set; }
+            public string TaxRateCode { get; set; } = "08";
+            public string CabysCode { get; set; } = string.Empty;
 
             // Label Item fields
             public string? LabelItem { get; set; }
@@ -885,6 +961,11 @@ namespace CMS.API.Controllers
             public bool? TrackLots { get; set; }
             public bool? TrackSerialNumbers { get; set; }
 
+            // Facturación electrónica (Fase B)
+            public int? IdCustomer { get; set; }
+            public string? TaxRateCode { get; set; }
+            public string? CabysCode { get; set; }
+
             // Label Item fields
             public string? LabelItem { get; set; }
             public decimal LabelPrice { get; set; }
@@ -921,6 +1002,11 @@ namespace CMS.API.Controllers
         public bool IsPurchasable { get; set; }
         public bool TrackLots { get; set; }
         public bool TrackSerialNumbers { get; set; }
+
+        // Facturación electrónica (Fase B)
+        public int? IdCustomer { get; set; }
+        public string? TaxRateCode { get; set; }
+        public string? CabysCode { get; set; }
 
         // Label Item fields
         public string? LabelItem { get; set; }

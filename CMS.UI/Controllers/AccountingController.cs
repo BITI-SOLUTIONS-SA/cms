@@ -9,6 +9,8 @@
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using CMS.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace CMS.UI.Controllers
 {
@@ -18,15 +20,18 @@ namespace CMS.UI.Controllers
         private readonly ILogger<AccountingController> _logger;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IConfiguration _configuration;
+        private readonly AppDbContext _dbContext;
 
         public AccountingController(
             ILogger<AccountingController> logger,
             IHttpContextAccessor httpContextAccessor,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            AppDbContext dbContext)
         {
             _logger = logger;
             _httpContextAccessor = httpContextAccessor;
             _configuration = configuration;
+            _dbContext = dbContext;
         }
 
         private string GetApiToken() =>
@@ -55,14 +60,46 @@ namespace CMS.UI.Controllers
         }
 
         /// <summary>
-        /// Vista de Asientos de Diario (Journal Entries) - Futuro
+        /// Vista de Asientos de Diario (Journal Entries)
         /// GET: /Accounting/JournalEntries
         /// </summary>
-        public IActionResult JournalEntries()
+        public async Task<IActionResult> JournalEntries()
         {
             ViewBag.ApiBaseUrl = GetApiBaseUrl();
             ViewBag.ApiToken = GetApiToken();
+
+            // ⭐ Obtener el ID del menú actual desde la base de datos
+            // El sistema de consecutivos usa esto para búsqueda jerárquica en sinai.consecutive
+            ViewBag.CurrentMenuId = await GetMenuIdByUrlAsync("/Accounting/JournalEntries");
+
             return View();
+        }
+
+        /// <summary>
+        /// Obtiene el ID del menú desde la base de datos según la URL
+        /// </summary>
+        private async Task<int> GetMenuIdByUrlAsync(string url)
+        {
+            try
+            {
+                var menu = await _dbContext.Menus
+                    .Where(m => m.URL == url && m.IS_ACTIVE)
+                    .Select(m => m.ID_MENU)
+                    .FirstOrDefaultAsync();
+
+                if (menu == 0)
+                {
+                    _logger.LogWarning("No se encontró menú activo para URL: {Url}", url);
+                    // Retornar 0 si no existe - el backend debe manejar el error apropiadamente
+                }
+
+                return menu;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error obteniendo menú para URL: {Url}", url);
+                return 0;
+            }
         }
 
         /// <summary>

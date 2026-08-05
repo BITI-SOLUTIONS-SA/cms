@@ -1041,6 +1041,11 @@ namespace CMS.UI.Controllers
         public bool TrackLots { get; set; }
         public bool TrackSerialNumbers { get; set; }
 
+        // Facturación electrónica (Fase B)
+        public int IdCustomer { get; set; } = 1;
+        public string TaxRateCode { get; set; } = "08";
+        public string CabysCode { get; set; } = "9799000000000";
+
         // Label Item fields
         public string? LabelItem { get; set; }
         public decimal LabelPrice { get; set; }

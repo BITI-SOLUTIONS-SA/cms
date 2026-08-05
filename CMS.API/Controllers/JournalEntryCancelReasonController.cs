@@ -7,6 +7,7 @@
 // CREADO: 2025-01-XX
 // ================================================================================
 
+using System.Security.Claims;
 using CMS.Data.Services;
 using CMS.Entities.Operational;
 using Microsoft.AspNetCore.Authorization;
@@ -39,6 +40,9 @@ namespace CMS.API.Controllers
             }
             return companyId;
         }
+
+        private string GetCurrentUser() =>
+            User.FindFirstValue("cms_username") ?? User.FindFirstValue(ClaimTypes.Name) ?? "SYSTEM";
 
         /// <summary>
         /// Obtener todas las razones de cancelación
@@ -115,7 +119,7 @@ namespace CMS.API.Controllers
             try
             {
                 var companyId = GetCompanyId();
-                var currentUser = User.Identity?.Name ?? "anonymous";
+                var currentUser = GetCurrentUser();
 
                 var reason = MapToEntity(dto);
                 var created = await _service.CreateReasonAsync(companyId, reason, currentUser);
@@ -145,7 +149,7 @@ namespace CMS.API.Controllers
                     return BadRequest(new { message = "El ID no coincide" });
 
                 var companyId = GetCompanyId();
-                var currentUser = User.Identity?.Name ?? "anonymous";
+                var currentUser = GetCurrentUser();
 
                 var reason = MapToEntity(dto);
                 var updated = await _service.UpdateReasonAsync(companyId, reason, currentUser);

@@ -1,6 +1,7 @@
 C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.Shared\bin\Debug\net9.0\CMS.Shared.deps.json
 C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.Shared\bin\Debug\net9.0\CMS.Shared.dll
 C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.Shared\bin\Debug\net9.0\CMS.Shared.pdb
+C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.Shared\obj\Debug\net9.0\CMS.Shared.csproj.AssemblyReference.cache
 C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.Shared\obj\Debug\net9.0\CMS.Shared.GeneratedMSBuildEditorConfig.editorconfig
 C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.Shared\obj\Debug\net9.0\CMS.Shared.AssemblyInfoInputs.cache
 C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.Shared\obj\Debug\net9.0\CMS.Shared.AssemblyInfo.cs
@@ -10,4 +11,3 @@ C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.Shared\obj\Debu
 C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.Shared\obj\Debug\net9.0\refint\CMS.Shared.dll
 C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.Shared\obj\Debug\net9.0\CMS.Shared.pdb
 C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.Shared\obj\Debug\net9.0\ref\CMS.Shared.dll
-C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.Shared\obj\Debug\net9.0\CMS.Shared.csproj.AssemblyReference.cache

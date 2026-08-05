@@ -42,9 +42,8 @@ namespace CMS.API.Controllers
         }
 
         private string GetCurrentUser() =>
-            User.FindFirst(JwtRegisteredClaimNames.Name)?.Value
-            ?? User.FindFirst(ClaimTypes.Name)?.Value
-            ?? "system";
+            User.FindFirstValue("cms_username") ?? User.FindFirst(ClaimTypes.Name)?.Value
+            ?? "SYSTEM";
 
         private int GetCurrentUserId()
         {
@@ -293,7 +292,7 @@ namespace CMS.API.Controllers
                 var txn = MapFromDto(dto);
                 var lines = dto.Lines.Select(MapLineFromDto).ToList();
 
-                var created = await _service.CreateAsync(companyId, txn, lines, user, userId);
+                var created = await _service.CreateAsync(companyId, txn, lines, user, userId, dto.GroupNotesByDestId);
                 var result = await _service.GetByIdAsync(companyId, created.Id);
                 result!.Lines = await _service.GetLinesAsync(companyId, created.Id);
 
@@ -352,14 +351,14 @@ namespace CMS.API.Controllers
         // PUT /api/inventorytransaction/{id}/lines
         // ================================================================
         [HttpPut("{id:int}/lines")]
-        public async Task<IActionResult> SaveLines(int id, [FromBody] List<InventoryTransactionLineDto> dtos)
+        public async Task<IActionResult> SaveLines(int id, [FromBody] SaveLinesDto dto)
         {
             try
             {
                 var companyId = GetCurrentCompanyId();
                 var user = GetCurrentUser();
-                var lines = dtos.Select(MapLineFromDto).ToList();
-                await _service.SaveLinesAsync(companyId, id, lines, user);
+                var lines = dto.Lines.Select(MapLineFromDto).ToList();
+                await _service.SaveLinesAsync(companyId, id, lines, user, dto.GroupNotesByDestId);
                 var result = await _service.GetLinesAsync(companyId, id);
                 return Ok(result.Select(MapLineToDto));
             }
@@ -425,7 +424,7 @@ namespace CMS.API.Controllers
                     dto.ArrivalTime, dto.DepartureTime, dto.OdometerOut,
                     dto.DestSeal, dto.NextWarehouseId,
                     lineQtysDict, dto.Signature, dto.TransitGroupId,
-                    lineReturnsDict, newReturnLinesList);
+                    lineReturnsDict, newReturnLinesList, dto.Notes);
                 var lines = await _service.GetLinesAsync(companyId, id);
                 txn.Lines = lines;
                 return Ok(MapToDto(txn, true));
@@ -685,6 +684,8 @@ namespace CMS.API.Controllers
         public string? DepartureTime { get; set; }
         public decimal? OdometerOut { get; set; }
         public List<InventoryTransactionLineDto> Lines { get; set; } = new();
+        /// <summary>Observaciones por bodega destino (destWarehouseId → notes). Solo para TransitTransfer.</summary>
+        public Dictionary<int, string?> GroupNotesByDestId { get; set; } = new();
     }
 
     public class UpdateInventoryTransactionDto
@@ -755,10 +756,19 @@ namespace CMS.API.Controllers
         public int? TransitGroupId { get; set; }
         /// <summary>Firma digital del receptor (base64 PNG data URI)</summary>
         public string? Signature { get; set; }
+        /// <summary>Observaciones al confirmar la recepción (se concatenan a las notas previas del grupo)</summary>
+        public string? Notes { get; set; }
     }
 
     public class CancelTransactionDto
     {
         public string? Reason { get; set; }
+    }
+
+    public class SaveLinesDto
+    {
+        public List<InventoryTransactionLineDto> Lines { get; set; } = new();
+        /// <summary>Observaciones por bodega destino (destWarehouseId → notes). Solo para TransitTransfer.</summary>
+        public Dictionary<int, string?> GroupNotesByDestId { get; set; } = new();
     }
 }

@@ -13,6 +13,7 @@ using CMS.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace CMS.API.Controllers
 {
@@ -233,7 +234,7 @@ namespace CMS.API.Controllers
         {
             try
             {
-                var currentUser = User.Identity?.Name ?? "SYSTEM";
+                var currentUser = User.FindFirstValue("cms_username") ?? "SYSTEM";
 
                 var success = await _authService.AssignRoleToUserInCompanyAsync(
                     userId, companyId, request.RoleId, currentUser);
@@ -327,7 +328,7 @@ namespace CMS.API.Controllers
         {
             try
             {
-                var currentUser = User.Identity?.Name ?? "SYSTEM";
+                var currentUser = User.FindFirstValue("cms_username") ?? "SYSTEM";
 
                 bool success;
                 if (request.IsAllowed)

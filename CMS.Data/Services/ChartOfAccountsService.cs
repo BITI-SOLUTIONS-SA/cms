@@ -22,7 +22,7 @@ namespace CMS.Data.Services
         Task<(List<ChartOfAccounts> Items, int TotalCount)> GetAccountsAsync(
             int companyId,
             string? search = null,
-            string? accountType = null,
+            int? idChartOfAccountsType = null,
             bool? isDetail = null,
             bool? isActive = null,
             int page = 1,
@@ -59,7 +59,7 @@ namespace CMS.Data.Services
         public async Task<(List<ChartOfAccounts> Items, int TotalCount)> GetAccountsAsync(
             int companyId,
             string? search = null,
-            string? accountType = null,
+            int? idChartOfAccountsType = null,
             bool? isDetail = null,
             bool? isActive = null,
             int page = 1,
@@ -79,8 +79,8 @@ namespace CMS.Data.Services
                     (a.Description != null && a.Description.ToLower().Contains(searchLower)));
             }
 
-            if (!string.IsNullOrWhiteSpace(accountType))
-                query = query.Where(a => a.AccountType == accountType);
+            if (idChartOfAccountsType.HasValue)
+                query = query.Where(a => a.IdChartOfAccountsType == idChartOfAccountsType.Value);
 
             if (isDetail.HasValue)
                 query = query.Where(a => a.IsDetail == isDetail.Value);
@@ -247,9 +247,9 @@ namespace CMS.Data.Services
             existing.IdParentAccount = account.IdParentAccount;
             existing.AccountLevel = account.AccountLevel;
             existing.IsHeader = account.IsHeader;
-            existing.IsDetail = account.IsDetail;
-            existing.AccountType = account.AccountType;
-            existing.AccountClass = account.AccountClass;
+            existing.IsDetail               = account.IsDetail;
+            existing.IdChartOfAccountsType  = account.IdChartOfAccountsType;
+            existing.AccountClass           = account.AccountClass;
             existing.NormalBalance = account.NormalBalance;
             existing.IsDebitBalance = account.IsDebitBalance;
             existing.AcceptsManualEntry = account.AcceptsManualEntry;

@@ -72,6 +72,14 @@
           }
         }
       },
+      "BouncyCastle.NetCore/1.8.3": {
+        "runtime": {
+          "lib/netstandard2.0/BouncyCastle.Crypto.dll": {
+            "assemblyVersion": "1.8.2.0",
+            "fileVersion": "1.8.18099.1"
+          }
+        }
+      },
       "ClosedXML/0.104.2": {
         "dependencies": {
           "ClosedXML.Parser": "1.2.0",
@@ -120,6 +128,17 @@
       "ExcelNumberFormat/1.1.0": {
         "runtime": {
           "lib/netstandard2.0/ExcelNumberFormat.dll": {
+            "assemblyVersion": "1.1.0.0",
+            "fileVersion": "1.1.0.0"
+          }
+        }
+      },
+      "FirmaXadesNetCore/1.1.0": {
+        "dependencies": {
+          "BouncyCastle.NetCore": "1.8.3"
+        },
+        "runtime": {
+          "lib/netstandard2.0/FirmaXadesNetCore.dll": {
             "assemblyVersion": "1.1.0.0",
             "fileVersion": "1.1.0.0"
           }
@@ -1767,6 +1786,116 @@
           }
         }
       },
+      "QuestPDF/2024.12.0": {
+        "runtime": {
+          "lib/net8.0/QuestPDF.dll": {
+            "assemblyVersion": "2024.12.0.0",
+            "fileVersion": "2024.12.0.0"
+          }
+        },
+        "runtimeTargets": {
+          "runtimes/linux-arm64/native/libQuestPdfSkia.so": {
+            "rid": "linux-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/linux-arm64/native/libqpdf.so": {
+            "rid": "linux-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/linux-musl-x64/native/libQuestPdfSkia.so": {
+            "rid": "linux-musl-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/linux-musl-x64/native/libqpdf.so": {
+            "rid": "linux-musl-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/linux-x64/native/libQuestPdfSkia.so": {
+            "rid": "linux-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/linux-x64/native/libqpdf.so": {
+            "rid": "linux-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-arm64/native/libQuestPdfSkia.dylib": {
+            "rid": "osx-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-arm64/native/libqpdf.dylib": {
+            "rid": "osx-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-x64/native/libQuestPdfSkia.dylib": {
+            "rid": "osx-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-x64/native/libqpdf.dylib": {
+            "rid": "osx-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x64/native/QuestPdfSkia.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x64/native/libgcc_s_seh-1.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x64/native/libstdc++-6.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x64/native/libwinpthread-1.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "1.0.0.0"
+          },
+          "runtimes/win-x64/native/qpdf.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x86/native/QuestPdfSkia.dll": {
+            "rid": "win-x86",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x86/native/libgcc_s_dw2-1.dll": {
+            "rid": "win-x86",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x86/native/libstdc++-6.dll": {
+            "rid": "win-x86",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x86/native/libwinpthread-1.dll": {
+            "rid": "win-x86",
+            "assetType": "native",
+            "fileVersion": "1.0.0.0"
+          },
+          "runtimes/win-x86/native/qpdf.dll": {
+            "rid": "win-x86",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
       "RBush/4.0.0": {
         "runtime": {
           "lib/net8.0/RBush.dll": {
@@ -1932,9 +2061,11 @@
         "dependencies": {
           "CMS.Entities": "1.0.0",
           "CMS.Shared": "1.0.0",
+          "FirmaXadesNetCore": "1.1.0",
           "Microsoft.EntityFrameworkCore": "9.0.0",
           "Microsoft.IdentityModel.Tokens": "8.15.0",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "9.0.0",
+          "QuestPDF": "2024.12.0",
           "System.IdentityModel.Tokens.Jwt": "8.15.0"
         },
         "runtime": {
@@ -1996,6 +2127,13 @@
       "path": "azure.security.keyvault.secrets/4.6.0",
       "hashPath": "azure.security.keyvault.secrets.4.6.0.nupkg.sha512"
     },
+    "BouncyCastle.NetCore/1.8.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-jAy3uHN1U9DpoT/TgLqDTEhlccn/4doOVxhSmmNsnoSsGfHT9Lwr634ac9D0YFujAhNw61nWF4UIpHyzv0aQww==",
+      "path": "bouncycastle.netcore/1.8.3",
+      "hashPath": "bouncycastle.netcore.1.8.3.nupkg.sha512"
+    },
     "ClosedXML/0.104.2": {
       "type": "package",
       "serviceable": true,
@@ -2030,6 +2168,13 @@
       "sha512": "sha512-R3BVHPs9O+RkExbZYTGT0+9HLbi8ZrNij1Yziyw6znd3J7P3uoIR07uwTLGOogtz1p6+0sna66eBoXu7tBiVQA==",
       "path": "excelnumberformat/1.1.0",
       "hashPath": "excelnumberformat.1.1.0.nupkg.sha512"
+    },
+    "FirmaXadesNetCore/1.1.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-2Gpo24pmjMNqv4jmbAprtZF43+U9loSpqmwkO4JtyAHFjv2LZRPxHEoj4wEhTKA1rn2JKPaKZijSpOmJeeLymw==",
+      "path": "firmaxadesnetcore/1.1.0",
+      "hashPath": "firmaxadesnetcore.1.1.0.nupkg.sha512"
     },
     "Humanizer/2.14.1": {
       "type": "package",
@@ -2814,6 +2959,13 @@
       "sha512": "sha512-v/GGlIj2dd7svplFmASWEueu62veKW0MrMtBaZ7QG8aJTSGv2yE+pgUGhXRcQ4nxNOEq/wLBrz1vkth/1SND7A==",
       "path": "nuget.versioning/6.11.0",
       "hashPath": "nuget.versioning.6.11.0.nupkg.sha512"
+    },
+    "QuestPDF/2024.12.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-Yn7jQyaJdbCsU05IG5qZijKrIJAREzZ7QgbMfppcmuHOwdzkPyW1WvJXScu7keuzhtPXjTZjOXFLDwo9YSU+FQ==",
+      "path": "questpdf/2024.12.0",
+      "hashPath": "questpdf.2024.12.0.nupkg.sha512"
     },
     "RBush/4.0.0": {
       "type": "package",

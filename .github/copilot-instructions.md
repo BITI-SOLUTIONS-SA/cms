@@ -29,6 +29,7 @@
    - **Propósito**: Datos administrativos y de configuración del sistema
    - **Tablas**: `user`, `company`, `role`, `permission`, `menu`, `user_company`, `user_company_role`, `user_company_permission`, `role_permission`, `system_config`, etc.
    - **Connection String**: `DefaultConnection` en appsettings.json
+   - **Desarrollo**: `Host=10.0.0.1;Port=5432;Database=cms;Username=cmssystem;Password=SYScmsPOStgres1024`
 
 2. **Bases de datos OPERACIONALES (por compañía)**:
    - **Nombre BD**: Igual al `code` de la compañía (ej: `admin`, `eamr`, `biti`)
@@ -37,12 +38,8 @@
    - **Tablas**: `item` (artículos), `inventory`, `sales`, `purchases`, etc.
    - **Connection String**: Se construye dinámicamente según la compañía activa
 
-3. **Reglas de conexión**:
-   ```
-   BD Central:  Host=localhost;Database=cms;Username=cmssystem;Password=xxx
-   BD Compañía: Host=localhost;Database={company_code};Username=cmssystem;Password=xxx
-   ```
-
+3. **Reglas de conexión**:BD Central:  Host=localhost;Database=cms;Username=cmssystem;Password=xxx
+BD Compañía: Host=localhost;Database={company_code};Username=cmssystem;Password=xxx
 4. **Servicios para acceso multi-BD**:
    - `CompanyDbContextFactory` - Crea DbContext dinámico para la BD de la compañía activa
    - `ICompanyDbContext` - Interface para operaciones en BD de compañía
@@ -71,44 +68,38 @@
    - **IMPORTANTE**: Si `connection_string_*` está vacío, usa fallback basado en appsettings.json cambiando solo el nombre de la BD
 
 3. **⚠️ REGLA DE ORO - Selección de Connection String Operacional**:
-   ```
    ┌─────────────────────────────────────────────────────────────────────────┐
    │ REGLA DE ORO PARA CONNECTION STRING DE COMPAÑÍA                         │
    ├─────────────────────────────────────────────────────────────────────────┤
-   │                                                                          │
+   │                                                                       │
    │ Si appsettings.json → "Environment" = "Development"                      │
-   │    → SIEMPRE usar connection_string_development                          │
+   │    → SIEMPRE usar connection_string_development                       │
    │    → Ignorar el valor de is_production en la BD                          │
    │    → Esto permite probar localmente con BD de producción sin afectar    │
    │      a los usuarios que están usando el sistema en producción           │
    │                                                                          │
    │ Si appsettings.json → "Environment" = "Production"                       │
    │    → Usar connection_string según el campo is_production de la compañía │
-   │    → is_production = true  → connection_string_production                │
-   │    → is_production = false → connection_string_development               │
+   │    → is_production = true  → connection_string_production             │
+   │    → is_production = false → connection_string_development            │
    │                                                                          │
-   │ RESUMEN:                                                                 │
+   │ RESUMEN:                                                              │
    │   useProductionCS = company.is_production && (appEnv != "Development")   │
    │                                                                          │
    └─────────────────────────────────────────────────────────────────────────┘
-   ```
    - **Implementación**: `CMS.Data/Services/CompanyDbContextFactory.cs` → método `CreateDbContextAsync()`
 
 4. **Configuración de compañías (admin.company)**:
-   ```sql
    -- Ejemplo de configuración correcta para compañía SINAI
    UPDATE admin.company 
    SET 
        connection_string_development = 'Host=10.0.0.1;Port=5432;Database=sinai;Username=cmssystem;Password=xxx;Pooling=true',
        connection_string_production = 'Host=cms-postgres;Port=5432;Database=sinai;Username=cmssystem;Password=xxx;Pooling=true',
-       is_production = true  -- En producción, pero si ejecutas localmente (Environment=Development), usará connection_string_development
+       is_production = true -- En producción, pero si ejecutas localmente (Environment=Development), usará connection_string_development
    WHERE company_schema = 'sinai';
-   ```
-
 5. **Flujo de decisión**:
-   ```
    ┌─────────────────────────────────────────────────────────────┐
-   │ Usuario hace login o navega                             │
+   │ Usuario hace login o navega                          │
    ├─────────────────────────────────────────────────────────────┤
    │ ¿Es operación de seguridad/admin?                          │
    │ (login, menús, roles, permisos, usuarios, config)          │
@@ -118,23 +109,17 @@
    │     └── NO → Es operación de compañía                   │
    │           │                                           │
    │              └── Buscar company_schema de compañía activa  │
-   │               Aplicar REGLA DE ORO para elegir CS      │
-   │               Conectar a BD: {company_schema}        │
-   │               Ejemplo: BD: sinai, Schema: sinai      │
+   │               Aplicar REGLA DE ORO para elegir CS   │
+   │            Conectar a BD: {company_schema}     │
+   │         Ejemplo: BD: sinai, Schema: sinai      │
    └─────────────────────────────────────────────────────────────┘
-   ```
-
 6. **Campos críticos en `admin.company`**:
    - `company_schema` (VARCHAR 10) - Nombre del schema Y de la BD operacional
    - `connection_string_development` - Connection string para desarrollo
    - `connection_string_production` - Connection string para producción
    - `is_production` - Indica qué connection string usar
 
-### Arquitectura de Seguridad (Roles y Permisos por Compañía)
-**IMPORTANTE**: Los roles y permisos son POR COMPAÑÍA, no globales.
-
 ### 🔴🔴🔴 REGLA DE ORO #1 - PERMISOS (CRÍTICO) 🔴🔴🔴
-```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │ ⚠️⚠️⚠️ REGLA CRÍTICA - VERIFICACIÓN DE PERMISOS ⚠️⚠️⚠️                         │
 ├─────────────────────────────────────────────────────────────────────────────────┤
@@ -165,8 +150,6 @@
 │    - AuthorizationService.AssignRoleToUserInCompanyAsync() → COPIA permisos     │
 │                                                                                  │
 └─────────────────────────────────────────────────────────────────────────────────┘
-```
-
 1. **Tablas de seguridad ACTUALES**:
    - `admin.user_company_role` - Roles de un usuario EN UNA compañía (solo informativo/descriptivo)
    - `admin.user_company_permission` - **⭐ ÚNICA fuente de permisos efectivos**
@@ -178,26 +161,17 @@
    - `admin.user_role` - Tabla eliminada
    - `admin.user_permission` - Tabla eliminada
 
-3. **Jerarquía de evaluación de permisos (ACTUALIZADA)**:
-   ```
-   1. Consultar admin.user_company_permission para (userId, companyId)
-   2. Separar en: permitidos (is_allowed=true) y denegados (is_allowed=false)
-1. 
-   3. Permisos efectivos = permitidos - denegados
-   4. DENEGACIONES SIEMPRE GANAN sobre permisos permitidos
+3. **Jerarquía de evaluación de permisos (ACTUALIZADA)**:1. Consultar admin.user_company_permission para (userId, companyId)
+2. Separar en: permitidos (is_allowed=true) y denegados (is_allowed=false)
+3. Permisos efectivos = permitidos - denegados
+4. DENEGACIONES SIEMPRE GANAN sobre permisos permitidos
 
-   ⚠️ NO consultar admin.role_permission para verificación de permisos
-   ```
-
-4. **Flujo al asignar un rol a un usuario**:
-   ```
-   1. Insertar registro en user_company_role (userId, companyId, roleId)
-   2. Consultar role_permission WHERE roleId = X
-   3. Por cada permiso del rol, insertar en user_company_permission:
-      - Si no existe: crear con is_allowed=true
-      - Si ya existe: NO modificar (respetar configuración existente)
-   ```
-
+⚠️ NO consultar admin.role_permission para verificación de permisos
+4. **Flujo al asignar un rol a un usuario**:1. Insertar registro en user_company_role (userId, companyId, roleId)
+2. Consultar role_permission WHERE roleId = X
+3. Por cada permiso del rol, insertar en user_company_permission:
+   - Si no existe: crear con is_allowed=true
+   - Si ya existe: NO modificar (respetar configuración existente)
 5. **Servicios de autorización**:
    - `PermissionService.GetUserPermissionsForCompanyAsync(userId, companyId)` - Obtiene permisos efectivos (SOLO de user_company_permission)
    - `PermissionService.GetUserRolesForCompanyAsync(userId, companyId)` - Obtiene roles en una compañía (informativo)
@@ -251,24 +225,16 @@
 4. **⚠️ TEXTOS DE AYUDA (help text / hint text) — REGLA CRÍTICA**:
    - **TODOS los `<small>`, `.form-text`, texto de ayuda debajo de campos**, deben tener color explícito claro.
    - **NUNCA** dejar textos de ayuda con la clase `text-muted` sola en formularios de fondo oscuro — resultan casi invisibles.
-   - **SIEMPRE** agregar en el bloque `<style>` de cada nueva vista:
-     ```css
-     small, .form-text, small.text-muted, .text-muted small { color: #cbd5e1 !important; }
-     ```
-   - Esto aplica a TODAS las vistas nuevas sin excepción.
+   - **SIEMPRE** agregar en el bloque `<style>` de cada nueva vista: small, .form-text, small.text-muted, .text-muted small { color: #cbd5e1 !important; }   - Esto aplica a TODAS las vistas nuevas sin excepción.
 
 5. **⚠️ MODALES en páginas con sidebar — REGLA CRÍTICA**:
    - Los modales de Bootstrap DEBEN ser movidos al final del `<body>` para evitar problemas de z-index con el sidebar fijo.
-   - **SIEMPRE** incluir en el `@section Scripts` de cada vista con modales:
-     ```javascript
-     document.addEventListener('DOMContentLoaded', function () {
-         ['miModal1', 'miModal2'].forEach(function (id) {
-             var el = document.getElementById(id);
-             if (el) document.body.appendChild(el);
-         });
+   - **SIEMPRE** incluir en el `@section Scripts` de cada vista con modales: document.addEventListener('DOMContentLoaded', function () {
+     ['miModal1', 'miModal2'].forEach(function (id) {
+         var el = document.getElementById(id);
+         if (el) document.body.appendChild(el);
      });
-     ```
-   - Sin esto el sidebar (`z-index: 1000`) puede quedar por encima del modal y bloquear la interacción.
+ });   - Sin esto el sidebar (`z-index: 1000`) puede quedar por encima del modal y bloquear la interacción.
 
 ## Branching and Commit Conventions
 - Convenciones de branches CMS: main (producción), develop (desarrollo), feature/[nombre], fix/[nombre], hotfix/[nombre]. 
@@ -365,10 +331,7 @@ Todos los scripts de creación de tablas en bases de datos de compañía **DEBEN
 4. **Ejecución**: El script debe incluir instrucciones de ejecución con `psql` en el encabezado.
 5. **Borrado seguro**: Siempre comenzar con `DROP TABLE IF EXISTS {schema}.tabla CASCADE;`
 
-### Secciones obligatorias (en este orden)
-
-```
-1.  Bloque START  (comentario visual delimitador de = en 3 líneas)
+### Secciones obligatorias (en este orden)1.  Bloque START  (comentario visual delimitador de = en 3 líneas)
 2.  Encabezado    (SCRIPT, PROPÓSITO, DESCRIPCIÓN, EJECUCIÓN, AUTOR, CREADO)
 3.  -- TABLA: nombre
 4.  DROP TABLE IF EXISTS … CASCADE
@@ -379,47 +342,22 @@ Todos los scripts de creación de tablas en bases de datos de compañía **DEBEN
 9.  Función trigger  tr_{tabla}_update_fn()
 10. Trigger BEFORE UPDATE  tr_{tabla}_update
 11. Bloque END   (comentario visual delimitador de = en 3 líneas)
-```
-
-### Columnas de auditoría obligatorias (SIEMPRE las últimas columnas antes de los Constraints)
-
-```sql
-createdate      TIMESTAMP    NOT NULL DEFAULT now(),
+### Columnas de auditoría obligatorias (SIEMPRE las últimas columnas antes de los Constraints)createdate      TIMESTAMP    NOT NULL DEFAULT now(),
 record_date     TIMESTAMP    NOT NULL DEFAULT now(),
 created_by      VARCHAR(30)  NOT NULL DEFAULT current_user,
 updated_by      VARCHAR(30)  NOT NULL DEFAULT current_user,
 rowpointer      UUID         NOT NULL DEFAULT gen_random_uuid(),
-```
-
-### Constraints obligatorios
-
-```sql
-CONSTRAINT {tabla}_pkey               PRIMARY KEY (id_{tabla}),
+### Constraints obligatoriosCONSTRAINT {tabla}_pkey               PRIMARY KEY (id_{tabla}),
 CONSTRAINT rpix_{schema}_{tabla}      UNIQUE (rowpointer),
 CONSTRAINT uq_{schema}_{tabla}_code   UNIQUE (code),   -- si la tabla tiene campo code
-```
-
-### Nomenclatura de índices
-
-```sql
--- Índice único sobre code:
+### Nomenclatura de índices-- Índice único sobre code:
 CREATE UNIQUE INDEX IF NOT EXISTS uix_{schema}_{tabla}_code    ON {schema}.{tabla}(code);
 -- Índices adicionales:
 CREATE INDEX        IF NOT EXISTS ix_{schema}_{tabla}_{campo}  ON {schema}.{tabla}({campo});
-```
-
-### Permisos estándar
-
-```sql
-GRANT SELECT, INSERT, UPDATE, DELETE ON {schema}.{tabla} TO PUBLIC;
+### Permisos estándarGRANT SELECT, INSERT, UPDATE, DELETE ON {schema}.{tabla} TO PUBLIC;
 GRANT ALL ON {schema}.{tabla} TO cmssystem;
 GRANT USAGE, SELECT ON SEQUENCE {schema}.{tabla}_id_{tabla}_seq TO cmssystem;
-```
-
-### Trigger estándar de auditoría
-
-```sql
-CREATE OR REPLACE FUNCTION {schema}.tr_{tabla}_update_fn()
+### Trigger estándar de auditoríaCREATE OR REPLACE FUNCTION {schema}.tr_{tabla}_update_fn()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN
     NEW.updated_by  := current_user;
@@ -431,24 +369,14 @@ $$;
 CREATE TRIGGER tr_{tabla}_update
 BEFORE UPDATE ON {schema}.{tabla}
 FOR EACH ROW EXECUTE FUNCTION {schema}.tr_{tabla}_update_fn();
-```
-
 ### Relaciones cross-database (FK lógicas — NO declarar FK real)
 
-Cuando una tabla operacional referencia la BD central (`cms.admin.*`), NO se declara FK real. Se documenta con un comentario estándar:
-
-```sql
--- RELACIÓN LÓGICA CROSS-DB: campo_id referencia cms.admin.tabla.id
+Cuando una tabla operacional referencia la BD central (`cms.admin.*`), NO se declara FK real. Se documenta con un comentario estándar:-- RELACIÓN LÓGICA CROSS-DB: campo_id referencia cms.admin.tabla.id
 --    No se puede declarar FK real porque esta tabla está en la BD de la compañía
 --    y admin.tabla está en la BD central (cms). La integridad se mantiene a nivel
 --    de aplicación en el Service / Controller correspondiente.
 campo_id   INTEGER,
-```
-
-### Patrón de columnas agrupadas por categoría
-
-```sql
-CREATE TABLE {schema}.{tabla} (
+### Patrón de columnas agrupadas por categoríaCREATE TABLE {schema}.{tabla} (
     -- PK + campos base
     id_{tabla}       SERIAL        NOT NULL,
     code             VARCHAR(30)   NOT NULL,
@@ -488,4 +416,24 @@ CREATE TABLE {schema}.{tabla} (
     CONSTRAINT rpix_{schema}_{tabla}     UNIQUE (rowpointer),
     CONSTRAINT uq_{schema}_{tabla}_code  UNIQUE (code)
 );
-```
+## Credenciales PostgreSQL CMS
+- Usuario: postgres
+- Password: POStgres2026
+- Puerto: 5432
+- Host: 10.0.0.1
+- Base de datos operacional: sinai (o según compañía)
+- Base de datos central: cms
+
+SIEMPRE usar estas credenciales para ejecutar scripts SQL o comandos psql en el proyecto CMS.
+
+## Datos de Factura
+- ProveedorSistemas: 2100042005
+- Emisor: BITI SOLUTIONS S.A, cédula jurídica: 3101896397
+- Código de Actividad Emisor: formato '6202.0'
+- Fecha de Emisión: formato 'yyyy-MM-ddTHH:mm:ss.000' sin offset
+- SignaturePolicy: Identifier='https://atv.hacienda.go.cr/ATV/ComprobanteElectronico/docs/esquemas/2024/v4.4/Resoluci%C3%B3n_General_sobre_disposiciones_t%C3%A9cnicas_comprobantes_electr%C3%B3nicos_para_efectos_tributarios.pdf'
+- SigPolicyHash (HEX): '0D6C629F5C5639E23C3AE5905DACE1E158CB5806822C003DE787A6EC3321D21F'
+- La firma usa formato FirmaXadesNet (confirmado correcto).
+
+## HITO LOGRADO
+- Factura electrónica CR v4.4 ACEPTADA por Hacienda sandbox (ind-estado: aceptado) end-to-end con el sistema HACIENDA-CORE del CMS. Cadena completa funcional: Vault AES-256 -> Clave 50 díg -> XML v4.4 -> firma XAdES-EPES (FirmaXadesNetCore) -> OAuth realm rut-stag -> POST api-sandbox.comprobanteselectronicos.go.cr/recepcion/v1 -> aceptado. El -37 (ubicación no concuerda) es advertencia informativa, no rechazo.

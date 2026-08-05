@@ -31,7 +31,7 @@
     --border-glow: rgba(6, 182, 212, 0.5);
 
     /* Dimensiones */
-    --sidebar-width: 280px;
+    --sidebar-width: 300px;
     --sidebar-collapsed-width: 80px;
     --navbar-height: 65px;
 }
@@ -317,6 +317,46 @@ body {
 .nav-group.open > .nav-group-items {
     display: block;
     animation: slideDown 0.3s ease-out;
+}
+
+/* ===== SUBGRUPO NIVEL 2 (ej: General Accounting) ===== */
+.nav-subgroup > .nav-subgroup-items {
+    display: none;
+    padding-left: 0.75rem;
+    margin-top: 2px;
+    border-left: 2px solid rgba(255,255,255,.12);
+    margin-left: 20px;
+}
+
+.nav-subgroup.open > .nav-subgroup-items {
+    display: block;
+    animation: slideDown 0.25s ease-out;
+}
+
+/* Chevron del subgrupo: solo rota cuando el subgrupo está abierto */
+.nav-subgroup .nav-subgroup-toggle .bi-chevron-down {
+    transition: transform 0.3s ease;
+    font-size: 0.75rem;
+    color: var(--text-gray);
+}
+
+.nav-subgroup.open > .nav-subgroup-toggle .bi-chevron-down {
+    transform: rotate(180deg);
+    color: var(--accent-cyan);
+}
+
+/* Sangría y tamaño menor para ítems de nivel 3 */
+.nav-subgroup-items .nav-link {
+    font-size: 0.82rem;
+    padding-left: 0.4rem;
+}
+
+/* El texto de nivel 3 puede envolverse para mostrar el nombre completo */
+.nav-subgroup-items .nav-link span {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    line-height: 1.3;
 }
 
 @keyframes slideDown {

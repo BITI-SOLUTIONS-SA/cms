@@ -1,0 +1,1460 @@
+@{
+    ViewData["Title"] = "Emitir Comprobante Electrónico";
+    var apiBaseUrl = ViewBag.ApiBaseUrl as string ?? "";
+    var apiToken   = ViewBag.ApiToken   as string ?? "";
+}
+
+@*
+    ============================================================================
+    VISTA: ElectronicInvoice/Emit.cshtml
+    PROPÓSITO: Formulario de emisión de comprobantes electrónicos CR v4.4 con
+               validadores frontend (guards): CAByS 13 díg., regex correo,
+               cálculo inverso I.V.I.
+    AUTOR: EAMR, BITI SOLUTIONS S.A
+    ============================================================================
+*@
+
+<style>
+    small, .form-text, small.text-muted, .text-muted small { color: #cbd5e1 !important; }
+    .ei-card { background-color: #16213e; border: 1px solid #24304f; }
+    .ei-line-table th, .ei-line-table td { vertical-align: middle; }
+    .cabys-valid { border-color: #16a34a !important; }
+    .cabys-invalid { border-color: #dc2626 !important; }
+    .ei-line-exon { background-color: rgba(234, 179, 8, 0.12) !important; }
+
+    /* ── Modales: forzar por encima del sidebar/navbar ── */
+    #issuerModal,
+    #receptorModal {
+        z-index: 1060 !important;
+    }
+    #issuerModal .modal-dialog,
+    #receptorModal .modal-dialog {
+        margin-top: 4rem;          /* espacio para el navbar */
+        max-height: calc(100vh - 5rem);
+    }
+    #issuerModal .modal-content,
+    #receptorModal .modal-content {
+        max-height: calc(100vh - 6rem);
+        display: flex;
+        flex-direction: column;
+    }
+    #issuerModal .modal-body,
+    #receptorModal .modal-body {
+        overflow-y: auto;
+        flex: 1 1 auto;
+    }
+    /* Tabla interna con scroll propio */
+    #issuerModal  .table-responsive,
+    #receptorModal .table-responsive {
+        max-height: 55vh;
+        overflow-y: auto;
+    }
+    /* Thead fijo dentro del scroll */
+    #issuerModal  thead th,
+    #receptorModal thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #1a2340;
+    }
+</style>
+
+<div class="container-fluid py-3 text-light">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-receipt-cutoff me-2"></i>Emitir Comprobante Electrónico</h4>
+        <a asp-action="Index" class="btn btn-outline-light btn-sm"><i class="bi bi-list"></i> Comprobantes</a>
+    </div>
+
+    <div class="card ei-card mb-3">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Emisor</label>
+                    <div class="input-group">
+                        <input id="issuerDisplay" type="text" class="form-control" readonly placeholder="Click para seleccionar emisor..." />
+                        <button class="btn btn-outline-info" type="button" data-bs-toggle="modal" data-bs-target="#issuerModal">
+                            <i class="bi bi-search"></i> Buscar
+                        </button>
+                    </div>
+                    <input id="issuerId" type="hidden" />
+                    <small class="form-text">Cliente/empresa en cuyo nombre se factura.</small>
+                </div>
+                <div class="col-md-6" id="receptorField">
+                    <label class="form-label">Receptor</label>
+                    <div class="input-group">
+                        <input id="receptorDisplay" type="text" class="form-control" readonly placeholder="Click para seleccionar receptor..." />
+                        <button class="btn btn-outline-info" type="button" data-bs-toggle="modal" data-bs-target="#receptorModal">
+                            <i class="bi bi-search"></i> Buscar
+                        </button>
+                    </div>
+                    <input id="receptorId" type="hidden" />
+                    <small class="form-text">Proveedor al que se emite la factura.</small>
+                </div>
+            </div>
+            <div class="row g-3 mt-2">
+                <div class="col-md-2">
+                    <label class="form-label">Tipo de documento</label>
+                    <select id="documentType" class="form-select">
+                        <option value="01">Factura Electrónica (FE)</option>
+                        <option value="04">Tiquete Electrónico (TE)</option>
+                        <option value="03">Nota de Crédito (NC)</option>
+                        <option value="02">Nota de Débito (ND)</option>
+                        <option value="08">Factura de Compra (FEC)</option>
+                        <option value="10">Recibo Electrónico de Pago (REP)</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Condición venta</label>
+                    <select id="saleCondition" class="form-select">
+                        <option value="01">Contado</option>
+                        <option value="02">Crédito</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-none" id="creditTermWrapper">
+                    <label class="form-label">Plazo crédito (días)</label>
+                    <input type="number" id="creditTerm" class="form-control" min="1" max="999" value="30" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Moneda</label>
+                    <select id="currency" class="form-select">
+                        <option value="CRC">CRC</option>
+                        <option value="USD">USD</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Referencia (NC/ND/REP) -->
+    <div class="card ei-card mb-3 d-none" id="referenceCard">
+        <div class="card-body">
+            <h6 class="text-light"><i class="bi bi-link-45deg"></i> Referencia al documento previo (obligatorio)</h6>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Clave del documento referenciado (50 díg.)</label>
+                    <input id="refClave" class="form-control" maxlength="50" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Tipo doc. ref.</label>
+                    <select id="refDocType" class="form-select">
+                        <option value="01">Factura Electrónica</option>
+                        <option value="02">Nota de Débito</option>
+                        <option value="03">Nota de Crédito</option>
+                        <option value="04">Tiquete Electrónico</option>
+                        <option value="08">Factura de Compra</option>
+                        <option value="10">Recibo Electrónico de Pago</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Fecha emisión ref.</label>
+                    <input id="refDate" type="date" class="form-control" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Código referencia</label>
+                    <select id="refCode" class="form-select">
+                        <option value="01">Anula documento</option>
+                        <option value="02">Corrige monto</option>
+                        <option value="04">Referencia a otro documento</option>
+                        <option value="12">Comprobante de pago (REP)</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Razón</label>
+                    <input id="refReason" class="form-control" maxlength="180" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Líneas -->
+    <div class="card ei-card mb-3">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="text-light mb-0"><i class="bi bi-card-list"></i> Detalle</h6>
+                <div class="d-flex gap-3 align-items-center">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="docExonerated">
+                        <label class="form-check-label" for="docExonerated">Documento exonerado</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="priceIncludesTax">
+                        <label class="form-check-label" for="priceIncludesTax">Precios con IVA incluido (I.V.I.)</label>
+                    </div>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-dark table-sm ei-line-table">
+                    <thead>
+                        <tr>
+                            <th style="width:14%">CAByS (13 díg.)</th>
+                            <th>Detalle</th>
+                            <th style="width:8%">Cant.</th>
+                            <th style="width:12%">Precio</th>
+                            <th style="width:8%">IVA %</th>
+                            <th style="width:10%">Descuento</th>
+                            <th style="width:12%">Naturaleza desc.</th>
+                            <th style="width:6%" title="Exonerar línea">Exon.</th>
+                            <th style="width:10%">Total</th>
+                            <th style="width:4%"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="linesBody"></tbody>
+                </table>
+            </div>
+            <button class="btn btn-sm btn-outline-info" id="addLineBtn"><i class="bi bi-plus-lg"></i> Agregar línea</button>
+            <button class="btn btn-sm btn-outline-warning" type="button" data-bs-toggle="modal" data-bs-target="#itemModal"><i class="bi bi-box-seam"></i> Seleccionar ítem</button>
+        </div>
+    </div>
+
+    <!-- Totales -->
+    <div class="card ei-card mb-3">
+        <div class="card-body">
+            <div class="row text-end">
+                <div class="col-md-3 ms-auto">
+                    <div class="d-flex justify-content-between"><span class="text-muted">Subtotal:</span><strong id="tSubtotal">0.00</strong></div>
+                    <div class="d-flex justify-content-between"><span class="text-muted">Descuentos:</span><strong id="tDiscount">0.00</strong></div>
+                    <div class="d-flex justify-content-between"><span class="text-muted">Exonerado (IVA):</span><strong id="tExonerado">0.00</strong></div>
+                    <div class="d-flex justify-content-between"><span class="text-muted">IVA:</span><strong id="tTax">0.00</strong></div>
+                    <hr />
+                    <div class="d-flex justify-content-between fs-5"><span class="text-light fw-bold">Total:</span><strong id="tTotal" class="text-info">0.00</strong></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Datos de exoneración: visible solo cuando hay al menos una línea exonerada -->
+    <div class="card ei-card mb-3 d-none" id="exonCard">
+        <div class="card-body">
+            <h6 class="text-light mb-3"><i class="bi bi-patch-check"></i> Datos de la exoneración</h6>
+            <div class="alert alert-warning py-2 small mb-3">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                Estos datos deben corresponder a la <strong>autorización de exoneración real</strong> del cliente.
+                Hacienda los valida contra su registro. Los valores por defecto solo evitan errores de esquema en pruebas.
+            </div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Tipo de documento</label>
+                    <select id="exonDocType" class="form-select">
+                        <option value="01">01 - Compras autorizadas por la DGT</option>
+                        <option value="02">02 - Ventas exentas a diplomáticos</option>
+                        <option value="03">03 - Autorizado por Ley especial</option>
+                        <option value="04">04 - Exenciones DGH autorización local genérica</option>
+                        <option value="05">05 - Transitorio V (servicios de ingeniería/arquitectura)</option>
+                        <option value="06">06 - Transitorio IX (recolección/reciclaje)</option>
+                        <option value="07">07 - Transitorio XVII (Régimen de zona franca)</option>
+                        <option value="08">08 - Exoneración a Zonas Francas</option>
+                        <option value="09">09 - Exoneración de servicios complementarios ZF</option>
+                        <option value="10">10 - Órdenes especiales (contratación pública)</option>
+                        <option value="11">11 - Exoneración Instituciones/Órganos públicos</option>
+                        <option value="99" selected>99 - Otros</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Número de documento / autorización</label>
+                    <input id="exonDocNumber" class="form-control" maxlength="40" value="0"
+                           placeholder="N.º de la autorización de exoneración">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Institución que emite</label>
+                    <select id="exonInstitution" class="form-select">
+                        <option value="01">01 - Ministerio de Hacienda</option>
+                        <option value="02">02 - Ministerio de Relaciones Exteriores y Culto</option>
+                        <option value="03">03 - Ministerio de Agricultura y Ganadería</option>
+                        <option value="04">04 - Ministerio de Economía, Industria y Comercio</option>
+                        <option value="05">05 - Cruz Roja Costarricense</option>
+                        <option value="06">06 - Benemérito Cuerpo de Bomberos de Costa Rica</option>
+                        <option value="07">07 - Asociación Obras del Espíritu Santo</option>
+                        <option value="08">08 - Federación Cruzada Nacional protección Ancianos (Fecrunapa)</option>
+                        <option value="09">09 - Escuela de Agricultura de la Región Húmeda (EARTH)</option>
+                        <option value="10">10 - Instituto Centroamericano de Administración de Empresas (INCAE)</option>
+                        <option value="11">11 - Junta de Protección Social (JPS)</option>
+                        <option value="12">12 - Autoridad Reguladora de los Servicios Públicos (Aresep)</option>
+                        <option value="99" selected>99 - Otros</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Fecha de emisión de la exoneración</label>
+                    <input id="exonDate" type="date" class="form-control">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Porcentaje de exoneración (%)</label>
+                    <input id="exonPercent" type="number" class="form-control" min="1" max="100" step="1" value="100">
+                    <small class="form-text">100 = exoneración total del IVA de la línea.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+        <button class="btn btn-success" id="emitBtn"><i class="bi bi-send-check"></i> Emitir y enviar a Hacienda</button>
+    </div>
+
+    <div id="emitResult" class="mt-3"></div>
+
+    <!-- Consola de progreso estilo CMD -->
+    <div id="emitConsoleCard" class="card ei-card mt-3 d-none">
+        <div class="card-header d-flex align-items-center justify-content-between" style="background:#0d1117;border-bottom:1px solid #24304f;">
+            <span class="text-light"><i class="bi bi-terminal me-2"></i>Consola de emisión</span>
+            <span id="emitConsoleStatus" class="badge bg-secondary">En espera</span>
+        </div>
+        <div id="emitConsole" style="background:#0b0e14;color:#c9d1d9;font-family:'Cascadia Code','Consolas',monospace;font-size:.82rem;line-height:1.5;padding:1rem;max-height:340px;overflow-y:auto;white-space:pre-wrap;border-radius:0 0 .375rem .375rem;"></div>
+    </div>
+</div>
+
+<!-- ============================= MODAL: BUSCAR EMISOR ============================= -->
+<div class="modal fade" id="issuerModal" tabindex="-1" aria-labelledby="issuerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header">
+                <h5 class="modal-title" id="issuerModalLabel"><i class="bi bi-building"></i> Buscar Emisor</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Filtros -->
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <input id="issuerSearchTerm" type="text" class="form-control" placeholder="Buscar por nombre, código o cédula..." />
+                    </div>
+                    <div class="col-md-3">
+                        <select id="issuerIdentificationType" class="form-select">
+                            <option value="">Todos los tipos de ID</option>
+                            <option value="01">Cédula Física (01)</option>
+                            <option value="02">Cédula Jurídica (02)</option>
+                            <option value="03">DIMEX (03)</option>
+                            <option value="04">NITE (04)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-primary w-100" onclick="searchIssuers()">
+                            <i class="bi bi-search"></i> Buscar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Error alert -->
+                <div id="issuerError" class="alert alert-danger d-none" role="alert"></div>
+
+                <!-- Resultados -->
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-dark table-hover">
+                        <thead class="sticky-top">
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Cédula</th>
+                                <th>Código Cliente</th>
+                                <th>Email</th>
+                                <th>Teléfono</th>
+                                <th>Ambiente</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="issuerResults">
+                            <tr>
+                                <td colspan="7" class="text-center text-muted">
+                                    Click en "Buscar" para ver resultados
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================= MODAL: BUSCAR RECEPTOR ============================= -->
+<div class="modal fade" id="receptorModal" tabindex="-1" aria-labelledby="receptorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header">
+                <h5 class="modal-title" id="receptorModalLabel"><i class="bi bi-truck"></i> Buscar Receptor (Proveedor)</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Filtros -->
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <input id="receptorSearchTerm" type="text" class="form-control" placeholder="Buscar por nombre, código o cédula..." />
+                    </div>
+                    <div class="col-md-3">
+                        <select id="receptorIdentificationType" class="form-select">
+                            <option value="">Todos los tipos de ID</option>
+                            <option value="01">Cédula Física (01)</option>
+                            <option value="02">Cédula Jurídica (02)</option>
+                            <option value="03">DIMEX (03)</option>
+                            <option value="04">NITE (04)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select id="receptorSupplierType" class="form-select">
+                            <option value="">Todos los tipos</option>
+                            <option value="Goods">Bienes</option>
+                            <option value="Services">Servicios</option>
+                            <option value="Both">Ambos</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-primary w-100" onclick="searchReceptors()">
+                            <i class="bi bi-search"></i> Buscar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Error alert -->
+                <div id="receptorError" class="alert alert-danger d-none" role="alert"></div>
+
+                <!-- Resultados -->
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-dark table-hover">
+                        <thead class="sticky-top bg-dark">
+                            <tr>
+                                <th>Código</th>
+                                <th>Nombre</th>
+                                <th>Cédula</th>
+                                <th>Tipo</th>
+                                <th>Email</th>
+                                <th>Teléfono</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="receptorResults">
+                            <tr>
+                                <td colspan="7" class="text-center text-muted">
+                                    Click en "Buscar" para ver resultados
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================= MODAL: SELECCIONAR ÍTEM ============================= -->
+<div class="modal fade" id="itemModal" tabindex="-1" aria-labelledby="itemModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header">
+                <h5 class="modal-title" id="itemModalLabel"><i class="bi bi-box-seam"></i> Seleccionar ítem</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group mb-3">
+                    <input id="itemSearchTerm" type="text" class="form-control" placeholder="Buscar por código o nombre..." onkeydown="if(event.key==='Enter'){searchItems();return false;}" />
+                    <button class="btn btn-primary" type="button" onclick="searchItems()"><i class="bi bi-search"></i> Buscar</button>
+                </div>
+                <div id="itemError" class="alert alert-danger d-none" role="alert"></div>
+                <div class="table-responsive">
+                    <table class="table table-dark table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nombre</th>
+                                <th class="text-end">Precio</th>
+                                <th class="text-end">IVA %</th>
+                                <th>CAByS</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="itemResults">
+                            <tr><td colspan="6" class="text-center text-muted">Escriba y presione "Buscar"</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    window.EMIT_API   = '@Html.Raw(apiBaseUrl)';
+    window.EMIT_TOKEN = '@Html.Raw(apiToken)';
+</script>
+<script>
+console.log('%c✅ EMIT.CSHTML SCRIPT V3.0 CARGADO', 'background: #00ff00; color: #000; font-size: 20px; font-weight: bold;');
+(function () {
+    // ── Config ─────────────────────────────────────────────────────────────
+    const EMIT = {
+        api:   window.EMIT_API   || '',
+        token: window.EMIT_TOKEN || ''
+    };
+
+    // ── Fetch helper (igual que inventoryMovements) ─────────────────────────
+    async function emitFetch(path, options = {}) {
+        const url  = EMIT.api + path;
+        const opts = Object.assign({ headers: {} }, options);
+        if (EMIT.token) opts.headers['Authorization'] = `Bearer ${EMIT.token}`;
+        if (!opts.headers['Content-Type'] && opts.method !== 'GET' && opts.method !== undefined) {
+            opts.headers['Content-Type'] = 'application/json';
+        }
+        const res = await fetch(url, opts);
+        return res;
+    }
+
+    // ---------------- Validadores frontend (guards) ----------------
+    const EMAIL_RE = /^[^\s@@]+@@[^\s@@]+\.[^\s@@]{2,}$/;
+    const CABYS_RE = /^\d{13}$/;
+
+    function isValidCabys(v) { return CABYS_RE.test((v || '').trim()); }
+    function isValidEmail(v) { return !v || EMAIL_RE.test(v.trim()); }
+    function escapeHtml(text) {
+        const map = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'};
+        return text.replace(/[&<>"']/g, m => map[m]);
+    }
+
+    // ---------------- Cargar emisores y receptores ----------------
+    async function searchIssuers() {
+        const searchTerm = document.getElementById('issuerSearchTerm').value;
+        const identificationType = document.getElementById('issuerIdentificationType').value;
+        const errorDiv = document.getElementById('issuerError');
+        const tbody = document.getElementById('issuerResults');
+
+        // Limpiar errores previos
+        errorDiv.classList.add('d-none');
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center"><div class="spinner-border spinner-border-sm" role="status"></div> Buscando...</td></tr>';
+
+        try {
+            const params = new URLSearchParams();
+            if (searchTerm) params.append('searchTerm', searchTerm);
+            if (identificationType) params.append('identificationType', identificationType);
+
+            const response = await emitFetch(`/api/CustomerBillingCredential/search-issuers?${params}`);
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: response.statusText }));
+                throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const issuers = await response.json();
+
+            if (issuers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No se encontraron emisores</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = issuers.map(issuer => `
+                <tr>
+                    <td>
+                        ${issuer.name}
+                        ${issuer.isCompanyOwner ? '<span class="badge bg-primary ms-1">Owner</span>' : ''}
+                        ${issuer.commercialName ? `<br/><small class="text-muted">${issuer.commercialName}</small>` : ''}
+                    </td>
+                    <td>
+                        ${issuer.identification}
+                        <br/><small class="text-muted">Tipo: ${issuer.identificationType}</small>
+                    </td>
+                    <td>${issuer.customerCode || '<span class="text-muted">—</span>'}</td>
+                    <td>${issuer.email || '<span class="text-muted">—</span>'}</td>
+                    <td>${issuer.phoneCode ? issuer.phoneCode + '-' : ''}${issuer.phone || '<span class="text-muted">—</span>'}</td>
+                    <td><span class="badge ${issuer.environment === 'prod' ? 'bg-success' : 'bg-warning'}">${issuer.environment}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="selectIssuer(${issuer.idCredential}, '${escapeHtml(issuer.name)}', '${escapeHtml(issuer.identification)}')">
+                            <i class="bi bi-check-lg"></i> Seleccionar
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        } catch (error) {
+            console.error('Error al buscar emisores:', error);
+            errorDiv.textContent = `Error al buscar emisores: ${error.message}`;
+            errorDiv.classList.remove('d-none');
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger"><i class="bi bi-exclamation-triangle"></i> Error al cargar datos</td></tr>';
+        }
+    }
+
+    async function searchReceptors() {
+        const searchTerm = document.getElementById('receptorSearchTerm').value;
+        const identificationType = document.getElementById('receptorIdentificationType').value;
+        const supplierType = document.getElementById('receptorSupplierType').value;
+        const errorDiv = document.getElementById('receptorError');
+        const tbody = document.getElementById('receptorResults');
+
+        // Limpiar errores previos
+        errorDiv.classList.add('d-none');
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center"><div class="spinner-border spinner-border-sm" role="status"></div> Buscando...</td></tr>';
+
+        try {
+            const params = new URLSearchParams();
+            if (searchTerm) params.append('searchTerm', searchTerm);
+            if (identificationType) params.append('identificationType', identificationType);
+            if (supplierType) params.append('supplierType', supplierType);
+
+            const response = await emitFetch(`/api/Supplier/search-receptors?${params}`);
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: response.statusText }));
+                throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const receptors = await response.json();
+
+            if (receptors.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No se encontraron receptores</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = receptors.map(receptor => `
+                <tr>
+                    <td>${receptor.code}</td>
+                    <td>
+                        ${receptor.name}
+                        ${receptor.commercialName ? `<br/><small class="text-muted">${receptor.commercialName}</small>` : ''}
+                    </td>
+                    <td>
+                        ${receptor.identification || receptor.foreignIdentification || '<span class="text-muted">—</span>'}
+                        ${receptor.identificationType ? `<br/><small class="text-muted">Tipo: ${receptor.identificationType}</small>` : ''}
+                    </td>
+                    <td>${receptor.supplierType || '<span class="text-muted">—</span>'}</td>
+                    <td>${receptor.email || '<span class="text-muted">—</span>'}</td>
+                    <td>${receptor.phoneCode ? receptor.phoneCode + '-' : ''}${receptor.phone || '<span class="text-muted">—</span>'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="selectReceptor(${receptor.idSupplier}, '${escapeHtml(receptor.name)}', '${escapeHtml(receptor.identification || receptor.foreignIdentification || '')}')">
+                            <i class="bi bi-check-lg"></i> Seleccionar
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        } catch (error) {
+            console.error('Error al buscar receptores:', error);
+            errorDiv.textContent = `Error al buscar receptores: ${error.message}`;
+            errorDiv.classList.remove('d-none');
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger"><i class="bi bi-exclamation-triangle"></i> Error al cargar datos</td></tr>';
+        }
+    }
+
+    function selectIssuer(id, name, identification) {
+        document.getElementById('issuerId').value = id;
+        document.getElementById('issuerDisplay').value = `${name} (${identification})`;
+        bootstrap.Modal.getInstance(document.getElementById('issuerModal')).hide();
+    }
+    window.selectIssuer = selectIssuer;
+
+    function selectReceptor(id, name, identification) {
+        document.getElementById('receptorId').value = id;
+        document.getElementById('receptorDisplay').value = `${name} (${identification})`;
+        bootstrap.Modal.getInstance(document.getElementById('receptorModal')).hide();
+    }
+    window.selectReceptor = selectReceptor;
+
+    // ---------------- Selección de ítems (modal) ----------------
+    async function searchItems() {
+        const term = document.getElementById('itemSearchTerm').value;
+        const errorDiv = document.getElementById('itemError');
+        const tbody = document.getElementById('itemResults');
+        errorDiv.classList.add('d-none');
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center"><div class="spinner-border spinner-border-sm" role="status"></div> Buscando...</td></tr>';
+        try {
+            const params = new URLSearchParams();
+            if (term) params.append('search', term);
+            const response = await emitFetch(`/api/item/for-billing?${params}`);
+            if (!response.ok) {
+                const e = await response.json().catch(() => ({ message: response.statusText }));
+                throw new Error(e.message || `HTTP ${response.status}`);
+            }
+            const items = await response.json();
+            if (!items || items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No se encontraron ítems</td></tr>';
+                return;
+            }
+            tbody.innerHTML = items.map(it => `
+                <tr>
+                    <td>${escapeHtml(it.code || '')}</td>
+                    <td>${escapeHtml(it.name || '')}</td>
+                    <td class="text-end">${(it.salePrice ?? 0).toFixed(2)}</td>
+                    <td class="text-end">${(it.taxRate ?? 0)}</td>
+                    <td>${escapeHtml(it.cabysCode || '')}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick='pickItem(${JSON.stringify(it)})'>
+                            <i class="bi bi-check-lg"></i> Agregar
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        } catch (error) {
+            console.error('Error al buscar ítems:', error);
+            errorDiv.textContent = `Error al buscar ítems: ${error.message}`;
+            errorDiv.classList.remove('d-none');
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger"><i class="bi bi-exclamation-triangle"></i> Error al cargar datos</td></tr>';
+        }
+    }
+    window.searchItems = searchItems;
+
+    // Agrega una línea nueva prellenada con los datos del ítem seleccionado.
+    function pickItem(item) {
+        addLine({
+            cabys: item.cabysCode || '',
+            detail: item.name || '',
+            quantity: 1,
+            unitPrice: item.salePrice ?? 0,
+            taxRate: item.taxRate ?? 13
+        });
+        const modalEl = document.getElementById('itemModal');
+        const inst = bootstrap.Modal.getInstance(modalEl);
+        if (inst) inst.hide();
+    }
+    window.pickItem = pickItem;
+
+    /**
+     * Busca un emisor/receptor por número de identificación y lo autoselecciona
+     * (llena el hidden input y el campo visible). Se usa en la precarga de NC/ND
+     * para fijar el mismo emisor/receptor del documento origen que se va a reversar.
+     * kind: 'issuer' o 'receptor'. identification: número de identificación a buscar.
+     */
+    async function autoSelectParty(kind, identification) {
+        try {
+            const url = kind === 'issuer'
+                ? '/api/CustomerBillingCredential/search-issuers'
+                : '/api/Supplier/search-receptors';
+            const params = new URLSearchParams({ searchTerm: identification });
+            const resp = await emitFetch(`${url}?${params}`);
+            if (!resp.ok) return false;
+            const list = await resp.json();
+            if (!Array.isArray(list) || list.length === 0) return false;
+
+            // Coincidencia exacta por identificación; si no, el primer resultado.
+            const norm = s => (s || '').toString().trim();
+            const match = list.find(x => norm(x.identification) === norm(identification)) || list[0];
+            const id = kind === 'issuer' ? match.idCredential : match.idSupplier;
+            const ident = match.identification || match.foreignIdentification || '';
+            const display = `${match.name} (${ident})`;
+            if (kind === 'issuer') {
+                document.getElementById('issuerId').value = id;
+                document.getElementById('issuerDisplay').value = display;
+                document.getElementById('issuerDisplay')?.classList.remove('cabys-invalid');
+            } else {
+                document.getElementById('receptorId').value = id;
+                document.getElementById('receptorDisplay').value = display;
+            }
+            return true;
+        } catch (e) {
+            console.warn(`[Reversa] No se pudo autoseleccionar ${kind} por identificación ${identification}:`, e);
+            return false;
+        }
+    }
+    window.autoSelectParty = autoSelectParty;
+
+    /**
+     * Fija directamente el emisor/receptor a partir del ID de catálogo persistido en
+     * el documento origen (IdCustomerIssuer / IdCustomerReceptor) y del objeto con sus
+     * datos (nombre + identificación) que ya viene en el JSON del documento. No hace
+     * ninguna búsqueda: es la vía preferida en la precarga de REP/NC/ND porque no
+     * depende de que el receptor siga apareciendo en el catálogo de proveedores.
+     * kind: 'issuer' | 'receptor'. id: entero del catálogo. party: { Nombre, Identificacion* }.
+     */
+    function setParty(kind, id, party) {
+        if (!id) return false;
+        const p = party || {};
+        const nombre = p.nombre ?? p.Nombre ?? '';
+        const ident = p.identificacionNumero ?? p.IdentificacionNumero
+                    ?? p.identificacionExtranjero ?? p.IdentificacionExtranjero ?? '';
+        const display = ident ? `${nombre} (${ident})` : nombre;
+        if (kind === 'issuer') {
+            document.getElementById('issuerId').value = id;
+            document.getElementById('issuerDisplay').value = display;
+            document.getElementById('issuerDisplay')?.classList.remove('cabys-invalid');
+        } else {
+            document.getElementById('receptorId').value = id;
+            document.getElementById('receptorDisplay').value = display;
+        }
+        return true;
+    }
+    window.setParty = setParty;
+
+    // Mapea el porcentaje de IVA al CodigoTarifaIVA v4.4.
+    //  13% → 08 (tarifa general) | 0% → 01 (exento) | otros según tabla Hacienda.
+    function mapTaxRateCode(ratePct) {
+        switch (Math.round((parseFloat(ratePct) || 0) * 100) / 100) {
+            case 0: return '01';
+            case 1: return '02';
+            case 2: return '03';
+            case 4: return '04';
+            case 0.5: return '11';
+            case 13: return '08';
+            default: return '08';
+        }
+    }
+
+    // Función helper para escapar HTML
+    function escapeHtml(text) {
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, m => map[m]);
+    }
+
+    // ---------------- Estado ----------------
+    let lineSeq = 0;
+
+    function addLine(prefill) {
+        lineSeq++;
+        const tr = document.createElement('tr');
+        tr.dataset.id = lineSeq;
+        tr.innerHTML = `
+            <td><input class="form-control form-control-sm cabys" maxlength="13" placeholder="0000000000000"></td>
+            <td><input class="form-control form-control-sm detail" placeholder="Descripción"></td>
+            <td><input class="form-control form-control-sm text-end qty" type="number" value="1" min="0" step="0.001"></td>
+            <td><input class="form-control form-control-sm text-end price" type="number" value="0" min="0" step="0.00001"></td>
+            <td><input class="form-control form-control-sm text-end rate" type="number" value="13" min="0" step="0.01"></td>
+            <td><input class="form-control form-control-sm text-end disc" type="number" value="0" min="0" step="0.00001"></td>
+            <td>
+                <select class="form-select form-select-sm nature">
+                    <option value="">—</option>
+                    <option value="04">Volumen</option>
+                    <option value="05">Temporada</option>
+                    <option value="06">Promoción</option>
+                </select>
+            </td>
+            <td class="text-center align-middle">
+                <input class="form-check-input exon" type="checkbox" title="Exonerar esta línea">
+            </td>
+            <td class="text-end lineTotal">0.00</td>
+            <td><button class="btn btn-sm btn-outline-danger removeLine"><i class="bi bi-x"></i></button></td>`;
+        document.getElementById('linesBody').appendChild(tr);
+
+        const cabys = tr.querySelector('.cabys');
+        cabys.addEventListener('blur', async () => {
+            if (!isValidCabys(cabys.value)) {
+                cabys.classList.add('cabys-invalid'); cabys.classList.remove('cabys-valid');
+                return;
+            }
+            // Autocompletar tarifa/descripcion desde el catálogo CAByS.
+            try {
+                const r = await emitFetch(`/api/cabys/${cabys.value}`);
+                if (r.ok) {
+                    const d = await r.json();
+                    if (d && d.taxRate != null) tr.querySelector('.rate').value = d.taxRate;
+                    if (d && d.description && !tr.querySelector('.detail').value) tr.querySelector('.detail').value = d.description;
+                    cabys.classList.add('cabys-valid'); cabys.classList.remove('cabys-invalid');
+                }
+            } catch { /* offline: solo validación de formato */ }
+            recalc();
+        });
+
+        tr.querySelectorAll('.qty,.price,.rate,.disc').forEach(el => el.addEventListener('input', recalc));
+        tr.querySelector('.exon').addEventListener('change', recalc);
+        tr.querySelector('.removeLine').addEventListener('click', () => { tr.remove(); recalc(); });
+
+        if (prefill) {
+            tr.querySelector('.cabys').value = prefill.cabys || '';
+            tr.querySelector('.detail').value = prefill.detail || '';
+            if (prefill.quantity != null) tr.querySelector('.qty').value = prefill.quantity;
+            if (prefill.unitPrice != null) tr.querySelector('.price').value = prefill.unitPrice;
+            if (prefill.taxRate != null) tr.querySelector('.rate').value = prefill.taxRate;
+            if (prefill.discount != null) tr.querySelector('.disc').value = prefill.discount;
+            if (prefill.nature) tr.querySelector('.nature').value = prefill.nature;
+            if (prefill.exonerated) tr.querySelector('.exon').checked = true;
+
+            // Modo "reversar factura": la línea proviene del documento origen.
+            // Se bloquea CAByS, detalle y tarifa para impedir alterar/inventar líneas.
+            if (prefill.locked) {
+                tr.classList.add('nc-source-line');
+                ['cabys', 'detail', 'rate'].forEach(cls => {
+                    const el = tr.querySelector('.' + cls);
+                    el.setAttribute('readonly', 'readonly');
+                    el.classList.add('cabys-valid');
+                });
+                // Naturaleza de descuento también bloqueada (viene del origen)
+                tr.querySelector('.nature').setAttribute('disabled', 'disabled');
+            }
+        }
+        recalc();
+    }
+
+    // ---------------- Cálculo (incluye IVI inverso) ----------------
+    function recalc() {
+        const ivi = document.getElementById('priceIncludesTax').checked;
+        const docExon = document.getElementById('docExonerated').checked;
+        // Porcentaje de exoneración configurado en la tarjeta de datos (default 100).
+        let exonPct = parseFloat(document.getElementById('exonPercent')?.value) || 100;
+        if (exonPct < 1) exonPct = 1; if (exonPct > 100) exonPct = 100;
+        let sub = 0, disc = 0, tax = 0, total = 0, exon = 0;
+        let anyExon = false;
+        document.querySelectorAll('#linesBody tr').forEach(tr => {
+            const qty = parseFloat(tr.querySelector('.qty').value) || 0;
+            const price = parseFloat(tr.querySelector('.price').value) || 0;
+            const rate = (parseFloat(tr.querySelector('.rate').value) || 0) / 100;
+            const d = parseFloat(tr.querySelector('.disc').value) || 0;
+            const exonChk = tr.querySelector('.exon');
+            // Documento exonerado → todas las líneas se marcan y bloquean.
+            if (docExon) { exonChk.checked = true; exonChk.setAttribute('disabled', 'disabled'); }
+            else { exonChk.removeAttribute('disabled'); }
+            const lineExon = exonChk.checked;
+            if (lineExon) anyExon = true;
+
+            const unitBase = (ivi && rate > 0) ? price / (1 + rate) : price;
+            const gross = unitBase * qty;
+            let base = gross - d; if (base < 0) base = 0;
+            const fullTax = base * rate;
+            const exonAmount = lineExon ? (fullTax * exonPct / 100) : 0;   // % exoneración por línea (UI)
+            const netTax = fullTax - exonAmount;
+            const lineTotal = base + netTax;
+
+            tr.classList.toggle('ei-line-exon', lineExon);
+            tr.querySelector('.lineTotal').textContent = lineTotal.toFixed(2);
+            sub += gross; disc += d; tax += netTax; exon += exonAmount; total += lineTotal;
+        });
+        document.getElementById('tSubtotal').textContent = sub.toFixed(2);
+        document.getElementById('tDiscount').textContent = disc.toFixed(2);
+        document.getElementById('tTax').textContent = tax.toFixed(2);
+        document.getElementById('tTotal').textContent = total.toFixed(2);
+        const tExon = document.getElementById('tExonerado');
+        if (tExon) tExon.textContent = exon.toFixed(2);
+
+        // Mostrar la tarjeta de datos de exoneración solo cuando hay al menos una línea exonerada.
+        // Al mostrarse por primera vez se preseleccionan los valores por defecto.
+        const exonCard = document.getElementById('exonCard');
+        if (exonCard) {
+            const wasHidden = exonCard.classList.contains('d-none');
+            exonCard.classList.toggle('d-none', !anyExon);
+            if (anyExon && wasHidden) ensureExonDefaults();
+        }
+    }
+
+    // Preselecciona los valores por defecto de la exoneración cuando aún no se han fijado.
+    // Siempre deja datos default cuando hay al menos una línea exonerada en el documento.
+    function ensureExonDefaults() {
+        const dt = document.getElementById('exonDocType');
+        const inst = document.getElementById('exonInstitution');
+        const num = document.getElementById('exonDocNumber');
+        const date = document.getElementById('exonDate');
+        const pct = document.getElementById('exonPercent');
+        if (dt && !dt.value) dt.value = '99';
+        if (inst && !inst.value) inst.value = '99';
+        if (num && !num.value.trim()) num.value = '0';
+        if (pct && (!pct.value || parseFloat(pct.value) < 1)) pct.value = '100';
+        if (date && !date.value) {
+            const now = new Date();
+            date.value = now.toISOString().slice(0, 10); // yyyy-MM-dd
+        }
+    }
+
+    // ---------------- Carga de emisores y receptores ----------------
+    async function loadIssuers() {
+        try {
+            const r = await emitFetch('/api/Customer?includeInactive=false');
+
+            if (!r.ok) {
+                console.error('Error al cargar customers:', r.status);
+                return;
+            }
+
+            const list = await r.json();
+
+            // La API puede devolver un array directo o un objeto wrapper
+            const customers = Array.isArray(list) ? list : (list.data || []);
+
+            // Filtrar emisores (isIssuer = true)
+            const issuers = customers.filter(c => c.isIssuer === true);
+            const selIssuer = document.getElementById('issuerId');
+            selIssuer.innerHTML = '<option value="">-- Seleccione emisor --</option>' +
+                issuers.map(i =>
+                    `<option value="${i.id}">${i.isCompanyOwner ? '★ ' : ''}${i.name} (${i.identification})</option>`
+                ).join('');
+
+            // Cargar receptores (todos los customers)
+            const selReceptor = document.getElementById('receptorId');
+            selReceptor.innerHTML = '<option value="">-- Seleccione receptor --</option>' +
+                customers.map(c =>
+                    `<option value="${c.id}">${c.name} (${c.identification})</option>`
+                ).join('');
+
+        } catch (err) {
+            console.error('Error al cargar customers:', err);
+        }
+    }
+
+    // ---------------- Referencia según tipo ----------------
+    function toggleReference() {
+        const dt = document.getElementById('documentType').value;
+        const needs = ['02', '03', '10'].includes(dt);
+        document.getElementById('referenceCard').classList.toggle('d-none', !needs);
+        toggleReceptor();
+        return needs;
+    }
+
+    // ---------------- Receptor según tipo ----------------
+    // El Tiquete Electrónico (TE, tipo "04") es para consumidor final: su XSD NO admite
+    // el bloque Receptor. Se oculta el campo y se limpia cualquier receptor seleccionado.
+    function toggleReceptor() {
+        const dt = document.getElementById('documentType').value;
+        const isTiquete = dt === '04';
+        const field = document.getElementById('receptorField');
+        if (field) field.classList.toggle('d-none', isTiquete);
+        if (isTiquete) {
+            const rid = document.getElementById('receptorId');
+            const rdisp = document.getElementById('receptorDisplay');
+            if (rid) rid.value = '';
+            if (rdisp) rdisp.value = '';
+        }
+    }
+
+    // ---------------- Emisión ----------------
+    function logToConsole(step, message, level) {
+        const consoleEl = document.getElementById('emitConsole');
+        const ts = new Date().toLocaleTimeString('es-CR', { hour12: false });
+        const colors = { INFO: '#c9d1d9', SUCCESS: '#3fb950', WARNING: '#d29922', ERROR: '#f85149' };
+        const color = colors[level] || '#c9d1d9';
+        const line = document.createElement('div');
+        line.innerHTML = `<span style="color:#6e7681">[${ts}]</span> ` +
+            `<span style="color:#58a6ff">${step.padEnd(12, ' ').replace(/ /g, '&nbsp;')}</span> ` +
+            `<span style="color:${color}">${message}</span>`;
+        consoleEl.appendChild(line);
+        consoleEl.scrollTop = consoleEl.scrollHeight;
+    }
+
+    function setConsoleStatus(text, cls) {
+        const badge = document.getElementById('emitConsoleStatus');
+        badge.className = 'badge ' + cls;
+        badge.textContent = text;
+    }
+
+    // Consulta el estado real en Hacienda varias veces (aceptación/rechazo es
+    // asíncrono). Actualiza la consola y el badge con el desenlace final.
+    async function pollHaciendaStatus(documentId) {
+        const maxAttempts = 6;      // ~6 intentos
+        const delayMs = 5000;       // cada 5s (total ~30s)
+        setConsoleStatus('Consultando Hacienda...', 'bg-warning text-dark');
+        logToConsole('CONSULTA', 'La aceptación de Hacienda es asíncrona. Consultando estado real...', 'INFO');
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            await new Promise(res => setTimeout(res, delayMs));
+            try {
+                const r = await emitFetch(`/api/electronicinvoice/${documentId}/poll-status`, { method: 'POST' });
+                if (!r.ok) { continue; }
+                const s = await r.json();
+
+                if (s.resolved) {
+                    const accepted = /acept/i.test(s.status);
+                    const lvl = accepted ? 'SUCCESS' : 'ERROR';
+                    logToConsole('CONSULTA', `Hacienda resolvió el comprobante — Estado: ${s.status}. ${s.haciendaDetail || s.message || ''}`, lvl);
+                    setConsoleStatus(s.status, accepted ? 'bg-success' : 'bg-danger');
+                    document.getElementById('emitResult').innerHTML =
+                        `<div class="alert ${accepted ? 'alert-success' : 'alert-danger'}">` +
+                        `Estado final: <strong>${s.status}</strong>. ${s.haciendaDetail || s.message || ''}</div>`;
+                    return;
+                } else {
+                    logToConsole('CONSULTA', `Intento ${attempt}/${maxAttempts}: Hacienda aún procesando...`, 'INFO');
+                }
+            } catch (e) {
+                logToConsole('CONSULTA', `Intento ${attempt}/${maxAttempts}: no se pudo consultar (${e.message}).`, 'WARNING');
+            }
+        }
+
+        // No resolvió dentro del tiempo de la consola: es normal, seguirá en background.
+        logToConsole('CONSULTA', 'Hacienda continúa procesando. El sistema seguirá consultando automáticamente en segundo plano; podrá ver el resultado desde la lista de documentos (botón de bitácora).', 'WARNING');
+        setConsoleStatus('Procesando (en background)', 'bg-info text-dark');
+    }
+
+    async function emit() {
+        const lines = [];
+        let ok = true;
+        // Datos de exoneración capturados en la tarjeta (aplican a las líneas exoneradas).
+        const docExonChecked = document.getElementById('docExonerated').checked;
+        const exDocType = (document.getElementById('exonDocType')?.value || '99');
+        const exDocNumber = (document.getElementById('exonDocNumber')?.value || '').trim() || '0';
+        const exInstitution = (document.getElementById('exonInstitution')?.value || '99');
+        const exDateVal = document.getElementById('exonDate')?.value;
+        const exDate = exDateVal ? new Date(exDateVal + 'T00:00:00').toISOString() : new Date().toISOString();
+        let exPct = parseFloat(document.getElementById('exonPercent')?.value) || 100;
+        if (exPct < 1) exPct = 1; if (exPct > 100) exPct = 100;
+        document.querySelectorAll('#linesBody tr').forEach(tr => {
+            const cabys = tr.querySelector('.cabys').value.trim();
+            if (!isValidCabys(cabys)) { tr.querySelector('.cabys').classList.add('cabys-invalid'); ok = false; return; }
+            const disc = parseFloat(tr.querySelector('.disc').value) || 0;
+            const nature = tr.querySelector('.nature').value;
+            if (disc > 0 && !nature) { tr.querySelector('.nature').classList.add('cabys-invalid'); ok = false; return; }
+            const ratePct = parseFloat(tr.querySelector('.rate').value) || 0;
+            const lineExon = tr.querySelector('.exon').checked || docExonChecked;
+            lines.push({
+                cabysCode: cabys,
+                detail: tr.querySelector('.detail').value,
+                quantity: parseFloat(tr.querySelector('.qty').value) || 0,
+                unitPrice: parseFloat(tr.querySelector('.price').value) || 0,
+                priceIncludesTax: document.getElementById('priceIncludesTax').checked,
+                taxRatePercent: ratePct,
+                taxRateCode: mapTaxRateCode(ratePct),
+                discountAmount: disc,
+                discountNature: nature || null,
+                isExonerated: lineExon,
+                exonPercent: lineExon ? exPct : 0,
+                exonDocumentType: lineExon ? exDocType : null,
+                exonDocumentNumber: lineExon ? exDocNumber : null,
+                exonInstitution: lineExon ? exInstitution : null,
+                exonDate: lineExon ? exDate : null
+            });
+        });
+
+        if (!ok || lines.length === 0) {
+            alert('Corrija las líneas: CAByS de 13 dígitos y naturaleza de descuento son obligatorios.');
+            return;
+        }
+
+        const issuerRaw = document.getElementById('issuerId').value;
+        const issuerId = parseInt(issuerRaw, 10);
+        if (!issuerRaw || Number.isNaN(issuerId)) {
+            alert('Debe seleccionar un emisor antes de emitir el comprobante.');
+            document.getElementById('issuerDisplay')?.classList.add('cabys-invalid');
+            return;
+        }
+
+        const receptorRaw = document.getElementById('receptorId').value;
+        // El Tiquete Electrónico (TE) no lleva receptor: forzamos null aunque hubiese
+        // quedado un valor residual seleccionado antes de cambiar el tipo de documento.
+        const docTypeVal = document.getElementById('documentType').value;
+        const receptorId = (docTypeVal === '04')
+            ? null
+            : (receptorRaw ? (parseInt(receptorRaw, 10) || null) : null);
+
+        const payload = {
+            issuerId: issuerId,
+            receptorId: receptorId,
+            documentType: document.getElementById('documentType').value,
+            saleCondition: document.getElementById('saleCondition').value,
+            currency: document.getElementById('currency').value,
+            isExonerated: document.getElementById('docExonerated').checked,
+            lines: lines,
+            references: []
+        };
+
+        // Plazo de crédito: obligatorio cuando la condición de venta es "02" (Crédito).
+        // Hacienda rechaza el comprobante (error -58) si falta el nodo <PlazoCredito>.
+        if (payload.saleCondition === '02') {
+            const creditTerm = parseInt(document.getElementById('creditTerm').value, 10);
+            if (!creditTerm || creditTerm < 1) {
+                alert('Para ventas a crédito debe indicar el plazo de crédito (en días).');
+                return;
+            }
+            payload.creditTerm = creditTerm;
+        }
+
+        if (toggleReference()) {
+            const refClave = document.getElementById('refClave').value.trim();
+            if (refClave.length !== 50) { alert('La clave de referencia debe tener 50 dígitos.'); return; }
+            const refReason = document.getElementById('refReason').value.trim();
+            if (!refReason) { alert('Debe indicar la razón de la referencia.'); return; }
+            const refDateVal = document.getElementById('refDate').value;
+            // Si el usuario no indicó fecha, se intenta derivar del documento referenciado
+            // (posiciones 7-12 de la clave = AAMMDD); si no, se usa la fecha actual.
+            let refDateIso;
+            if (refDateVal) {
+                refDateIso = new Date(refDateVal + 'T00:00:00').toISOString();
+            } else {
+                refDateIso = new Date().toISOString();
+            }
+            payload.references.push({
+                refDocumentType: document.getElementById('refDocType').value,
+                refClave: refClave,
+                refDate: refDateIso,
+                refCode: document.getElementById('refCode').value,
+                refReason: refReason
+            });
+        }
+
+        const btn = document.getElementById('emitBtn');
+        btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Emitiendo...';
+
+        // Mostrar consola de progreso
+        const consoleCard = document.getElementById('emitConsoleCard');
+        const consoleEl = document.getElementById('emitConsole');
+        consoleCard.classList.remove('d-none');
+        consoleEl.innerHTML = '';
+        document.getElementById('emitResult').innerHTML = '';
+        setConsoleStatus('Procesando...', 'bg-warning text-dark');
+        logToConsole('CLIENTE', 'Enviando solicitud de emisión al servidor...', 'INFO');
+        consoleCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+        try {
+            const r = await emitFetch('/api/electronicinvoice/emit', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                });
+            const d = await r.json();
+
+            // Reproducir la bitácora paso a paso devuelta por el servidor
+            if (d.logs && d.logs.length) {
+                for (const entry of d.logs) {
+                    logToConsole(entry.step, entry.message, entry.level);
+                    await new Promise(res => setTimeout(res, 220));
+                }
+            }
+
+            if (r.ok) {
+                const statusLevel = /acept/i.test(d.status) ? 'SUCCESS'
+                    : /contingencia|proces/i.test(d.status) ? 'WARNING' : 'INFO';
+                logToConsole('RESULTADO', `Comprobante ${d.clave} — Estado: ${d.status}. ${d.message || ''}`, statusLevel);
+                document.getElementById('emitResult').innerHTML =
+                    `<div class="alert alert-success">Comprobante <strong>${d.clave}</strong> — Estado: <strong>${d.status}</strong>. ${d.message || ''}</div>`;
+
+                // Si Hacienda quedó "Procesando", la aceptación/rechazo es asíncrona.
+                // Consultamos su estado real unas cuantas veces antes de dar por
+                // terminada la consola, para que el usuario vea el desenlace.
+                if (/proces/i.test(d.status) && d.documentId) {
+                    await pollHaciendaStatus(d.documentId);
+                } else {
+                    setConsoleStatus(d.status || 'Completado', statusLevel === 'SUCCESS' ? 'bg-success' : 'bg-info text-dark');
+                }
+            } else {
+                // Extraer el mensaje de error más específico disponible en la respuesta.
+                // Backend: 400 → { message }, 500 → { message, error },
+                // validación de modelo → { title, errors: { campo: [msgs] } }.
+                let detail = d.message || d.title || 'Error al emitir';
+                if (d.error) detail += `: ${d.error}`;
+                if (d.errors) {
+                    const flat = Object.values(d.errors).flat();
+                    if (flat.length) detail += ' — ' + flat.join(' | ');
+                }
+                logToConsole('ERROR', detail, 'ERROR');
+                setConsoleStatus('Error', 'bg-danger');
+                document.getElementById('emitResult').innerHTML =
+                    `<div class="alert alert-danger">${detail}</div>`;
+            }
+        } catch (e) {
+            const msg = (e && e.message) ? e.message : 'Error de conexión con el servidor.';
+            logToConsole('ERROR', `Error de conexión: ${msg}`, 'ERROR');
+            setConsoleStatus('Error', 'bg-danger');
+            document.getElementById('emitResult').innerHTML =
+                `<div class="alert alert-danger">Error de conexión: ${msg}</div>`;
+        } finally {
+            btn.disabled = false; btn.innerHTML = '<i class="bi bi-send-check"></i> Emitir y enviar a Hacienda';
+        }
+    }
+
+    // ---------------- Init ----------------
+    // ── Exponer en window para que los onclick del HTML los encuentren
+    //    (los modales se mueven al <body> con appendChild, por lo que
+    //     los atributos onclick necesitan alcance global)
+    window.searchIssuers   = searchIssuers;
+    window.searchReceptors = searchReceptors;
+
+    document.getElementById('addLineBtn').addEventListener('click', () => addLine());
+    document.getElementById('priceIncludesTax').addEventListener('change', recalc);
+    document.getElementById('docExonerated').addEventListener('change', recalc);
+    document.getElementById('exonPercent')?.addEventListener('input', recalc);
+    document.getElementById('documentType').addEventListener('change', toggleReference);
+    document.getElementById('emitBtn').addEventListener('click', emit);
+
+    // Muestra/oculta el plazo de crédito según la condición de venta (obligatorio para "02").
+    function toggleCreditTerm() {
+        const isCredit = document.getElementById('saleCondition').value === '02';
+        document.getElementById('creditTermWrapper').classList.toggle('d-none', !isCredit);
+    }
+    document.getElementById('saleCondition').addEventListener('change', toggleCreditTerm);
+    toggleCreditTerm();
+
+    addLine();
+
+    // Estado inicial: ocultar receptor si el tipo por defecto fuese TE.
+    toggleReceptor();
+
+    // ---------------- Precarga de Nota de Crédito desde la lista ----------------
+    // Si la URL trae ?ncFrom=... la pantalla se abre lista para emitir una NC
+    // referenciando el documento origen (clave, tipo y fecha) y precargando
+    // exactamente las mismas líneas de la factura a reversar.
+    (async function prefillNoteCredit() {
+        const qp = new URLSearchParams(window.location.search);
+        const refClave = qp.get('refClave');
+        const ncFrom = qp.get('ncFrom');
+        const ndFrom = qp.get('ndFrom');
+        const repFrom = qp.get('repFrom');
+        if (!refClave) return;
+
+        // REP (10) documenta el pago de una FE/FEC a crédito.
+        // ND (02) referencia una NC; NC (03) referencia una factura.
+        const isRep = !!repFrom;
+        const isNd = !!ndFrom;
+        const targetType = isRep ? '10' : (isNd ? '02' : '03');
+        const sourceId = repFrom || ndFrom || ncFrom;
+        const docLabel = isRep ? 'Recibo Electrónico de Pago' : (isNd ? 'Nota de Débito' : 'Nota de Crédito');
+        const sourceLabel = isRep ? 'factura a crédito' : (isNd ? 'Nota de Crédito' : 'factura');
+
+        // Seleccionar tipo de documento y mostrar la tarjeta de referencia
+        const dtSel = document.getElementById('documentType');
+        dtSel.value = targetType;
+        toggleReference();
+        // La reversa/REP solo puede referenciar un documento existente: bloquear el cambio de tipo
+        dtSel.setAttribute('disabled', 'disabled');
+
+        // Precargar los datos de la referencia
+        document.getElementById('refClave').value = refClave;
+        const refType = qp.get('refType');
+        if (refType) document.getElementById('refDocType').value = refType;
+        const refDate = qp.get('refDate');
+        if (refDate) document.getElementById('refDate').value = refDate;
+        // Código por defecto: REP → 12 (Comprobante de pago); reversa → 01 (Anula documento)
+        document.getElementById('refCode').value = isRep ? '12' : '01';
+        document.getElementById('refReason').value = isRep
+            ? 'Pago de factura a crédito'
+            : (isNd ? 'Ajuste por Nota de Débito' : 'Anulación de documento');
+
+        const result = document.getElementById('emitResult');
+
+        // Cargar las líneas del documento origen y precargarlas bloqueadas
+        let loadedLines = 0;
+        if (sourceId) {
+            try {
+                const r = await emitFetch(`/api/electronicinvoice/${sourceId}`);
+                if (r.ok) {
+                    const doc = await r.json();
+
+                    // Auto-seleccionar el emisor y receptor del documento origen.
+                    // La reversa (NC/ND) DEBE emitirse con el mismo emisor del documento
+                    // original; el backend lo valida. Se buscan por número de identificación.
+                    const emisor = doc.emisor || doc.Emisor;
+                    const receptor = doc.receptor || doc.Receptor;
+                    // IDs directos de catálogo persistidos en el documento origen. Son la
+                    // fuente más confiable: evitan depender de que el receptor siga
+                    // existiendo/coincida en el catálogo de proveedores por identificación.
+                    const idIssuerDirect   = doc.idCustomerIssuer   ?? doc.IdCustomerIssuer;
+                    const idReceptorDirect = doc.idCustomerReceptor ?? doc.IdCustomerReceptor;
+
+                    // Emisor: intentar ID directo; si no, buscar por identificación.
+                    if (idIssuerDirect) {
+                        setParty('issuer', idIssuerDirect, emisor);
+                    } else if (emisor) {
+                        const idNum = emisor.identificacionNumero ?? emisor.IdentificacionNumero;
+                        if (idNum) await autoSelectParty('issuer', idNum);
+                    }
+
+                    // Receptor: intentar ID directo; si no, buscar por identificación.
+                    // Nota: el REP/NC no lleva receptor solo cuando es TE (04), que no aplica aquí.
+                    if (idReceptorDirect) {
+                        setParty('receptor', idReceptorDirect, receptor);
+                    } else if (receptor) {
+                        const idNum = receptor.identificacionNumero ?? receptor.IdentificacionNumero;
+                        if (idNum) await autoSelectParty('receptor', idNum);
+                    }
+
+                    // Precargar condiciones comerciales del documento origen para que el
+                    // usuario solo tenga que ingresar/ajustar lo propio del recibo.
+                    const srcCurrency = doc.currency ?? doc.Currency;
+                    if (srcCurrency) {
+                        const curSel = document.getElementById('currency');
+                        if (curSel && [...curSel.options].some(o => o.value === srcCurrency)) {
+                            curSel.value = srcCurrency;
+                        }
+                    }
+                    const srcSaleCond = doc.saleCondition ?? doc.SaleCondition;
+                    if (srcSaleCond) {
+                        const scSel = document.getElementById('saleCondition');
+                        // Un REP documenta el PAGO: la condición efectiva es Contado (01).
+                        // Para NC/ND se conserva la condición del documento origen.
+                        const valToSet = isRep ? '01' : srcSaleCond;
+                        if (scSel && [...scSel.options].some(o => o.value === valToSet)) {
+                            scSel.value = valToSet;
+                            scSel.dispatchEvent(new Event('change'));
+                        }
+                    }
+
+                    const srcLines = (doc.lines || doc.Lines || []);
+                    if (srcLines.length) {
+                        // Vaciar la línea vacía inicial
+                        document.getElementById('linesBody').innerHTML = '';
+                        for (const l of srcLines) {
+                            // El backend persiste TaxRateIva como FRACCIÓN (0.13). El campo
+                            // '.rate' de la pantalla trabaja en PORCENTAJE (13). Normalizamos:
+                            // si el valor viene <= 1 se asume fracción y se multiplica por 100.
+                            let rate = (l.taxRateIva ?? l.TaxRateIva);
+                            if (rate == null) rate = 13;
+                            else if (rate <= 1) rate = rate * 100;
+
+                            // Para una N/C (reversa) precargamos la cantidad DISPONIBLE
+                            // (original − lo ya acreditado por N/C previas). Para un REP
+                            // precargamos el saldo PENDIENTE de pago (original − REP previos).
+                            // Si una línea ya fue totalmente acreditada/pagada, se omite.
+                            const fullQty = l.quantity ?? l.Quantity;
+                            let qty = fullQty;
+                            if (isRep) {
+                                const availRep = (l.availableQuantityRep ?? l.AvailableQuantityRep);
+                                qty = (availRep == null) ? fullQty : availRep;
+                                if (qty <= 0) continue; // línea sin saldo por pagar → no precargar
+                            } else {
+                                const avail = (l.availableQuantity ?? l.AvailableQuantity);
+                                qty = (avail == null) ? fullQty : avail;
+                                if (qty <= 0) continue; // línea sin saldo disponible → no precargar
+                            }
+
+                            addLine({
+                                cabys: l.cabysCode ?? l.CabysCode,
+                                detail: l.detail ?? l.Detail,
+                                quantity: qty,
+                                unitPrice: l.unitPrice ?? l.UnitPrice,
+                                taxRate: rate,
+                                discount: l.discountAmount ?? l.DiscountAmount ?? 0,
+                                nature: l.discountNature ?? l.DiscountNature ?? '',
+                                locked: true
+                            });
+                            loadedLines++;
+                        }
+                        recalc();
+                    }
+                }
+            } catch (e) {
+                console.error('[Reversa] No se pudieron cargar las líneas del documento origen:', e);
+            }
+        }
+
+        // Bloquear "Agregar línea": en una reversa/REP no se pueden inventar líneas nuevas.
+        // El REP documenta el pago de la factura referenciada; sus líneas provienen de ella.
+        const addBtn = document.getElementById('addLineBtn');
+        if (addBtn && loadedLines > 0) {
+            addBtn.setAttribute('disabled', 'disabled');
+            addBtn.title = isRep
+                ? `En un ${docLabel} no se pueden agregar líneas que no existan en la ${sourceLabel} referenciada.`
+                : `En una ${docLabel} no se pueden agregar líneas que no existan en la ${sourceLabel} a reversar.`;
+            // Marcar la pantalla en modo reversa para validaciones de emisión
+            window.__ncMode = true;
+        }
+
+        // Aviso visual
+        if (result) {
+            if (loadedLines === 0) {
+                result.innerHTML = '<div class="alert alert-warning">' +
+                    '<i class="bi bi-exclamation-triangle me-1"></i> ' +
+                    (isRep
+                        ? 'Esta ' + sourceLabel + ' ya fue <strong>pagada en su totalidad</strong> ' +
+                          'por Recibos Electrónicos de Pago previos. No queda saldo pendiente para emitir otro REP.'
+                        : 'Esta ' + sourceLabel + ' ya fue <strong>totalmente acreditada</strong> por Notas de Crédito previas. ' +
+                          'No queda saldo disponible para emitir otra Nota de Crédito.') +
+                    '</div>';
+            } else {
+            result.innerHTML = '<div class="alert alert-info">' +
+                (isRep
+                    ? `<i class="bi bi-info-circle me-1"></i> <strong>${docLabel}</strong> precargado con las ` +
+                      `${loadedLines} línea(s) de la ${sourceLabel} referenciada. ` +
+                      `Este comprobante documenta el <strong>pago (total o parcial)</strong> de dicha factura. ` +
+                      `Para un pago <strong>parcial</strong> ajuste las líneas/cantidades al monto efectivamente abonado. ` +
+                      `Se emite un REP por cada abono recibido.`
+                    : `<i class="bi bi-info-circle me-1"></i> <strong>${docLabel}</strong> precargada con las ` +
+                      `${loadedLines} línea(s) de la ${sourceLabel} a reversar. ` +
+                      `Para una reversa <strong>total</strong> deje todas las líneas; para una <strong>parcial</strong> elimine ` +
+                      'las líneas que no desea reversar (debe quedar al menos una). No puede agregar ni alterar las líneas de origen.') +
+                '</div>';
+            }
+        }
+        dtSel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    })();
+})();
+
+// ── Mover modales al <body> DESPUÉS de que el DOM esté listo
+//    (mismo patrón que InventoryMovements)
+document.addEventListener('DOMContentLoaded', function () {
+    ['issuerModal', 'receptorModal', 'itemModal'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) document.body.appendChild(el);
+    });
+
+    var issuerModalEl   = document.getElementById('issuerModal');
+    var receptorModalEl = document.getElementById('receptorModal');
+    var itemModalEl     = document.getElementById('itemModal');
+
+    if (issuerModalEl)   issuerModalEl.addEventListener('shown.bs.modal',   () => window.searchIssuers());
+    if (receptorModalEl) receptorModalEl.addEventListener('shown.bs.modal', () => window.searchReceptors());
+    if (itemModalEl)     itemModalEl.addEventListener('shown.bs.modal',     () => window.searchItems());
+});
+</script>
+}

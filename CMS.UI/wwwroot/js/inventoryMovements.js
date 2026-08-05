@@ -120,6 +120,19 @@ async function invFetch(path, options = {}) {
 }
 
 // ============================================================
+// HTML ESCAPE HELPER
+// ============================================================
+
+function _escapeHtml(str) {
+    return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// ============================================================
 // INIT
 // ============================================================
 
@@ -420,7 +433,7 @@ async function openCreate() {
     if (fldOdoErrNew) fldOdoErrNew.style.display = 'none';
     if (fldOdoHintNew) fldOdoHintNew.textContent = 'Km al salir hacia la bodega de tránsito';
 
-    INV._groups = [{ destId: null, sealDest: '', departureTime: '', arrivalTime: '', odometerOut: '' }];
+    INV._groups = [{ destId: null, sealDest: '', departureTime: '', arrivalTime: '', odometerOut: '', notes: '' }];
     populateWarehouseSelects();
     updateTransitUI();
     renderLines();
@@ -489,9 +502,10 @@ async function openEdit(id) {
                     departureTime: g.departureTime      || '',
                     arrivalTime:   g.arrivalTime        || '',
                     odometerOut:   g.odometerOut        != null ? g.odometerOut : '',
+                    notes:         g.notes              || '',
                 }));
             } else {
-                INV._groups = [{ id: null, destId: null, sealDest: '', departureTime: '', arrivalTime: '', odometerOut: '' }];
+                INV._groups = [{ id: null, destId: null, sealDest: '', departureTime: '', arrivalTime: '', odometerOut: '', notes: '' }];
             }
 
             // Derivar idWarehouseDestLine en cada línea a partir del grupo de tránsito al que pertenece.
@@ -505,7 +519,7 @@ async function openEdit(id) {
                 }
             });
         } else {
-            INV._groups = [{ id: null, destId: null, sealDest: '', departureTime: '', arrivalTime: '', odometerOut: '' }];
+            INV._groups = [{ id: null, destId: null, sealDest: '', departureTime: '', arrivalTime: '', odometerOut: '', notes: '' }];
         }
 
         populateWarehouseSelects();
@@ -1065,6 +1079,18 @@ function renderTransitGroups(container) {
             <div id="grpLines${gIdx}">
                 ${linesHtml || '<div class="text-center py-2" style="font-size:.82rem;color:#94a3b8;"><i class="bi bi-inbox me-1"></i>Sin artículos. Haga clic en "Agregar Artículo".</div>'}
             </div>
+            <!-- Observaciones por bodega destino -->
+            <div class="row g-2 mt-2">
+                <div class="col-12">
+                    <label class="form-label" style="font-size:.78rem;color:#94a3b8;">
+                        <i class="bi bi-chat-left-text me-1 text-info"></i>Observaciones para esta bodega destino
+                    </label>
+                    <textarea id="grpNotes${gIdx}" class="form-control grp-notes" data-gidx="${gIdx}" rows="2"
+                              placeholder="Observaciones del despacho hacia esta bodega…"
+                              style="background:#0d1117;color:#e2e8f0;border-color:#2a3a5c;resize:vertical;font-size:.85rem;">${_escapeHtml(group.notes || '')}</textarea>
+                    <small style="color:#cbd5e1!important;">Opcional — se guardan junto al movimiento y se mostrarán al confirmar la recepción.</small>
+                </div>
+            </div>
         </div>`;
     });
 
@@ -1080,6 +1106,14 @@ function renderTransitGroups(container) {
     // Bind: cambio de selector de destino por grupo
     container.querySelectorAll('.grp-dest-sel').forEach(sel => {
         sel.addEventListener('change', () => changeGroupDest(+sel.dataset.gidx));
+    });
+
+    // Bind: observaciones por grupo
+    container.querySelectorAll('.grp-notes').forEach(ta => {
+        ta.addEventListener('input', () => {
+            const gIdx = +ta.dataset.gidx;
+            if (INV._groups[gIdx] !== undefined) INV._groups[gIdx].notes = ta.value;
+        });
     });
 
     // Bind: agregar artículo a un grupo específico
@@ -1144,7 +1178,7 @@ function renderTransitGroups(container) {
                 showModalAlert('No hay más bodegas destino disponibles. Todas las bodegas ya han sido asignadas en este movimiento.', 'info');
                 return;
             }
-            INV._groups.push({ destId: null, sealDest: '', departureTime: '', arrivalTime: '', odometerOut: '' });
+            INV._groups.push({ destId: null, sealDest: '', departureTime: '', arrivalTime: '', odometerOut: '', notes: '' });
             renderLines();
             const modalBody = document.querySelector('#invModal .modal-body');
             if (modalBody) setTimeout(() => modalBody.scrollTo({ top: modalBody.scrollHeight, behavior: 'smooth' }), 50);
@@ -1365,6 +1399,14 @@ async function saveMovement(autoConfirm = false) {
         }
     }
 
+    // Recopilar notas por grupo de bodega destino (solo TransitTransfer)
+    const groupNotesByDestId = {};
+    if (isTransit) {
+        INV._groups.forEach(g => {
+            if (g.destId) groupNotesByDestId[g.destId] = g.notes || null;
+        });
+    }
+
     const payload = {
         transactionNumber: number || undefined,
         idInventoryTransactionType: typeId,
@@ -1378,6 +1420,7 @@ async function saveMovement(autoConfirm = false) {
         odometerOut,
         transactionDate:      date,
         isTransitTransfer:    isTransit,
+        groupNotesByDestId,
         lines: INV.lines.map(l => ({
             idItem:              l.idItem,
             itemCode:            l.itemCode,
@@ -1396,7 +1439,10 @@ async function saveMovement(autoConfirm = false) {
         let txn;
         if (INV.editingId) {
             await invFetch(`/api/inventorytransaction/${INV.editingId}`, { method: 'PUT', body: payload });
-            await invFetch(`/api/inventorytransaction/${INV.editingId}/lines`, { method: 'PUT', body: payload.lines });
+            await invFetch(`/api/inventorytransaction/${INV.editingId}/lines`, {
+                method: 'PUT',
+                body: { lines: payload.lines, groupNotesByDestId: payload.groupNotesByDestId }
+            });
             txn = { id: INV.editingId };
         } else {
             txn = await invFetch('/api/inventorytransaction', { method: 'POST', body: payload });
@@ -1920,6 +1966,31 @@ function renderReceiveBody(txn) {
                     </div>
                 </div>` : '';
 
+                        // Observaciones del despacho + campo para observaciones al recibir
+                        const prevNotes = g.notes || '';
+                        const notesField = isActive ? `
+                            <div class="row g-2 mb-2 mt-2">
+                                <div class="col-12">
+                                    <label class="form-label" style="color:#94a3b8;font-size:.78rem;">
+                                        <i class="bi bi-chat-left-text me-1 text-info"></i>Observaciones
+                                    </label>
+                                    ${prevNotes ? `<div style="background:#0d1117;border:1px solid #2a3a5c;border-radius:6px;padding:.5rem .75rem;color:#94a3b8;font-size:.82rem;white-space:pre-wrap;margin-bottom:.4rem;">
+                                        <small style="color:#4ade80!important;font-weight:600;display:block;margin-bottom:.25rem;"><i class="bi bi-lock-fill me-1"></i>Observaciones del despacho (solo lectura):</small>${_escapeHtml(prevNotes)}</div>` : ''}
+                                    <textarea id="rcvNotes${gIdx}" class="form-control form-control-sm" rows="2"
+                                              placeholder="Observaciones al recibir esta bodega… (se concatenarán a las anteriores)"
+                                              style="background:#0d1117;color:#e2e8f0;border-color:#2a3a5c;resize:vertical;font-size:.85rem;"></textarea>
+                                    <small style="color:#cbd5e1!important;">${prevNotes ? 'Se agregarán después de las observaciones del despacho.' : 'Opcional — observaciones al recibir esta bodega.'}</small>
+                                </div>
+                            </div>` : (prevNotes ? `
+                            <div class="row g-2 mb-2 mt-2">
+                                <div class="col-12">
+                                    <label class="form-label" style="color:#94a3b8;font-size:.78rem;">
+                                        <i class="bi bi-chat-left-text me-1 text-info"></i>Observaciones
+                                    </label>
+                                    <div style="background:#0d1117;border:1px solid #2a3a5c;border-radius:6px;padding:.5rem .75rem;color:#cbd5e1;font-size:.82rem;white-space:pre-wrap;">${_escapeHtml(prevNotes)}</div>
+                                </div>
+                            </div>` : '');
+
                         // Firma digital del receptor (solo en grupo activo, se coloca al final)
                         const signatureField = isActive ? `
                             <div class="row g-2 mb-2 mt-3">
@@ -2018,6 +2089,7 @@ function renderReceiveBody(txn) {
                     </table>
                 </div>
                 ${receiveFields}
+                ${notesField}
                 ${signatureField}
                 ${savedSignatureBlock}
             </div>`;
@@ -2351,6 +2423,10 @@ async function submitReceive(txnId, activeGroupIdx, nextWarehouseId) {
     // RECOPILACIÓN DE DATOS Y ENVÍO
     // ============================================================
 
+    // Observaciones al recibir (textarea rcvNotes{activeGroupIdx})
+    const rcvNotesEl = document.getElementById(`rcvNotes${activeGroupIdx}`);
+    const rcvNotesValue = rcvNotesEl?.value?.trim() || null;
+
     // Recopilar cantidades recibidas y devoluciones de líneas existentes
     const lineIds  = checkedLineIds;
     const lineQtys = checkedLineIds.map(lineId => {
@@ -2383,6 +2459,7 @@ async function submitReceive(txnId, activeGroupIdx, nextWarehouseId) {
                 nextWarehouseId:  nextWarehouseId || null,
                 signature:        signatureDataUrl,
                 transitGroupId:   activeGroup.id || null,
+                notes:            rcvNotesValue,
             },
         });
         bootstrap.Modal.getInstance(document.getElementById('receiveModal')).hide();
@@ -2742,6 +2819,14 @@ function renderDetailBody(txn) {
                 g.odometerOut != null ? `<span style="font-size:.75rem;color:#cbd5e1;"><i class="bi bi-speedometer me-1 text-warning"></i>Km: <strong>${g.odometerOut}</strong></span>` : '',
             ].filter(Boolean).join('&nbsp;&nbsp;');
 
+            const notesHtml = g.notes ? `
+                <div style="margin-top:8px;padding:.5rem .75rem;background:#0d1117;border:1px solid #2a3a5c;border-radius:6px;">
+                    <div style="font-size:.72rem;color:#94a3b8;font-weight:600;margin-bottom:.25rem;">
+                        <i class="bi bi-chat-left-text me-1 text-info"></i>Observaciones
+                    </div>
+                    <div style="font-size:.83rem;color:#cbd5e1;white-space:pre-wrap;">${_escapeHtml(g.notes)}</div>
+                </div>` : '';
+
             const signatureHtml = g.signature ? `
                 <div style="margin-top:8px;">
                     <div style="color:#4ade80;font-size:.75rem;font-weight:600;margin-bottom:4px;">
@@ -2776,6 +2861,7 @@ function renderDetailBody(txn) {
                     ${statusTag}
                 </div>
                 ${infoItems ? `<div class="d-flex flex-wrap gap-3 mb-2">${infoItems}</div>` : ''}
+                ${notesHtml}
                 ${signatureHtml}
                 <div class="table-responsive mt-2">
                     <table class="table table-sm mb-0" style="color:var(--inv-text);">

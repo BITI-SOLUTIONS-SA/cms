@@ -20,8 +20,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
     console.log("✅ JavaScript cargado correctamente");
 
-    // Obtener todos los toggles de grupos
-    const toggles = document.querySelectorAll(".nav-group-toggle");
+    // ============================================================
+    // TOGGLE GRUPOS NIVEL 1 (menús principales con hijos)
+    // ============================================================
+    const toggles = document.querySelectorAll(".nav-group-toggle:not(.nav-subgroup-toggle)");
 
     console.log(`📋 Encontrados ${toggles.length} grupos de menú`);
 
@@ -32,54 +34,74 @@ document.addEventListener("DOMContentLoaded", function () {
 
             console.log(`🖱️ Clic en grupo ${index + 1}`);
 
-            const parentGroup = this.closest(".nav-group");
+            const parentGroup = this.closest(".nav-group:not(.nav-subgroup)");
             const wasOpen = parentGroup.classList.contains("open");
 
             console.log(`Estado anterior: ${wasOpen ? 'ABIERTO' : 'CERRADO'}`);
 
-            // ⭐ CERRAR TODOS LOS GRUPOS PRIMERO ⭐
-            document.querySelectorAll(".nav-group").forEach(group => {
+            // Cerrar todos los grupos de nivel 1 excepto el actual
+            document.querySelectorAll(".nav-group:not(.nav-subgroup)").forEach(group => {
                 if (group !== parentGroup) {
                     group.classList.remove("open");
                     console.log("🔒 Cerrando otro grupo");
                 }
             });
 
-            // ⭐ SI NO ESTABA ABIERTO, ABRIRLO ⭐
             if (!wasOpen) {
                 parentGroup.classList.add("open");
                 console.log("🔓 Abriendo este grupo");
 
-                // ⭐ AUTO-SCROLL: Hacer scroll para que el menú padre quede visible en la parte superior ⭐
                 setTimeout(() => {
                     const sidebarNav = document.querySelector('.sidebar-nav');
                     if (sidebarNav) {
-                        // Obtener posiciones
                         const groupRect = parentGroup.getBoundingClientRect();
                         const sidebarRect = sidebarNav.getBoundingClientRect();
                         const subMenu = parentGroup.querySelector('.nav-group-items');
 
-                        // Calcular si el menú expandido cabe en el área visible
                         const totalHeight = groupRect.height + (subMenu ? subMenu.scrollHeight : 0);
                         const availableSpace = sidebarRect.bottom - groupRect.top;
 
-                        // Solo hacer scroll si no cabe completamente
                         if (totalHeight > availableSpace) {
-                            // Hacer scroll para que el PADRE quede cerca del TOP del sidebar
-                            // pero dejando un margen de 80px desde el top para que se vea el header
                             const scrollTarget = parentGroup.offsetTop - 80;
-
-                            sidebarNav.scrollTo({
-                                top: scrollTarget,
-                                behavior: 'smooth'
-                            });
+                            sidebarNav.scrollTo({ top: scrollTarget, behavior: 'smooth' });
                             console.log(`📜 Auto-scroll: menú padre a posición ${scrollTarget}px`);
                         }
                     }
-                }, 100); // Delay para que la animación CSS termine
+                }, 100);
             } else {
                 parentGroup.classList.remove("open");
                 console.log("🔒 Cerrando este grupo");
+            }
+        });
+    });
+
+    // ============================================================
+    // TOGGLE SUBGRUPOS NIVEL 2 (ej: General Accounting dentro de Administration)
+    // ============================================================
+    const subToggles = document.querySelectorAll(".nav-subgroup-toggle");
+
+    subToggles.forEach((toggle, index) => {
+        toggle.addEventListener("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation(); // evitar que el click suba al grupo padre
+
+            const subGroup = this.closest(".nav-subgroup");
+            const wasOpen  = subGroup.classList.contains("open");
+
+            // Cerrar otros subgrupos del mismo padre
+            const parentItems = subGroup.closest(".nav-group-items");
+            if (parentItems) {
+                parentItems.querySelectorAll(".nav-subgroup").forEach(sg => {
+                    if (sg !== subGroup) sg.classList.remove("open");
+                });
+            }
+
+            if (!wasOpen) {
+                subGroup.classList.add("open");
+                console.log(`🔓 Abriendo subgrupo ${index + 1}`);
+            } else {
+                subGroup.classList.remove("open");
+                console.log(`🔒 Cerrando subgrupo ${index + 1}`);
             }
         });
     });

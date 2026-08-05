@@ -357,8 +357,8 @@ namespace CMS.API.Controllers
             {
                 var companyId = GetCompanyId();
                 var parameter = MapFromCreateDto(dto);
-                parameter.CreatedBy = User.Identity?.Name ?? "system";
-                parameter.UpdatedBy = User.Identity?.Name ?? "system";
+                parameter.CreatedBy = User.FindFirstValue("cms_username") ?? User.FindFirstValue(System.Security.Claims.ClaimTypes.Name) ?? "SYSTEM";
+                parameter.UpdatedBy = User.FindFirstValue("cms_username") ?? User.FindFirstValue(System.Security.Claims.ClaimTypes.Name) ?? "SYSTEM";
 
                 var created = await _service.CreateAsync(companyId, parameter);
                 return CreatedAtAction(nameof(GetById), new { id = created.ID }, MapToDto(created));
@@ -391,7 +391,7 @@ namespace CMS.API.Controllers
                 var companyId = GetCompanyId();
                 var parameter = MapFromUpdateDto(dto);
                 parameter.ID = id;
-                parameter.UpdatedBy = User.Identity?.Name ?? "system";
+                parameter.UpdatedBy = User.FindFirstValue("cms_username") ?? User.FindFirstValue(System.Security.Claims.ClaimTypes.Name) ?? "SYSTEM";
 
                 var updated = await _service.UpdateAsync(companyId, parameter);
                 return Ok(MapToDto(updated));

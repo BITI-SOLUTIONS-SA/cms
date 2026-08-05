@@ -1,0 +1,1344 @@
+﻿@{
+    ViewData["Title"] = "Comprobantes Electrónicos";
+    var apiBaseUrl = ViewBag.ApiBaseUrl as string ?? "";
+    var apiToken   = ViewBag.ApiToken   as string ?? "";
+}
+@*
+    VISTA: ElectronicInvoice/Index.cshtml — Listado de comprobantes emitidos.
+    AUTOR: EAMR, BITI SOLUTIONS S.A
+*@
+<style>
+    small, .form-text, small.text-muted, .text-muted small { color: #cbd5e1 !important; }
+    .ei-card { background-color: #16213e; border: 1px solid #24304f; }
+
+    /* Filas clickeables */
+    #docsBody tr.doc-row { cursor: pointer; transition: background .15s; }
+    #docsBody tr.doc-row:hover { background: #1e2d4a; }
+
+    /* Modal detalle */
+    #docDetailModal { z-index: 1060 !important; }
+    #docDetailModal .modal-content {
+        background: #1a2340; color: #e2e8f0;
+        border: 1px solid #2a3a5c; border-radius: 16px;
+        max-height: calc(100vh - 4rem);
+        display: flex; flex-direction: column;
+    }
+    #docDetailModal .modal-header { border-bottom: 1px solid #2a3a5c; }
+    #docDetailModal .modal-footer { border-top: 1px solid #2a3a5c; }
+    #docDetailModal .modal-body   { overflow-y: auto; flex: 1 1 auto; }
+    #docDetailModal .detail-label { color: #94a3b8; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; }
+    #docDetailModal .detail-value { font-size: .925rem; font-weight: 600; }
+    #docDetailModal .section-title {
+        font-size: .78rem; text-transform: uppercase; letter-spacing: .06em;
+        color: #6c63ff; border-bottom: 1px solid #2a3a5c; padding-bottom: .3rem; margin: 1rem 0 .6rem;
+    }
+    #docDetailModal .rejection-box {
+        background: #3b0f0f; border: 1px solid #ef4444; border-radius: 8px;
+        padding: .75rem 1rem; color: #fca5a5;
+    }
+    #docDetailModal .xml-box {
+        background: #111827; border: 1px solid #2a3a5c; border-radius: 8px;
+        padding: .6rem; font-size: .72rem; color: #94a3b8;
+        max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+    }
+    #docDetailModal table thead th { background: #111827; color: #94a3b8; font-size: .72rem; }
+    #docDetailModal table tbody td { font-size: .82rem; border-color: #2a3a5c; }
+</style>
+
+<div class="container-fluid py-3 text-light">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-receipt me-2"></i>Comprobantes Electrónicos</h4>
+        <div>
+            <a asp-action="Issuers" class="btn btn-outline-light btn-sm"><i class="bi bi-building"></i> Emisores</a>
+            <a asp-action="Emit" class="btn btn-success btn-sm"><i class="bi bi-plus-lg"></i> Emitir</a>
+        </div>
+    </div>
+
+    <div class="card ei-card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-dark table-hover table-sm">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th><th>Tipo</th><th>Clave</th><th>Consecutivo</th>
+                            <th>Estado</th><th>Hacienda</th><th class="text-end">Total</th><th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="docsBody">
+                        <tr><td colspan="8" class="text-center py-3" style="color:#a5b4fc;font-weight:500"><span class="spinner-border spinner-border-sm me-2" role="status"></span>Cargando comprobantes...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     MODAL: DETALLE DEL COMPROBANTE
+══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="docDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="docDetailTitle">
+                    <i class="bi bi-receipt-cutoff me-2"></i>Detalle del Comprobante
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="docDetailBody">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-info" role="status"></div>
+                    <p class="mt-2 text-muted">Cargando detalle...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="detailXmlSignedBtn" class="btn btn-outline-info btn-sm d-none">
+                    <i class="bi bi-filetype-xml"></i> XML Firmado
+                </button>
+                <button id="detailXmlRespBtn" class="btn btn-outline-secondary btn-sm d-none">
+                    <i class="bi bi-code-slash"></i> XML Respuesta Hacienda
+                </button>
+                <button id="detailPdfBtn" class="btn btn-outline-danger btn-sm d-none">
+                    <i class="bi bi-filetype-pdf"></i> Ver PDF
+                </button>
+                <button id="detailReprocessBtn" class="btn btn-outline-warning btn-sm d-none">
+                    <i class="bi bi-arrow-repeat"></i> Reprocesar
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     MODAL: VISOR XML — árbol interactivo estilo Edge
+══════════════════════════════════════════════════════════ -->
+<style>
+/* ── XML Tree Viewer (estilo Edge) ─────────────────────────── */
+.xml-tree {
+    font-family: 'Cascadia Code','Fira Code','Consolas',monospace;
+    font-size: .82rem; line-height: 1.7;
+    background: #111827; color: #e2e8f0;
+    padding: 1rem 1rem 1rem 1.5rem;
+    border-radius: 10px; overflow: auto;
+    max-height: 75vh; border: 1px solid #1e3a5c;
+}
+.xml-tree .xn       { display: block; white-space: nowrap; }
+.xml-tree .xn:hover { background: rgba(108,99,255,.08); border-radius:4px; }
+.xml-tree .xt       { color: #7dd3fc; }          /* <Tag>           azul */
+.xml-tree .xa       { color: #86efac; }          /* atrib name      verde */
+.xml-tree .xv       { color: #fca5a5; }          /* "attr value"    rosa */
+.xml-tree .xval     { color: #fde68a; }          /* >texto<         amarillo */
+.xml-tree .xpi      { color: #c084fc; }          /* <?xml?>         violeta */
+.xml-tree .xcom     { color: #6b7280; font-style:italic; } /* comentario */
+.xml-tree .xns      { color: #64748b; }          /* xmlns           gris */
+/* Botón colapsar ▶ / ▼ */
+.xml-tree .xfold {
+    display: inline-block; width: 14px; text-align: center;
+    cursor: pointer; user-select: none;
+    color: #6b7280; font-size: .7rem; margin-right: 2px;
+    transition: transform .15s;
+}
+.xml-tree .xfold:hover { color: #e2e8f0; }
+.xml-tree .xchildren  { margin-left: 1.4rem; }
+.xml-tree .xcollapsed > .xchildren { display: none; }
+.xml-tree .xcollapsed > .xn > .xfold { transform: rotate(-90deg); }
+.xml-tree .xellipsis  { color: #6b7280; font-size:.75rem; }
+</style>
+<div class="modal fade" id="xmlViewerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered" style="max-width:92vw">
+        <div class="modal-content" style="background:#0f1629;color:#e2e8f0;border:1px solid #2a3a5c;border-radius:16px;">
+            <div class="modal-header" style="border-bottom:1px solid #2a3a5c;background:#1a2340">
+                <h5 class="modal-title" id="xmlViewerTitle"><i class="bi bi-code-slash me-2 text-info"></i>XML</h5>
+                <div class="ms-auto d-flex gap-2 me-3">
+                    <button class="btn btn-sm btn-outline-secondary" id="xmlExpandAllBtn" title="Expandir todo">
+                        <i class="bi bi-arrows-expand"></i> Expandir todo
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" id="xmlCollapseAllBtn" title="Colapsar todo">
+                        <i class="bi bi-arrows-collapse"></i> Colapsar
+                    </button>
+                    <button class="btn btn-sm btn-outline-light" id="xmlCopyBtn">
+                        <i class="bi bi-clipboard"></i> Copiar
+                    </button>
+                    <button class="btn btn-sm btn-outline-info" id="xmlDownloadBtn">
+                        <i class="bi bi-download"></i> Descargar
+                    </button>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:.75rem;background:#0f1629">
+                <div id="xmlViewerSpinner" class="text-center py-4">
+                    <div class="spinner-border text-info" role="status"></div>
+                    <p class="mt-2 text-muted">Cargando XML...</p>
+                </div>
+                <div id="xmlViewerContent" class="xml-tree d-none"></div>
+            </div>
+            <div class="modal-footer" style="border-top:1px solid #2a3a5c;background:#1a2340">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     MODAL: VISTA DOCUMENTO (encabezado legible + líneas)
+══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="docViewerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content" style="background:#1a2340;color:#e2e8f0;border:1px solid #2a3a5c;border-radius:16px">
+            <div class="modal-header" style="background:#111827;border-bottom:1px solid #2a3a5c">
+                <div>
+                    <h5 class="modal-title mb-0" id="docViewerTitle"><i class="bi bi-file-earmark-text me-2 text-success"></i>Vista del Documento</h5>
+                    <small class="text-muted" id="docViewerSubtitle"></small>
+                </div>
+                <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="docViewerBody" style="padding:1.25rem">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-success" role="status"></div>
+                    <p class="mt-2 text-muted">Cargando documento...</p>
+                </div>
+            </div>
+            <div class="modal-footer" style="border-top:1px solid #2a3a5c;background:#111827">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     MODAL: VISOR PDF
+══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="pdfViewerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered" style="max-width:90vw">
+        <div class="modal-content" style="background:#1a2340;color:#e2e8f0;border:1px solid #2a3a5c;border-radius:16px;height:90vh">
+            <div class="modal-header" style="border-bottom:1px solid #2a3a5c">
+                <h5 class="modal-title"><i class="bi bi-filetype-pdf me-2 text-danger"></i>PDF del Comprobante</h5>
+                <button class="btn btn-sm btn-outline-danger ms-auto me-3" id="pdfDownloadBtn">
+                    <i class="bi bi-download"></i> Descargar PDF
+                </button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:.5rem;overflow:hidden;display:flex;flex-direction:column">
+                <div id="pdfViewerSpinner" class="text-center py-4">
+                    <div class="spinner-border text-danger" role="status"></div>
+                    <p class="mt-2 text-muted">Cargando PDF...</p>
+                </div>
+                <iframe id="pdfViewerFrame" class="d-none" style="flex:1;width:100%;height:100%;border:none;border-radius:8px;"></iframe>
+            </div>
+            <div class="modal-footer" style="border-top:1px solid #2a3a5c">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     MODAL: BITÁCORA DE EMISIÓN (consola estilo CMD)
+══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="logViewerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content" style="background:#1a2340;color:#e2e8f0;border:1px solid #2a3a5c;border-radius:16px;">
+            <div class="modal-header" style="border-bottom:1px solid #2a3a5c;background:#0d1117">
+                <h5 class="modal-title"><i class="bi bi-terminal me-2 text-info"></i>Bitácora de emisión</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:0;">
+                <div id="logViewerConsole" style="background:#0b0e14;color:#c9d1d9;font-family:'Cascadia Code','Consolas',monospace;font-size:.82rem;line-height:1.6;padding:1rem;min-height:200px;max-height:65vh;overflow-y:auto;white-space:pre-wrap;border-radius:0 0 16px 16px;">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-info" role="status"></div>
+                        <p class="mt-2 text-muted">Cargando bitácora...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="border-top:1px solid #2a3a5c">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    window.EI_API   = '@Html.Raw(apiBaseUrl)';
+    window.EI_TOKEN = '@Html.Raw(apiToken)';
+</script>
+<script>
+(function () {
+    const EI = { api: window.EI_API || '', token: window.EI_TOKEN || '' };
+
+    // ── fetch helper con Bearer token ──────────────────────────────
+    async function eiFetch(path, options = {}) {
+        const url  = EI.api + path;
+        const opts = Object.assign({ headers: {} }, options);
+        if (EI.token) opts.headers['Authorization'] = `Bearer ${EI.token}`;
+        return fetch(url, opts);
+    }
+
+    // ── Catálogos locales ──────────────────────────────────────────
+    const TYPE = { '01':'Factura Electrónica','02':'Nota de Débito','03':'Nota de Crédito',
+                   '04':'Tiquete Electrónico','08':'Factura de Compra','10':'Recibo de Pago' };
+    const SALE = { '01':'Contado','02':'Crédito','03':'Consignación','04':'Apartado',
+                   '05':'Arrendamiento c/op','06':'Arrendamiento s/op','07':'Cobro a favor','08':'Pago serv. prestado','99':'Otros' };
+    const PAY  = { '01':'Efectivo','02':'Tarjeta','03':'Cheque','04':'Transferencia',
+                   '05':'Recaudado por terceros','99':'Otros' };
+
+    function badge(status) {
+        const map = { 'Aceptado':'success','Rechazado':'danger','Contingencia':'warning',
+            'Pendiente':'secondary','Procesando':'info','Firmado':'primary','Enviado':'info','Borrador':'secondary' };
+        return `<span class="badge bg-${map[status] || 'secondary'} fs-6 px-3 py-2">${status}</span>`;
+    }
+    function badgeSm(status) {
+        const map = { 'Aceptado':'success','Rechazado':'danger','Contingencia':'warning',
+            'Pendiente':'secondary','Procesando':'info','Firmado':'primary','Enviado':'info','Borrador':'secondary' };
+        return `<span class="badge bg-${map[status] || 'secondary'}">${status}</span>`;
+    }
+    function fmt(n) { return (n||0).toFixed(2); }
+    function fmtDate(d) { return d ? new Date(d).toLocaleString('es-CR') : '—'; }
+
+    // ── Cargar lista ───────────────────────────────────────────────
+    async function load() {
+        try {
+            const r = await eiFetch('/api/electronicinvoice?limit=200');
+            const list = r.ok ? await r.json() : [];
+            const body = document.getElementById('docsBody');
+            if (!list.length) {
+                body.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Sin comprobantes</td></tr>';
+                return;
+            }
+            body.innerHTML = list.map(d => `
+                <tr class="doc-row" data-id="${d.id}" style="cursor:pointer">
+                    <td>${fmtDate(d.issueDate)}</td>
+                    <td><span class="badge bg-secondary">${TYPE[d.documentType] || d.documentType}</span></td>
+                    <td><code class="text-info" style="font-size:.75rem">${d.clave ? d.clave.substring(0,20)+'…' : '—'}</code></td>
+                    <td>${d.consecutive || '—'}</td>
+                    <td>${badgeSm(d.status)}</td>
+                    <td>${d.haciendaStatus
+                        ? `<span class="badge bg-${d.haciendaStatus==='aceptado'?'success':'danger'}">${d.haciendaStatus}</span>`
+                        : '<span class="text-muted">—</span>'}
+                        ${d.haciendaDetail ? `<i class="bi bi-info-circle text-warning ms-1" title="${(d.haciendaDetail||'').replace(/"/g,'&quot;')}"></i>` : ''}
+                    </td>
+                    <td class="text-end fw-bold">${fmt(d.total)} <small class="text-muted">${d.currency}</small></td>
+                    <td onclick="event.stopPropagation()" class="text-nowrap">
+                        <button class="btn btn-sm btn-outline-success ei-doc-btn" data-id="${d.id}" title="Vista Documento"><i class="bi bi-eye"></i></button>
+                        <button class="btn btn-sm btn-outline-info    ei-xml-btn"  data-id="${d.id}" data-type="signed"   title="Ver XML Firmado"><i class="bi bi-filetype-xml"></i></button>
+                        <button class="btn btn-sm btn-outline-secondary ei-xml-btn" data-id="${d.id}" data-type="response" title="XML Respuesta Hacienda"><i class="bi bi-code-slash"></i></button>
+                        <button class="btn btn-sm btn-outline-danger   ei-pdf-btn" data-id="${d.id}"                      title="Ver PDF"><i class="bi bi-filetype-pdf"></i></button>
+                        <button class="btn btn-sm btn-outline-light    ei-log-btn" data-id="${d.id}"                     title="Ver bitácora de emisión"><i class="bi bi-terminal"></i></button>
+                        <button class="btn btn-sm btn-outline-primary  ei-backfill-btn" data-id="${d.id}" title="Sincronizar campos desde XML (BD)"><i class="bi bi-database-down"></i></button>
+                        ${((d.haciendaStatus==='aceptado' || d.status==='Aceptado') && ['01','04','08'].includes(d.documentType) && d.clave && !d.fullyReversed)
+                            ? `<button class="btn btn-sm btn-outline-warning ei-nc-btn" data-id="${d.id}" data-clave="${d.clave}" data-type="${d.documentType}" data-date="${d.issueDate}" title="Crear Nota de Crédito sobre este documento"><i class="bi bi-arrow-return-left"></i> NC</button>`
+                            : ((d.haciendaStatus==='aceptado' || d.status==='Aceptado') && ['01','04','08'].includes(d.documentType) && d.clave && d.fullyReversed)
+                                ? `<span class="badge bg-secondary ms-1" title="Este documento ya fue reversado en su totalidad (100%). No admite más notas de crédito."><i class="bi bi-check2-all"></i> Reversado</span>`
+                                : ''}
+                        ${((d.haciendaStatus==='aceptado' || d.status==='Aceptado') && d.documentType==='03' && d.clave && !d.fullyReversed)
+                            ? `<button class="btn btn-sm btn-outline-warning ei-nd-btn" data-id="${d.id}" data-clave="${d.clave}" data-type="${d.documentType}" data-date="${d.issueDate}" title="Crear Nota de Débito sobre esta Nota de Crédito"><i class="bi bi-arrow-return-right"></i> ND</button>`
+                            : ((d.haciendaStatus==='aceptado' || d.status==='Aceptado') && d.documentType==='03' && d.clave && d.fullyReversed)
+                                ? `<span class="badge bg-secondary ms-1" title="Esta Nota de Crédito ya fue reversada en su totalidad (100%). No admite más notas de débito."><i class="bi bi-check2-all"></i> Reversado</span>`
+                                : ''}
+                        ${((d.haciendaStatus==='aceptado' || d.status==='Aceptado') && ['01','08'].includes(d.documentType) && d.clave && d.saleCondition==='02' && !d.fullyPaid)
+                            ? `<button class="btn btn-sm btn-outline-success ei-rep-btn" data-id="${d.id}" data-clave="${d.clave}" data-type="${d.documentType}" data-date="${d.issueDate}" title="Generar Recibo Electrónico de Pago (REP) sobre esta factura a crédito"><i class="bi bi-cash-coin"></i> REP</button>`
+                            : ((d.haciendaStatus==='aceptado' || d.status==='Aceptado') && ['01','08'].includes(d.documentType) && d.clave && d.saleCondition==='02' && d.fullyPaid)
+                                ? `<span class="badge bg-secondary ms-1" title="Esta factura ya fue pagada en su totalidad (100%) mediante Recibos Electrónicos de Pago. No admite más REP."><i class="bi bi-check2-all"></i> Pagada</span>`
+                                : ''}
+                        ${['Procesando','Enviado'].includes(d.status)
+                            ? `<button class="btn btn-sm btn-outline-info ei-poll-btn" data-id="${d.id}" title="Consultar estado en Hacienda"><i class="bi bi-cloud-check"></i></button>`
+                            : ''}
+                        ${['Pendiente','Contingencia'].includes(d.status)
+                            ? `<button class="btn btn-sm btn-outline-info ei-poll-btn" data-id="${d.id}" title="Reenviar a Hacienda y consultar el estado real del comprobante"><i class="bi bi-cloud-arrow-up"></i> Consultar</button>`
+                            : ''}
+                    </td>
+                </tr>`).join('');
+
+            // Click en fila → abrir modal detalle
+            body.querySelectorAll('.doc-row').forEach(tr =>
+                tr.addEventListener('click', () => openDetail(parseInt(tr.dataset.id)))
+            );
+            // Botón Vista Documento
+            body.querySelectorAll('.ei-doc-btn').forEach(b => b.addEventListener('click', async e => {
+                e.stopPropagation();
+                console.log('[EI] Click ei-doc-btn → id=', b.dataset.id);
+                await openDocViewer(parseInt(b.dataset.id));
+            }));
+            // Botón XML
+            const xmlBtns = body.querySelectorAll('.ei-xml-btn');
+            const pdfBtns = body.querySelectorAll('.ei-pdf-btn');
+            console.log(`[EI] load() → registrando listeners: ${xmlBtns.length} botones XML, ${pdfBtns.length} botones PDF`);
+            xmlBtns.forEach(b => b.addEventListener('click', async e => {
+                e.stopPropagation();
+                console.log('[EI] Click ei-xml-btn → id=', b.dataset.id, 'type=', b.dataset.type);
+                await openXmlForDoc(parseInt(b.dataset.id), b.dataset.type);
+            }));
+            // Botón PDF
+            pdfBtns.forEach(b => b.addEventListener('click', async e => {
+                e.stopPropagation();
+                console.log('[EI] Click ei-pdf-btn → id=', b.dataset.id);
+                await openPdfForDoc(parseInt(b.dataset.id));
+            }));
+            // Botón bitácora
+            body.querySelectorAll('.ei-log-btn').forEach(b => b.addEventListener('click', async e => {
+                e.stopPropagation();
+                await openLogsForDoc(parseInt(b.dataset.id));
+            }));
+            // Botón crear Nota de Crédito → navega a Emit con la referencia precargada
+            body.querySelectorAll('.ei-nc-btn').forEach(b => b.addEventListener('click', e => {
+                e.stopPropagation();
+                const qs = new URLSearchParams({
+                    ncFrom: b.dataset.id,
+                    refClave: b.dataset.clave || '',
+                    refType: b.dataset.type || '01',
+                    refDate: (b.dataset.date || '').substring(0, 10)
+                });
+                window.location.href = `/ElectronicInvoice/Emit?${qs.toString()}`;
+            }));
+            // Botón crear Nota de Débito → navega a Emit referenciando una NC aceptada
+            body.querySelectorAll('.ei-nd-btn').forEach(b => b.addEventListener('click', e => {
+                e.stopPropagation();
+                const qs = new URLSearchParams({
+                    ndFrom: b.dataset.id,
+                    refClave: b.dataset.clave || '',
+                    refType: b.dataset.type || '03',
+                    refDate: (b.dataset.date || '').substring(0, 10)
+                });
+                window.location.href = `/ElectronicInvoice/Emit?${qs.toString()}`;
+            }));
+            // Botón generar Recibo Electrónico de Pago → navega a Emit referenciando la FE/FEC
+            body.querySelectorAll('.ei-rep-btn').forEach(b => b.addEventListener('click', e => {
+                e.stopPropagation();
+                const qs = new URLSearchParams({
+                    repFrom: b.dataset.id,
+                    refClave: b.dataset.clave || '',
+                    refType: b.dataset.type || '01',
+                    refDate: (b.dataset.date || '').substring(0, 10)
+                });
+                window.location.href = `/ElectronicInvoice/Emit?${qs.toString()}`;
+            }));
+            // Botón consultar estado en Hacienda
+            body.querySelectorAll('.ei-poll-btn').forEach(b => b.addEventListener('click', async e => {
+                e.stopPropagation();
+                const originalHtml = b.innerHTML;
+                b.disabled = true;
+                b.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+                try {
+                    const r = await eiFetch(`/api/electronicinvoice/${b.dataset.id}/poll-status`, { method: 'POST' });
+                    const s = await r.json().catch(() => ({}));
+                    if (r.ok) {
+                        if (s.resolved) {
+                            load(); // refrescar la lista con el estado final
+                        } else {
+                            alert(s.message || 'Hacienda aún está procesando el comprobante. Intente nuevamente en unos momentos.');
+                            load(); // refrescar por si el estado cambió (p. ej. Pendiente → Procesando)
+                        }
+                    } else {
+                        alert(s.message || 'No se pudo consultar el estado.');
+                        b.disabled = false;
+                        b.innerHTML = originalHtml;
+                    }
+                } catch (err) {
+                    alert('Error al consultar el estado: ' + err.message);
+                    b.disabled = false;
+                    b.innerHTML = originalHtml;
+                }
+            }));
+            // Botón reprocesar
+            body.querySelectorAll('.reprocess').forEach(b => b.addEventListener('click', async () => {
+                b.disabled = true;
+                await eiFetch(`/api/electronicinvoice/${b.dataset.id}/process`, { method: 'POST' });
+                load();
+            }));
+            // Botón Sincronizar (backfill) — lee XML de BD y actualiza campos fiscales
+            body.querySelectorAll('.ei-backfill-btn').forEach(b => b.addEventListener('click', async e => {
+                e.stopPropagation();
+                const originalHtml = b.innerHTML;
+                b.disabled = true;
+                b.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+                try {
+                    const r = await eiFetch(`/api/electronicinvoice/${b.dataset.id}/backfill`, { method: 'POST' });
+                    const result = await r.json().catch(() => ({}));
+                    if (r.ok) {
+                        b.innerHTML = '<i class="bi bi-check-lg"></i>';
+                        b.classList.remove('btn-outline-primary');
+                        b.classList.add('btn-success');
+                        console.log('[EI] Backfill OK:', result.message, result.updated);
+                    } else {
+                        b.innerHTML = '<i class="bi bi-x-lg"></i>';
+                        b.classList.add('btn-outline-danger');
+                        console.error('[EI] Backfill error:', result.message || r.status);
+                    }
+                } catch (err) {
+                    b.innerHTML = '<i class="bi bi-x-lg"></i>';
+                    console.error('[EI] Backfill excepción:', err);
+                } finally {
+                    setTimeout(() => {
+                        b.disabled = false;
+                        b.innerHTML = originalHtml;
+                        b.classList.remove('btn-success','btn-outline-danger');
+                        b.classList.add('btn-outline-primary');
+                    }, 2500);
+                }
+            }));
+        } catch (e) {
+            console.error('Error cargando comprobantes:', e);
+        }
+    }
+
+    // ── Abrir modal detalle ────────────────────────────────────────
+    async function openDetail(id) {
+        const modalEl = document.getElementById('docDetailModal');
+        const modal   = bootstrap.Modal.getOrCreateInstance(modalEl);
+        const body    = document.getElementById('docDetailBody');
+        const title   = document.getElementById('docDetailTitle');
+        const xmlSignedBtn = document.getElementById('detailXmlSignedBtn');
+        const xmlRespBtn  = document.getElementById('detailXmlRespBtn');
+        const pdfBtn  = document.getElementById('detailPdfBtn');
+        const repBtn  = document.getElementById('detailReprocessBtn');
+
+        // Reset
+        body.innerHTML = `<div class="text-center py-4"><div class="spinner-border text-info" role="status"></div><p class="mt-2 text-muted">Cargando detalle...</p></div>`;
+        xmlSignedBtn.classList.add('d-none');
+        xmlRespBtn.classList.add('d-none');
+        pdfBtn.classList.add('d-none');
+        repBtn.classList.add('d-none');
+        modal.show();
+
+        try {
+            const r = await eiFetch(`/api/electronicinvoice/${id}`);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const d = await r.json();
+
+            // Guardar id activo para los botones de modal
+            EI.activeDocId = id;
+            EI.activeDoc   = d;
+
+            // Título
+            title.innerHTML = `<i class="bi bi-receipt-cutoff me-2"></i>${TYPE[d.documentType] || d.documentType}
+                <small class="ms-2 text-muted fs-6">${d.consecutive || '—'}</small>
+                <span class="ms-3">${badge(d.status)}</span>`;
+
+            // Botones footer
+            if (d.hasXml) xmlSignedBtn.classList.remove('d-none');
+            if (d.xmlResponse) xmlRespBtn.classList.remove('d-none');
+            if (d.hasPdf) pdfBtn.classList.remove('d-none');
+            if (['Pendiente','Contingencia'].includes(d.status)) {
+                repBtn.classList.remove('d-none');
+                repBtn.onclick = async () => {
+                    repBtn.disabled = true;
+                    await eiFetch(`/api/electronicinvoice/${id}/process`, { method: 'POST' });
+                    modal.hide();
+                    load();
+                };
+            }
+
+            // ── Bloque de rechazo (destacado si fue rechazado) ─────
+            const rejectionBlock = (d.haciendaStatus === 'rechazado' || d.status === 'Rechazado') ? `
+                <div class="rejection-box mb-3">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <i class="bi bi-x-octagon-fill fs-5"></i>
+                        <strong>Comprobante RECHAZADO por Hacienda</strong>
+                    </div>
+                    <div><span class="detail-label">Motivo: </span><span class="fw-bold">${d.haciendaDetail || 'Sin detalle del motivo'}</span></div>
+                    ${d.haciendaStatus ? `<div class="mt-1"><span class="detail-label">Estado Hacienda: </span><span>${d.haciendaStatus}</span></div>` : ''}
+                </div>` : (d.haciendaStatus ? `
+                <div class="alert alert-${d.haciendaStatus==='aceptado'?'success':'secondary'} py-2 mb-3">
+                    <i class="bi bi-${d.haciendaStatus==='aceptado'?'check-circle':'info-circle'}-fill me-2"></i>
+                    <strong>Hacienda:</strong> ${d.haciendaStatus}
+                    ${d.haciendaDetail ? ` — ${d.haciendaDetail}` : ''}
+                </div>` : '');
+
+            // ── Cabecera del comprobante ──────────────────────────
+            const headerBlock = `
+                <div class="section-title"><i class="bi bi-file-earmark-text me-1"></i>Datos del Comprobante</div>
+                <div class="row g-3 mb-2">
+                    <div class="col-6 col-md-4">
+                        <div class="detail-label">Clave Numérica</div>
+                        <div class="detail-value" style="font-size:.7rem;word-break:break-all">${d.clave || '—'}</div>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <div class="detail-label">Consecutivo</div>
+                        <div class="detail-value">${d.consecutive || '—'}</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="detail-label">Fecha Emisión</div>
+                        <div class="detail-value">${fmtDate(d.issueDate)}</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="detail-label">Enviado a Hacienda</div>
+                        <div class="detail-value">${fmtDate(d.submittedAt)}</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="detail-label">Aceptado</div>
+                        <div class="detail-value">${fmtDate(d.acceptedAt)}</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="detail-label">Cond. Venta</div>
+                        <div class="detail-value">${SALE[d.saleCondition] || d.saleCondition}</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="detail-label">Medio de Pago</div>
+                        <div class="detail-value">${PAY[d.paymentMethod] || d.paymentMethod}</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="detail-label">Moneda</div>
+                        <div class="detail-value">${d.currency} ${d.exchangeRate !== 1 ? `(TC: ${d.exchangeRate})` : ''}</div>
+                    </div>
+                </div>`;
+
+            // ── Totales ──────────────────────────────────────────
+            const totalsBlock = `
+                <div class="section-title"><i class="bi bi-calculator me-1"></i>Totales</div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6 col-md-3">
+                        <div class="detail-label">Subtotal</div>
+                        <div class="detail-value">${fmt(d.subTotal)}</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="detail-label">Descuentos</div>
+                        <div class="detail-value text-warning">${fmt(d.totalDiscount)}</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="detail-label">Impuestos</div>
+                        <div class="detail-value text-info">${fmt(d.totalTaxes)}</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="detail-label">TOTAL</div>
+                        <div class="detail-value text-success fs-5">${fmt(d.total)} ${d.currency}</div>
+                    </div>
+                </div>`;
+
+            // ── Líneas ───────────────────────────────────────────
+            const linesBlock = d.lines && d.lines.length ? `
+                <div class="section-title"><i class="bi bi-list-ul me-1"></i>Líneas de Detalle</div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-dark mb-0">
+                        <thead>
+                            <tr>
+                                <th>#</th><th>CAByS</th><th>Detalle</th>
+                                <th class="text-end">Cant.</th><th class="text-end">P.Unit</th>
+                                <th class="text-end">Desc.</th><th class="text-end">Base Imp.</th>
+                                <th class="text-end">IVA</th><th class="text-end">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${d.lines.map(l => `
+                            <tr>
+                                <td>${l.lineNumber}</td>
+                                <td><code class="text-info">${l.cabysCode}</code></td>
+                                <td>${l.detail}</td>
+                                <td class="text-end">${l.quantity} ${l.unitMeasure}</td>
+                                <td class="text-end">${fmt(l.unitPrice)}</td>
+                                <td class="text-end">${l.discountAmount > 0 ? fmt(l.discountAmount) : '—'}</td>
+                                <td class="text-end">${fmt(l.taxableBase)}</td>
+                                <td class="text-end text-info">${fmt(l.totalTax)}</td>
+                                <td class="text-end fw-bold text-success">${fmt(l.totalLine)}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>` : '';
+
+            // ── Respuesta XML de Hacienda ─────────────────────────
+            const xmlRespBlock = d.xmlResponse ? `
+                <div class="section-title"><i class="bi bi-code-slash me-1"></i>Respuesta XML de Hacienda</div>
+                <div class="xml-box">${d.xmlResponse.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>` : '';
+
+            // ── Auditoría ─────────────────────────────────────────
+            const auditBlock = `
+                <div class="section-title"><i class="bi bi-clock-history me-1"></i>Auditoría</div>
+                <div class="row g-2">
+                    <div class="col-6 col-md-3"><div class="detail-label">Creado por</div><div class="detail-value">${d.createdBy}</div></div>
+                    <div class="col-6 col-md-3"><div class="detail-label">Fecha creación</div><div class="detail-value">${fmtDate(d.createDate)}</div></div>
+                    <div class="col-6 col-md-3"><div class="detail-label">Actualizado por</div><div class="detail-value">${d.updatedBy}</div></div>
+                    <div class="col-6 col-md-3"><div class="detail-label">Fecha actualización</div><div class="detail-value">${fmtDate(d.recordDate)}</div></div>
+                </div>`;
+
+            body.innerHTML = rejectionBlock + headerBlock + totalsBlock + linesBlock + xmlRespBlock + auditBlock;
+
+        } catch (e) {
+            body.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>Error al cargar el detalle: ${e.message}</div>`;
+        }
+    }
+
+    // ── Visor XML ─────────────────────────────────────────────────
+    // type = 'signed' | 'response'
+    let _xmlContent = ''; let _xmlFilename = 'documento.xml';
+    let _pdfBlob = null; let _pdfFilename = 'comprobante.pdf';
+
+    async function openXmlForDoc(docId, type) {
+        EI.activeDocId = docId;
+        await openXml(type);
+    }
+    async function openPdfForDoc(docId) {
+        EI.activeDocId = docId;
+        await openPdf();
+    }
+
+    async function openXml(type) {
+        const id = EI.activeDocId;
+        if (!id) return;
+        const modalEl = document.getElementById('xmlViewerModal');
+        const modal   = bootstrap.Modal.getOrCreateInstance(modalEl);
+        const spinner = document.getElementById('xmlViewerSpinner');
+        const content = document.getElementById('xmlViewerContent');
+        const titleEl = document.getElementById('xmlViewerTitle');
+
+        spinner.classList.remove('d-none');
+        content.classList.add('d-none');
+        _xmlContent = '';
+
+        if (type === 'response') {
+            titleEl.innerHTML = '<i class="bi bi-code-slash me-2"></i>XML Respuesta de Hacienda';
+            _xmlFilename = `respuesta_hacienda_${id}.xml`;
+        } else {
+            titleEl.innerHTML = '<i class="bi bi-filetype-xml me-2 text-info"></i>XML Firmado del Comprobante';
+            _xmlFilename = `comprobante_${id}.xml`;
+        }
+
+        modal.show();
+
+        try {
+            if (type === 'response') {
+                // El XML de respuesta ya viene en el detalle del doc
+                const r = await eiFetch(`/api/electronicinvoice/${id}`);
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const d = await r.json();
+                if (!d.xmlResponse) throw new Error('Sin respuesta XML de Hacienda');
+                _xmlContent = d.xmlResponse;
+            } else {
+                const r = await eiFetch(`/api/electronicinvoice/${id}/xml`);
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                _xmlContent = await r.text();
+            }
+            // Formatear XML con indentación visual básica
+            // Renderizar árbol XML interactivo
+            buildXmlTree(_xmlContent);
+            spinner.classList.add('d-none');
+            content.classList.remove('d-none');
+        } catch (e) {
+            content.textContent = `Error al cargar XML: ${e.message}`;
+            content.style.color = '#ef4444';
+            spinner.classList.add('d-none');
+            content.classList.remove('d-none');
+        }
+    }
+
+    async function openPdf() {
+        const id = EI.activeDocId;
+        if (!id) return;
+        const modalEl = document.getElementById('pdfViewerModal');
+        const modal   = bootstrap.Modal.getOrCreateInstance(modalEl);
+        const spinner = document.getElementById('pdfViewerSpinner');
+        const frame   = document.getElementById('pdfViewerFrame');
+        _pdfBlob = null;
+        _pdfFilename = `comprobante_${id}.pdf`;
+
+        // Restaurar el contenido original del spinner (evita mostrar un error
+        // residual de una apertura anterior fallida antes de cargar el PDF nuevo).
+        spinner.innerHTML = '<div class="spinner-border text-danger" role="status"></div>' +
+                            '<p class="mt-2 text-muted">Cargando PDF...</p>';
+        spinner.classList.remove('d-none');
+        frame.classList.add('d-none');
+        frame.src = '';
+        modal.show();
+
+        try {
+            const r = await eiFetch(`/api/electronicinvoice/${id}/pdf`);
+            if (!r.ok) throw new Error(`HTTP ${r.status} — PDF no disponible`);
+            _pdfBlob = await r.blob();
+            const url = URL.createObjectURL(_pdfBlob);
+            frame.src = url;
+            spinner.classList.add('d-none');
+            frame.classList.remove('d-none');
+        } catch (e) {
+            spinner.innerHTML = `<div class="alert alert-danger m-3"><i class="bi bi-exclamation-triangle me-2"></i>${e.message}</div>`;
+        }
+    }
+
+    // ── Bitácora de emisión (consola estilo CMD) ──────────────────
+    async function openLogsForDoc(docId) {
+        const modalEl = document.getElementById('logViewerModal');
+        const modal   = bootstrap.Modal.getOrCreateInstance(modalEl);
+        const consoleEl = document.getElementById('logViewerConsole');
+
+        consoleEl.innerHTML = '<div class="text-center py-4">' +
+            '<div class="spinner-border text-info" role="status"></div>' +
+            '<p class="mt-2 text-muted">Cargando bitácora...</p></div>';
+        modal.show();
+
+        try {
+            const r = await eiFetch(`/api/electronicinvoice/${docId}/logs`);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const logs = await r.json();
+
+            if (!logs || logs.length === 0) {
+                consoleEl.innerHTML = '<div class="text-center text-muted py-4">' +
+                    '<i class="bi bi-info-circle me-2"></i>No hay bitácora registrada para este comprobante.</div>';
+                return;
+            }
+
+            const colors = { INFO: '#c9d1d9', SUCCESS: '#3fb950', WARNING: '#d29922', ERROR: '#f85149' };
+            const esc = s => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            consoleEl.innerHTML = logs.map(l => {
+                const ts = new Date(l.timestamp).toLocaleString('es-CR', { hour12: false });
+                const color = colors[l.level] || '#c9d1d9';
+                const step = (l.step || '').padEnd(12, ' ').replace(/ /g, '&nbsp;');
+                const detail = l.detail ? `<div style="color:#6e7681;margin-left:2rem">${esc(l.detail)}</div>` : '';
+                return `<div><span style="color:#6e7681">[${ts}]</span> ` +
+                    `<span style="color:#58a6ff">${step}</span> ` +
+                    `<span style="color:${color}">${esc(l.message)}</span></div>${detail}`;
+            }).join('');
+        } catch (e) {
+            consoleEl.innerHTML = `<div class="alert alert-danger m-3"><i class="bi bi-exclamation-triangle me-2"></i>Error al cargar la bitácora: ${e.message}</div>`;
+        }
+    }
+    window.openLogsForDoc = openLogsForDoc;
+
+    function buildXmlTree(xmlString) {
+        const container = document.getElementById('xmlViewerContent');
+        container.innerHTML = '';
+        let doc;
+        try {
+            doc = new DOMParser().parseFromString(xmlString, 'application/xml');
+            const err = doc.querySelector('parsererror');
+            if (err) throw new Error(err.textContent.substring(0, 200));
+        } catch(e) {
+            container.innerHTML = `<span style="color:#ef4444">Error al parsear XML: ${e.message}</span>`;
+            return;
+        }
+        function esc(s) {
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+        function renderAttrs(el) {
+            let html = '';
+            for (const a of el.attributes) {
+                const isNs = a.name.startsWith('xmlns');
+                html += ` <span class="${isNs?'xns':'xa'}">${esc(a.name)}</span>=<span class="xv">&quot;${esc(a.value)}&quot;</span>`;
+            }
+            return html;
+        }
+        function renderNode(node, parentEl) {
+            if (node.nodeType === Node.PROCESSING_INSTRUCTION_NODE) {
+                const d = document.createElement('div'); d.className = 'xn';
+                d.innerHTML = `<span class="xpi">&lt;?${esc(node.nodeName)} ${esc(node.nodeValue)}?&gt;</span>`;
+                parentEl.appendChild(d); return;
+            }
+            if (node.nodeType === Node.COMMENT_NODE) {
+                const d = document.createElement('div'); d.className = 'xn';
+                d.innerHTML = `<span class="xcom">&lt;!-- ${esc(node.nodeValue)} --&gt;</span>`;
+                parentEl.appendChild(d); return;
+            }
+            if (node.nodeType === Node.TEXT_NODE) {
+                const t = node.nodeValue.trim(); if (!t) return;
+                const d = document.createElement('div'); d.className = 'xn';
+                d.innerHTML = `<span class="xval">${esc(t)}</span>`;
+                parentEl.appendChild(d); return;
+            }
+            if (node.nodeType !== Node.ELEMENT_NODE) return;
+            const tag = esc(node.nodeName);
+            const attrs = renderAttrs(node);
+            const kids = Array.from(node.childNodes).filter(c =>
+                c.nodeType === Node.ELEMENT_NODE || c.nodeType === Node.COMMENT_NODE ||
+                c.nodeType === Node.PROCESSING_INSTRUCTION_NODE ||
+                (c.nodeType === Node.TEXT_NODE && c.nodeValue.trim())
+            );
+            if (kids.length === 0) {
+                const d = document.createElement('div'); d.className = 'xn';
+                const tv = node.textContent.trim();
+                d.innerHTML = `<span class="xfold" style="visibility:hidden">&#9660;</span>` +
+                    `<span class="xt">&lt;${tag}</span>${attrs}<span class="xt">&gt;</span>` +
+                    (tv ? `<span class="xval">${esc(tv)}</span>` : '') +
+                    `<span class="xt">&lt;/${tag}&gt;</span>`;
+                parentEl.appendChild(d); return;
+            }
+            const folder = document.createElement('div'); folder.className = 'xfolder';
+            const open = document.createElement('div'); open.className = 'xn';
+            open.innerHTML = `<span class="xfold">&#9660;</span><span class="xt">&lt;${tag}</span>${attrs}<span class="xt">&gt;</span>`;
+            folder.appendChild(open);
+            const childEl = document.createElement('div'); childEl.className = 'xchildren';
+            kids.forEach(c => renderNode(c, childEl));
+            folder.appendChild(childEl);
+            const close = document.createElement('div'); close.className = 'xn';
+            close.innerHTML = `<span class="xt">&lt;/${tag}&gt;</span>`;
+            folder.appendChild(close);
+            open.querySelector('.xfold').addEventListener('click', e => {
+                e.stopPropagation(); folder.classList.toggle('xcollapsed');
+            });
+            parentEl.appendChild(folder);
+        }
+        for (const c of doc.childNodes) renderNode(c, container);
+    }
+    function xmlExpandAll()   { document.querySelectorAll('#xmlViewerContent .xfolder').forEach(f => f.classList.remove('xcollapsed')); }
+    function xmlCollapseAll() { document.querySelectorAll('#xmlViewerContent .xfolder').forEach(f => f.classList.add('xcollapsed'));    }
+
+    // ── Vista Documento ─────────────────────────────────────────────
+    async function openDocViewer(docId) {
+        const modalEl = document.getElementById('docViewerModal');
+        const modal   = bootstrap.Modal.getOrCreateInstance(modalEl);
+        const body    = document.getElementById('docViewerBody');
+        const titleEl = document.getElementById('docViewerTitle');
+        const subEl   = document.getElementById('docViewerSubtitle');
+
+        body.innerHTML = `<div class="text-center py-5">
+            <div class="spinner-border text-success" role="status"></div>
+            <p class="mt-2" style="color:#a5b4fc">Cargando documento...</p>
+        </div>`;
+        modal.show();
+
+        try {
+            const r = await eiFetch(`/api/electronicinvoice/${docId}`);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const d = await r.json();
+
+            // ── Catálogos ──────────────────────────────────────────
+            const SALE = {'01':'Contado','02':'Crédito','03':'Consignación',
+                          '04':'Apartado','05':'Arrendamiento c/opción','06':'Arrendamiento s/opción',
+                          '07':'Cobro a favor','08':'Pago serv. prestado','99':'Otros'};
+            const PAY  = {'01':'Efectivo','02':'Tarjeta','03':'Cheque',
+                          '04':'Transferencia','05':'Recaudado por terceros','99':'Otros'};
+            const SIT  = {'1':'Normal','2':'Contingencia','3':'Sin internet'};
+            const REFA = {'01':'Anula doc. referenciado','02':'Corrige doc. referenciado',
+                          '03':'Sustituye doc. referenciado','04':'Ahorro en factura compra',
+                          '05':'Otros'};
+            const TAX  = {'01':'IVA','02':'Imp. Selectivo Consumo','03':'Imp. Único Combustibles',
+                          '04':'Imp. Específico Bebidas','05':'Imp. Timbres','06':'IVA parcial',
+                          '07':'Canon','08':'Otro'};
+            const DISC = {'01':'Regalía','02':'Descuento comercial','03':'Bonificación',
+                          '04':'Volumen','05':'Temporada','06':'Promoción','99':'Otro'};
+            const SC = {success:'#22c55e',danger:'#ef4444',warning:'#f59e0b',
+                        info:'#06b6d4',secondary:'#64748b',primary:'#6c63ff'};
+            const statusMap = {Aceptado:'success',Rechazado:'danger',Contingencia:'warning',
+                               Procesando:'info',Pendiente:'secondary',Firmado:'primary',
+                               Enviado:'info',Borrador:'secondary'};
+            const sColor = SC[statusMap[d.status]||'secondary'];
+            const hColor = d.haciendaStatus==='aceptado' ? SC.success
+                         : d.haciendaStatus==='rechazado' ? SC.danger : SC.secondary;
+
+            titleEl.innerHTML = `<i class="bi bi-file-earmark-text me-2" style="color:#22c55e"></i>${TYPE[d.documentType]||d.documentType}`;
+            subEl.textContent  = `Consecutivo: ${d.consecutive||'—'} | ID: ${d.id}`;
+
+            // ── Helpers ────────────────────────────────────────────
+            const chip = (lbl, val, col='col-6 col-md-3') => !val && val!==0 ? '' :
+                `<div class="${col}">
+                    <div style="color:#475569;font-size:.65rem;text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px">${lbl}</div>
+                    <div style="font-size:.87rem;font-weight:600;color:#e2e8f0">${val}</div>
+                </div>`;
+
+            const sec = (icon, title, inner) =>
+                `<div class="mb-4 p-3 rounded" style="background:#0c1524;border:1px solid #1e3a5c">
+                    <div class="d-flex align-items-center gap-2 mb-3 pb-2"
+                         style="border-bottom:1px solid #1e3a5c;font-size:.7rem;text-transform:uppercase;
+                                letter-spacing:.08em;color:#6c63ff;font-weight:700">
+                        <i class="bi ${icon}"></i>${title}
+                    </div>
+                    <div class="row g-3">${inner}</div>
+                </div>`;
+
+            // ── Alerta rechazo ─────────────────────────────────────
+            const rej = (d.haciendaStatus==='rechazado'||d.status==='Rechazado') ? `
+            <div class="d-flex gap-3 p-3 mb-3 rounded" style="background:#3b0f0f;border:1px solid #ef4444">
+                <i class="bi bi-x-octagon-fill fs-4 flex-shrink-0 mt-1" style="color:#ef4444"></i>
+                <div>
+                    <div class="fw-bold mb-1" style="color:#fca5a5">RECHAZADO por Hacienda</div>
+                    <div style="color:#fda4af;font-size:.88rem">${d.haciendaDetail||'Sin detalle del motivo'}</div>
+                </div>
+            </div>` : '';
+
+            // ── S1: Identificación ─────────────────────────────────
+            const s1 = sec('bi-fingerprint','Identificación del Comprobante',
+                chip('Tipo de documento', TYPE[d.documentType]||d.documentType, 'col-6 col-md-4') +
+                chip('Consecutivo', `<code style="color:#a5f3fc;font-size:.82rem">${d.consecutive||'—'}</code>`, 'col-6 col-md-4') +
+                chip('Situación', SIT[d.situation]||d.situation||'Normal', 'col-4 col-md-4') +
+                chip('ID interno', d.id, 'col-4 col-md-3') +
+                chip('Emisor ID', d.idCustomerIssuer, 'col-4 col-md-3') +
+                chip('Receptor ID', d.idCustomerReceptor||'—', 'col-4 col-md-3') +
+                `<div class="col-12">
+                    <div style="color:#475569;font-size:.65rem;text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px">Clave Numérica (50 dígitos)</div>
+                    <div style="font-family:monospace;font-size:.75rem;color:#a5f3fc;background:#111827;
+                                padding:.5rem .75rem;border-radius:6px;border:1px solid #1e3a5c;
+                                word-break:break-all;letter-spacing:.03em">${d.clave||'—'}</div>
+                </div>`
+            );
+
+            // ── S2: Estado y Hacienda ──────────────────────────────
+            const s2 = sec('bi-activity','Estado y Respuesta de Hacienda',
+                `<div class="col-6 col-md-2">
+                    <div style="color:#475569;font-size:.65rem;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">Estado interno</div>
+                    <span class="badge" style="background:${sColor};font-size:.82rem;padding:.35rem .65rem">${d.status}</span>
+                </div>` +
+                `<div class="col-6 col-md-2">
+                    <div style="color:#475569;font-size:.65rem;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">Hacienda</div>
+                    <span class="badge" style="background:${hColor};font-size:.82rem;padding:.35rem .65rem">${d.haciendaStatus||'Sin respuesta'}</span>
+                </div>` +
+                chip('Fecha Emisión', fmtDate(d.issueDate), 'col-6 col-md-3') +
+                chip('Enviado', fmtDate(d.submittedAt), 'col-6 col-md-3') +
+                chip('Aceptado/Resuelto', fmtDate(d.acceptedAt), 'col-6 col-md-2') +
+                (d.haciendaDetail ? `<div class="col-12">
+                    <div style="color:#475569;font-size:.65rem;text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px">Detalle de Hacienda</div>
+                    <div style="background:#1c1007;border:1px solid #92400e;border-radius:6px;
+                                padding:.6rem .85rem;font-size:.85rem;color:#fde68a">${d.haciendaDetail}</div>
+                </div>` : '') +
+                (d.xmlResponse ? `<div class="col-12">
+                    <div style="color:#475569;font-size:.65rem;text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px">XML de Respuesta de Hacienda</div>
+                    <div style="background:#111827;border:1px solid #1e3a5c;border-radius:6px;
+                                padding:.6rem;font-family:monospace;font-size:.7rem;color:#94a3b8;
+                                max-height:120px;overflow-y:auto;white-space:pre-wrap;word-break:break-all">${d.xmlResponse.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+                </div>` : '')
+            );
+
+            // ── S3: Condiciones comerciales ────────────────────────
+            const s3 = sec('bi-receipt','Condiciones Comerciales',
+                chip('Condición venta', SALE[d.saleCondition]||d.saleCondition) +
+                chip('Plazo crédito', d.creditTerm ? `${d.creditTerm} días` : null) +
+                chip('Medio de pago', PAY[d.paymentMethod]||d.paymentMethod) +
+                chip('Moneda', d.currency) +
+                chip('Tipo de cambio', d.exchangeRate!==1 ? d.exchangeRate.toFixed(5) : 'N/A (CRC)')
+            );
+
+            // ── S4: Totales ────────────────────────────────────────
+            const row4 = (lbl, val, color='#e2e8f0', sign='') =>
+                `<div class="d-flex justify-content-between align-items-center py-1"
+                      style="border-bottom:1px solid #1e3a5c;font-size:.88rem">
+                    <span style="color:#64748b">${lbl}</span>
+                    <span style="color:${color};font-weight:600">${sign}${fmt(val)} ${d.currency}</span>
+                </div>`;
+
+            const s4 = `<div class="mb-4 p-3 rounded" style="background:#0c1524;border:1px solid #1e3a5c">
+                <div class="d-flex align-items-center gap-2 mb-3 pb-2"
+                     style="border-bottom:1px solid #1e3a5c;font-size:.7rem;text-transform:uppercase;
+                            letter-spacing:.08em;color:#6c63ff;font-weight:700">
+                    <i class="bi bi-calculator"></i>Resumen Financiero
+                </div>
+                ${row4('Subtotal bruto', d.subTotal)}
+                ${row4('Total descuentos', d.totalDiscount, '#f59e0b', d.totalDiscount>0?'− ':'')}
+                ${row4('Base imponible (gravada)', d.totalTaxable)}
+                ${row4('Base exenta', d.totalExempt, '#94a3b8')}
+                ${row4('Total impuestos (IVA)', d.totalTaxes, '#06b6d4', '+')}
+                <div class="d-flex justify-content-between align-items-center pt-2 mt-1">
+                    <span style="font-size:.9rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em">Total Comprobante</span>
+                    <span style="font-size:1.35rem;font-weight:800;color:#22c55e">${fmt(d.total)} ${d.currency}</span>
+                </div>
+            </div>`;
+
+            // ── S5: Líneas ─────────────────────────────────────────
+            const s5 = d.lines && d.lines.length ? `
+            <div class="mb-4 p-3 rounded" style="background:#0c1524;border:1px solid #1e3a5c">
+                <div class="d-flex align-items-center gap-2 mb-3 pb-2"
+                     style="border-bottom:1px solid #1e3a5c;font-size:.7rem;text-transform:uppercase;
+                            letter-spacing:.08em;color:#6c63ff;font-weight:700">
+                    <i class="bi bi-list-ul"></i>Líneas del Comprobante
+                    <span class="badge rounded-pill ms-1" style="background:#1e3a5c;color:#a5b4fc">${d.lines.length}</span>
+                </div>
+                <div class="table-responsive">
+                <table class="table table-sm mb-0" style="color:#e2e8f0;border-color:#1e3a5c;font-size:.81rem">
+                    <thead style="background:#111827">
+                        <tr style="color:#475569;font-size:.67rem;text-transform:uppercase;letter-spacing:.04em">
+                            <th style="border-color:#1e3a5c">#</th>
+                            <th style="border-color:#1e3a5c">CAByS</th>
+                            <th style="border-color:#1e3a5c">Cód. Art.</th>
+                            <th style="border-color:#1e3a5c">Descripción</th>
+                            <th style="border-color:#1e3a5c">Tipo</th>
+                            <th class="text-end" style="border-color:#1e3a5c">Cant.</th>
+                            <th class="text-end" style="border-color:#1e3a5c">U/M</th>
+                            <th class="text-end" style="border-color:#1e3a5c">P.Unit.</th>
+                            <th class="text-end" style="border-color:#1e3a5c">Monto</th>
+                            <th class="text-end" style="border-color:#1e3a5c">Desc.</th>
+                            <th class="text-end" style="border-color:#1e3a5c">Subtotal</th>
+                            <th class="text-end" style="border-color:#1e3a5c">Base Imp.</th>
+                            <th class="text-end" style="border-color:#1e3a5c">IVA</th>
+                            <th class="text-end" style="border-color:#1e3a5c;color:#22c55e">Total Línea</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${d.lines.map((l,i) => `
+                        <tr style="${i%2===0?'background:#0c1524':'background:#0f1e35'};border-color:#1e3a5c">
+                            <td style="border-color:#1e3a5c;color:#475569">${l.lineNumber}</td>
+                            <td style="border-color:#1e3a5c"><code style="color:#a5f3fc;font-size:.7rem">${l.cabysCode}</code></td>
+                            <td style="border-color:#1e3a5c;color:#94a3b8">${l.itemCode||'—'}</td>
+                            <td style="border-color:#1e3a5c;min-width:160px;white-space:normal">${l.detail}</td>
+                            <td style="border-color:#1e3a5c">
+                                <span class="badge" style="background:${l.isService?'#1e3a5c':'#0c2a1e'};color:${l.isService?'#a5b4fc':'#86efac'};font-size:.67rem">
+                                    ${l.isService?'Servicio':'Bien'}
+                                </span>
+                            </td>
+                            <td class="text-end" style="border-color:#1e3a5c">${l.quantity}</td>
+                            <td class="text-end" style="border-color:#1e3a5c;color:#64748b">${l.unitMeasure}</td>
+                            <td class="text-end" style="border-color:#1e3a5c">${fmt(l.unitPrice)}</td>
+                            <td class="text-end" style="border-color:#1e3a5c">${fmt(l.totalAmount)}</td>
+                            <td class="text-end" style="border-color:#1e3a5c;color:#f59e0b">
+                                ${l.discountAmount>0
+                                    ? `−${fmt(l.discountAmount)}<br><span style="font-size:.67rem;color:#64748b">${DISC[l.discountNature]||l.discountNature||''}</span>`
+                                    : '—'}
+                            </td>
+                            <td class="text-end" style="border-color:#1e3a5c">${fmt(l.subTotal)}</td>
+                            <td class="text-end" style="border-color:#1e3a5c">${fmt(l.taxableBase)}</td>
+                            <td class="text-end" style="border-color:#1e3a5c">
+                                ${l.taxes && l.taxes.length
+                                    ? l.taxes.map(t =>
+                                        `<div style="color:#06b6d4">${fmt(t.taxAmount)}</div>
+                                         <div style="font-size:.65rem;color:#475569">${TAX[t.taxCode]||t.taxCode} ${t.taxRate}%</div>`
+                                      ).join('')
+                                    : '<span style="color:#64748b">—</span>'}
+                            </td>
+                            <td class="text-end fw-bold" style="border-color:#1e3a5c;color:#22c55e">${fmt(l.totalLine)}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                    <tfoot>
+                        <tr style="background:#111827;border-top:2px solid #2a3a5c">
+                            <td colspan="13" class="text-end py-2" style="border-color:#1e3a5c;color:#475569;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em">
+                                TOTAL COMPROBANTE
+                            </td>
+                            <td class="text-end fw-bold" style="border-color:#1e3a5c;color:#22c55e;font-size:1rem">${fmt(d.total)} ${d.currency}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+                </div>
+            </div>` : '';
+
+            // ── S6: Referencias (NC/ND/REP) ────────────────────────
+            const s6 = d.references && d.references.length ? sec('bi-link-45deg',`Referencias (${d.references.length})`,
+                `<div class="col-12">` +
+                d.references.map(ref => `
+                <div class="p-2 mb-2 rounded" style="background:#111827;border:1px solid #1e3a5c;font-size:.82rem">
+                    <div class="row g-2">
+                        ${chip('Tipo doc. ref.', TYPE[ref.refDocumentType]||ref.refDocumentType, 'col-6 col-md-2')}
+                        ${chip('Código ref.', REFA[ref.refCode]||ref.refCode, 'col-6 col-md-3')}
+                        ${chip('Fecha ref.', fmtDate(ref.refDate), 'col-6 col-md-3')}
+                        ${chip('Razón', ref.refReason, 'col-12 col-md-4')}
+                        <div class="col-12">
+                            <div style="color:#475569;font-size:.65rem;text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px">Clave doc. referenciado</div>
+                            <code style="font-size:.72rem;color:#a5f3fc;word-break:break-all">${ref.refClave||'—'}</code>
+                        </div>
+                    </div>
+                </div>`).join('') +
+                `</div>`
+            ) : '';
+
+            // ── S7: Auditoría ──────────────────────────────────────
+            const s7 = sec('bi-clock-history','Auditoría',
+                chip('Creado por', d.createdBy) +
+                chip('Fecha creación', fmtDate(d.createDate)) +
+                chip('Actualizado por', d.updatedBy) +
+                chip('Última actualización', fmtDate(d.recordDate))
+            );
+
+            // ── S8: Datos del Emisor, Receptor y ResumenFactura (de BD) ────
+            // La API ahora devuelve estos datos directamente de la BD,
+            // persistidos al momento de emitir — no se parsea el XML en runtime.
+            const x  = { emisor: d.emisor, receptor: d.receptor, resumenFactura: d.resumenFactura,
+                          proveedorSistemas: d.emisor?.proveedorSistemas,
+                          codigoActividadEmisor: d.emisor?.codigoActividadEmisor,
+                          condicionVenta: d.saleCondition, plazoCredito: d.creditTerm,
+                          medioPago: d.paymentMethod };
+            const xr = d.haciendaResponseParsed;
+
+            // Catálogos XML
+            const ID_TYPE = {'01':'Cédula Física','02':'Cédula Jurídica','03':'DIMEX','04':'NITE'};
+            const MSG_CODE = {'1':'✅ Aceptado','2':'⚠️ Aceptado con observaciones','3':'❌ Rechazado'};
+            const PROV = {'1':'San José','2':'Alajuela','3':'Cartago','4':'Heredia','5':'Guanacaste','6':'Puntarenas','7':'Limón'};
+            const TAX_RATE = {'01':'0%','02':'1%','03':'2%','04':'4%','05':'0% (Canasta básica)','06':'0% (Medicamentos)','07':'0% (Exento)','08':'13%','09':'4% especial','10':'2% especial','11':'1% especial','12':'0% (NS)','13':'15% (licores)'};
+
+            let s8 = '';
+            if (x) {
+                // Metadatos del schema / namespaces
+                // Namespaces del schema (info estática del estándar v4.4)
+                const nsBlock = `
+                <div class="col-12">
+                    <div style="color:#475569;font-size:.65rem;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">Namespaces / Schema XML v4.4</div>
+                    <div style="background:#111827;border:1px solid #1e3a5c;border-radius:6px;padding:.6rem .85rem;font-size:.72rem;font-family:monospace">
+                        <div><span style="color:#86efac">xmlns</span>=<span style="color:#fca5a5">"https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/facturaElectronica"</span></div>
+                        <div><span style="color:#86efac">xmlns:ds</span>=<span style="color:#fca5a5">"http://www.w3.org/2000/09/xmldsig#"</span></div>
+                        <div><span style="color:#86efac">xmlns:xsd</span>=<span style="color:#fca5a5">"http://www.w3.org/2001/XMLSchema"</span></div>
+                        <div><span style="color:#86efac">xmlns:xsi</span>=<span style="color:#fca5a5">"http://www.w3.org/2001/XMLSchema-instance"</span></div>
+                    </div>
+                </div>`;
+
+                // Cabecera
+                const cabecera = sec('bi-file-code','Cabecera del Comprobante (XML v4.4)',
+                    nsBlock +
+                    chip('Proveedor Sistemas', x.proveedorSistemas) +
+                    chip('Cód. Actividad Emisor', x.codigoActividadEmisor) +
+                    chip('Núm. Consecutivo', `<code style="color:#a5f3fc;font-size:.75rem">${d.consecutive||'—'}</code>`) +
+                    chip('Fecha Emisión', fmtDate(d.issueDate)) +
+                    chip('Condición Venta', SALE[d.saleCondition]||d.saleCondition) +
+                    chip('Plazo Crédito', d.creditTerm ? `${d.creditTerm} días` : null) +
+                    chip('Medio de Pago', PAY[d.paymentMethod]||d.paymentMethod)
+                );
+
+                // Emisor
+                const em = x.emisor;
+                const emisorSec = em ? sec('bi-building','Emisor (datos fiscales)',
+                    chip('Nombre', em.nombre, 'col-6 col-md-4') +
+                    chip('Nombre Comercial', em.nombreComercial, 'col-6 col-md-4') +
+                    chip('Tipo ID', `${em.identificacionTipo} — ${ID_TYPE[em.identificacionTipo]||''}`, 'col-6 col-md-3') +
+                    chip('Número ID', em.identificacionNumero, 'col-6 col-md-3') +
+                    chip('Correo', em.correo, 'col-12 col-md-6') +
+                    chip('Provincia', `${em.ubicacionProvincia} — ${PROV[em.ubicacionProvincia]||''}`, 'col-6 col-md-2') +
+                    chip('Cantón', em.ubicacionCanton, 'col-4 col-md-1') +
+                    chip('Distrito', em.ubicacionDistrito, 'col-4 col-md-1') +
+                    chip('Barrio', em.ubicacionBarrio, 'col-4 col-md-2') +
+                    chip('Otras señas', em.ubicacionOtrasSenas, 'col-12 col-md-5') +
+                    chip('Teléfono', em.telefonoCodigoPais && em.telefonoNumero ? `+${em.telefonoCodigoPais} ${em.telefonoNumero}` : null, 'col-6 col-md-3') +
+                    chip('Cód. Actividad', em.codigoActividadEmisor, 'col-6 col-md-3') +
+                    chip('Proveedor Sistemas', em.proveedorSistemas, 'col-6 col-md-3')
+                ) : '';
+
+                // Receptor
+                const rec = x.receptor;
+                const receptorSec = (rec && (rec.nombre || rec.identificacionNumero)) ? sec('bi-person','Receptor (datos fiscales)',
+                    chip('Nombre', rec.nombre, 'col-6 col-md-4') +
+                    chip('Nombre Comercial', rec.nombreComercial, 'col-6 col-md-4') +
+                    (rec.identificacionNumero
+                        ? chip('Tipo ID', `${rec.identificacionTipo} — ${ID_TYPE[rec.identificacionTipo]||''}`, 'col-6 col-md-3') +
+                          chip('Número ID', rec.identificacionNumero, 'col-6 col-md-3')
+                        : chip('ID Extranjero', rec.identificacionExtranjero, 'col-6 col-md-4')) +
+                    chip('Correo', rec.correo, 'col-12 col-md-5') +
+                    (rec.ubicacionOtrasSenas ? chip('Otras señas', rec.ubicacionOtrasSenas, 'col-12 col-md-5') : '') +
+                    chip('Teléfono', rec.telefonoCodigoPais && rec.telefonoNumero ? `+${rec.telefonoCodigoPais} ${rec.telefonoNumero}` : null, 'col-6 col-md-3')
+                ) : '';
+
+                // ResumenFactura
+                const rf = x.resumenFactura;
+                const rfSec = rf ? sec('bi-calculator','Resumen de Factura (XML v4.4)',
+                    chip('Moneda', rf.codigoMoneda, 'col-4 col-md-2') +
+                    chip('Tipo Cambio', rf.tipoCambio, 'col-4 col-md-2') +
+                    chip('Total Serv. Gravados', rf.totalServGravados, 'col-6 col-md-3') +
+                    chip('Total Serv. Exentos', rf.totalServExentos, 'col-6 col-md-3') +
+                    chip('Total Serv. Exonerado', rf.totalServExonerado, 'col-6 col-md-3') +
+                    chip('Total Merc. Gravadas', rf.totalMercanciasGravadas, 'col-6 col-md-3') +
+                    chip('Total Merc. Exentas', rf.totalMercanciasExentas, 'col-6 col-md-3') +
+                    chip('Total Merc. Exonerada', rf.totalMercExonerada, 'col-6 col-md-3') +
+                    chip('Total Gravado', rf.totalGravado, 'col-6 col-md-2') +
+                    chip('Total Exento', rf.totalExento, 'col-6 col-md-2') +
+                    chip('Total Exonerado', rf.totalExonerado, 'col-6 col-md-2') +
+                    chip('Total No Sujeto', rf.totalNoSujeto, 'col-6 col-md-2') +
+                    chip('Total Venta', rf.totalVenta, 'col-6 col-md-2') +
+                    chip('Total Descuentos', rf.totalDescuentos, 'col-6 col-md-2') +
+                    chip('Total Venta Neta', rf.totalVentaNeta, 'col-6 col-md-2') +
+                    chip('Total Impuesto', rf.totalImpuesto, 'col-6 col-md-2') +
+                    chip('Imp. Descontado', rf.totalImpuestoDescontado, 'col-6 col-md-2') +
+                    chip('IVA Devuelto', rf.totalIvaDevuelto, 'col-6 col-md-2') +
+                    (rf.desgloseImpuestoCodigo ? `<div class="col-12">
+                        <div style="color:#475569;font-size:.65rem;text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px">Desglose de Impuesto</div>
+                        <div style="background:#111827;border:1px solid #1e3a5c;border-radius:6px;padding:.5rem .75rem;font-size:.82rem">
+                            Código: <strong>${rf.desgloseImpuestoCodigo}</strong> |
+                            Tarifa IVA: <strong>${rf.desgloseImpuestoTarifaIva}</strong> (${TAX_RATE[rf.desgloseImpuestoTarifaIva]||''}) |
+                            Monto: <strong style="color:#06b6d4">${rf.desgloseImpuestoMonto}</strong>
+                        </div>
+                    </div>` : '') +
+                    chip('Medio Pago Tipo', rf.medioPagoTipo, 'col-6 col-md-2') +
+                    chip('Medio Pago Total', rf.medioPagoTotal, 'col-6 col-md-2') +
+                    `<div class="col-12"><div style="background:#0c2a1e;border:1px solid #166534;border-radius:8px;padding:.6rem 1rem;display:flex;justify-content:space-between;align-items:center">
+                        <span style="font-weight:700;text-transform:uppercase;font-size:.8rem;color:#86efac">Total Comprobante</span>
+                        <span style="font-size:1.25rem;font-weight:800;color:#22c55e">${rf.totalComprobante} ${rf.codigoMoneda||''}</span>
+                    </div></div>`
+                ) : '';
+
+                s8 = cabecera + emisorSec + receptorSec + rfSec;
+            }
+
+            // -- S9: Respuesta de Hacienda parseada (de BD) ----------
+            let s9 = '';
+            if (xr && xr.mensajeCodigo) {
+                const msgColor = xr.mensajeCodigo==='1' ? '#22c55e' : xr.mensajeCodigo==='3' ? '#ef4444' : '#f59e0b';
+                s9 = sec('bi-bank','Respuesta de Hacienda (detalle)',
+                    `<div class="col-12"><div class="p-2 rounded mb-2" style="background:#111827;border:1px solid ${msgColor};font-size:.88rem">
+                        <span style="color:${msgColor};font-weight:700;font-size:1rem">${MSG_CODE[xr.mensajeCodigo]||`Mensaje ${xr.mensajeCodigo}`}</span>
+                        ${xr.detalleMensaje ? `<div style="margin-top:.35rem;color:#fde68a">${xr.detalleMensaje}</div>` : ''}
+                    </div></div>` +
+                    chip('Monto Total Impuesto', xr.montoImpuesto, 'col-6 col-md-3') +
+                    chip('Total Factura', xr.totalFactura, 'col-6 col-md-3') +
+                    chip('Fecha Emisión Doc.', fmtDate(xr.fechaEmisionDoc), 'col-6 col-md-3') +
+                    chip('Fecha Recepción', fmtDate(xr.fechaRecepcion), 'col-6 col-md-3')
+                );
+            }
+
+            body.innerHTML = rej + s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9;
+
+        } catch(e) {
+            body.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>Error al cargar: ${e.message}</div>`;
+        }
+    }
+
+    function copyXml() {
+        if (!_xmlContent) return;
+        navigator.clipboard.writeText(_xmlContent).then(() => {
+            const btn = document.getElementById('xmlCopyBtn');
+            btn.innerHTML = '<i class="bi bi-check-lg"></i> Copiado';
+            setTimeout(() => { btn.innerHTML = '<i class="bi bi-clipboard"></i> Copiar'; }, 2000);
+        });
+    }
+    function downloadXml() {
+        if (!_xmlContent) return;
+        const a = document.createElement('a');
+        a.href = 'data:text/xml;charset=utf-8,' + encodeURIComponent(_xmlContent);
+        a.download = _xmlFilename; a.click();
+    }
+    function downloadPdf() {
+        if (!_pdfBlob) return;
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(_pdfBlob);
+        a.download = _pdfFilename; a.click();
+    }
+
+    // ── Init: seguro sin importar si DOMContentLoaded ya disparó ──
+    //    (Scripts se inyecta al final del body; el DOM ya está listo
+    //     pero el evento puede haber disparado antes de este bloque)
+    function initPage() {
+        console.log('%c[EI] initPage() iniciando...', 'color:#6c63ff;font-weight:bold');
+        console.log('[EI] document.readyState =', document.readyState);
+        console.log('[EI] EI.api  =', EI.api);
+        console.log('[EI] EI.token existe =', !!EI.token);
+
+        // Mover modales al <body> para escapar del z-index del layout
+        ['docDetailModal','xmlViewerModal','docViewerModal','pdfViewerModal','logViewerModal'].forEach(function (mid) {
+            var el = document.getElementById(mid);
+            if (el && el.parentNode !== document.body) {
+                document.body.appendChild(el);
+                console.log('[EI] Modal movido al body:', mid);
+            } else if (!el) {
+                console.warn('[EI] ⚠️ Modal NO encontrado en el DOM:', mid);
+            }
+        });
+
+        // Listeners de los botones del modal de DETALLE
+        var btnXmlS = document.getElementById('detailXmlSignedBtn');
+        var btnXmlR = document.getElementById('detailXmlRespBtn');
+        var btnPdf  = document.getElementById('detailPdfBtn');
+        var btnCopy = document.getElementById('xmlCopyBtn');
+        var btnDlXml= document.getElementById('xmlDownloadBtn');
+        var btnDlPdf= document.getElementById('pdfDownloadBtn');
+
+        console.log('[EI] Botones del modal de detalle encontrados:',
+            { detailXmlSignedBtn: !!btnXmlS, detailXmlRespBtn: !!btnXmlR,
+              detailPdfBtn: !!btnPdf, xmlCopyBtn: !!btnCopy,
+              xmlDownloadBtn: !!btnDlXml, pdfDownloadBtn: !!btnDlPdf });
+
+        if (btnXmlS)  btnXmlS.addEventListener('click',  function() { console.log('[EI] Click: XML Firmado, docId=', EI.activeDocId); openXmlForDoc(EI.activeDocId, 'signed');   });
+        if (btnXmlR)  btnXmlR.addEventListener('click',  function() { console.log('[EI] Click: XML Respuesta, docId=', EI.activeDocId); openXmlForDoc(EI.activeDocId, 'response'); });
+        if (btnPdf)   btnPdf.addEventListener('click',   function() { console.log('[EI] Click: PDF, docId=', EI.activeDocId); openPdfForDoc(EI.activeDocId); });
+        if (btnCopy)  btnCopy.addEventListener('click',  copyXml);
+        if (btnDlXml) btnDlXml.addEventListener('click', downloadXml);
+        if (btnDlPdf) btnDlPdf.addEventListener('click', downloadPdf);
+
+        // Expandir / colapsar XML
+        var btnExpandAll  = document.getElementById('xmlExpandAllBtn');
+        var btnCollapseAll= document.getElementById('xmlCollapseAllBtn');
+        if (btnExpandAll)   btnExpandAll.addEventListener('click',  xmlExpandAll);
+        if (btnCollapseAll) btnCollapseAll.addEventListener('click', xmlCollapseAll);
+
+        console.log('%c[EI] initPage() completado ✅ — cargando lista...', 'color:#22c55e;font-weight:bold');
+
+        // Cargar la lista de comprobantes
+        load();
+    }
+
+    // Ejecutar inmediatamente si el DOM ya está listo, si no esperar el evento
+    console.log('%c[EI] Script cargado. readyState =', 'color:#f59e0b;font-weight:bold', document.readyState);
+    if (document.readyState === 'loading') {
+        console.log('[EI] DOM aún cargando → esperando DOMContentLoaded');
+        document.addEventListener('DOMContentLoaded', initPage);
+    } else {
+        console.log('[EI] DOM ya listo → ejecutando initPage() directamente');
+        initPage();
+    }
+})();
+</script>
+}

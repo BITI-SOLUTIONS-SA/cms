@@ -650,7 +650,7 @@ namespace CMS.UI.Services
                 user.IS_EMAIL_VERIFIED = true;
                 user.EMAIL_VERIFICATION_TOKEN = null;
                 user.EMAIL_VERIFICATION_TOKEN_EXPIRY = null;
-                user.UpdatedBy = "SYSTEM";
+                user.UpdatedBy = user.USER_NAME;
                 user.RecordDate = DateTime.UtcNow;
 
                 await _context.SaveChangesAsync();

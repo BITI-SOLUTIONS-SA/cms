@@ -35,11 +35,29 @@ namespace CMS.Entities.Operational
         [Column("entry_number")]
         public string EntryNumber { get; set; } = string.Empty;
 
-        /// <summary>Tipo: Manual, Automatic, Reversal, Adjustment, Closing, Opening</summary>
-        [Required]
-        [MaxLength(30)]
-        [Column("entry_type")]
-        public string EntryType { get; set; } = "Manual";
+        /// <summary>
+        /// FK lógica cross-DB a cms.admin.type_accounting(id_type_accounting).
+        /// Define el enfoque contable del asiento: general (1), fiscal (2), corporativo (3).
+        /// Default = 1 (Contabilidad General).
+        /// </summary>
+        [Column("id_type_accounting")]
+        public int IdTypeAccounting { get; set; } = 1;
+
+        /// <summary>
+        /// FK lógica cross-DB a cms.admin.journal_entry_class(id_journal_entry_class).
+        /// Clasifica el asiento según su naturaleza: N=Normal(3), C=Closing(1), D=Exchange Rate Diff(2), B=Banks(4).
+        /// Default = 3 (Normal).
+        /// </summary>
+        [Column("id_journal_entry_class")]
+        public int IdJournalEntryClass { get; set; } = 3;
+
+        /// <summary>
+        /// FK lógica cross-DB a cms.admin.journal_entry_status(id_journal_entry_status).
+        /// Normaliza el estado: Draft(1), Posted(2), Reversed(3), Cancelled(4).
+        /// El campo status (varchar) se mantiene por compatibilidad. Default = 1 (Draft).
+        /// </summary>
+        [Column("id_journal_entry_status")]
+        public int IdJournalEntryStatus { get; set; } = 1;
 
         // ===== REFERENCIA =====
 
@@ -56,23 +74,39 @@ namespace CMS.Entities.Operational
         [Column("posting_date")]
         public DateOnly PostingDate { get; set; } = DateOnly.FromDateTime(DateTime.Today);
 
-        // ===== MONEDA Y CONVERSIÓN =====
+        // ===== MENÚ ORIGEN =====
 
-        [Required]
-        [MaxLength(3)]
-        [Column("currency_code")]
-        public string CurrencyCode { get; set; } = "CRC";
-
-        [Column("exchange_rate")]
-        public decimal ExchangeRate { get; set; } = 1.0m;
+        /// <summary>FK lógica al menú de origen del asiento (admin.menu.id_menu)</summary>
+        [Column("id_menu")]
+        public int? IdMenu { get; set; }
 
         // ===== ESTADO Y CONTROL =====
 
-        /// <summary>Estado: Draft, Posted, Reversed, Cancelled</summary>
-        [Required]
-        [MaxLength(20)]
-        [Column("status")]
-        public string Status { get; set; } = "Draft";
+        /// <summary>
+        /// Estado calculado desde IdJournalEntryStatus.
+        /// Propiedad [NotMapped]: no se persiste en DB, se deriva de IdJournalEntryStatus.
+        /// Mapeo: 1=Draft, 2=Posted, 3=Reversed, 4=Cancelled.
+        /// </summary>
+        [NotMapped]
+        public string Status
+        {
+            get => IdJournalEntryStatus switch
+            {
+                1 => JournalEntryStatus.Draft,
+                2 => JournalEntryStatus.Posted,
+                3 => JournalEntryStatus.Reversed,
+                4 => JournalEntryStatus.Cancelled,
+                _ => JournalEntryStatus.Draft
+            };
+            set => IdJournalEntryStatus = value switch
+            {
+                JournalEntryStatus.Draft      => 1,
+                JournalEntryStatus.Posted     => 2,
+                JournalEntryStatus.Reversed   => 3,
+                JournalEntryStatus.Cancelled  => 4,
+                _                             => 1
+            };
+        }
 
         [Column("is_reversing")]
         public bool IsReversing { get; set; } = false;
@@ -127,6 +161,16 @@ namespace CMS.Entities.Operational
         /// <summary>FK a journal_entry_cancel_reason</summary>
         [Column("id_journal_entry_cancel_reason")]
         public int? IdJournalEntryCancelReason { get; set; }
+
+        // ===== MONEDA (IDs de admin.currency) =====
+
+        /// <summary>ID de la moneda base de la compañía (admin.currency.id_currency). Default 33 = CRC</summary>
+        [Column("currency_local")]
+        public int CurrencyLocal { get; set; } = 33;
+
+        /// <summary>ID de la moneda de tipo de cambio secundaria (admin.currency.id_currency). Default 141 = USD</summary>
+        [Column("currency_exchange")]
+        public int CurrencyExchange { get; set; } = 141;
 
         // ===== CAMPOS DE AUDITORÍA ESTÁNDAR =====
 
@@ -184,7 +228,7 @@ namespace CMS.Entities.Operational
 
         // ===== CUENTA CONTABLE =====
 
-        /// <summary>FK a sinai.chart_of_accounts (REQUERIDO)</summary>
+        /// <summary>FK lógica a sinai.chart_of_accounts (REQUERIDO)</summary>
         [Required]
         [Column("id_chart_of_accounts")]
         public int IdChartOfAccounts { get; set; }
@@ -193,12 +237,13 @@ namespace CMS.Entities.Operational
 
         [Required]
         [MaxLength(500)]
-        [Column("line_description")]
-        public string LineDescription { get; set; } = string.Empty;
+        [Column("description")]
+        public string Description { get; set; } = string.Empty;
 
-        [MaxLength(100)]
+        [Required]
+        [MaxLength(150)]
         [Column("reference")]
-        public string? Reference { get; set; }
+        public string Reference { get; set; } = string.Empty;
 
         // ===== DÉBITO / CRÉDITO =====
 
@@ -208,91 +253,32 @@ namespace CMS.Entities.Operational
         [Column("credit_amount")]
         public decimal CreditAmount { get; set; } = 0.00m;
 
-        // ===== MONEDA Y CONVERSIÓN =====
+        // ===== CENTRO DE COSTO =====
 
+        /// <summary>FK real a sinai.cost_center.id_cost_center. Se asigna automáticamente desde el parámetro cost_center_default si no viene en el request.</summary>
         [Required]
-        [MaxLength(3)]
-        [Column("currency_code")]
-        public string CurrencyCode { get; set; } = "CRC";
+        [Column("id_cost_center")]
+        public int IdCostCenter { get; set; }
 
-        [Column("exchange_rate")]
-        public decimal ExchangeRate { get; set; } = 1.0m;
+        // Navegación
+        [ForeignKey(nameof(IdCostCenter))]
+        public CostCenter? CostCenter { get; set; }
 
-        [Column("debit_amount_base")]
-        public decimal DebitAmountBase { get; set; } = 0.00m;
+        // ===== ORIGEN =====
 
-        [Column("credit_amount_base")]
-        public decimal CreditAmountBase { get; set; } = 0.00m;
+        /// <summary>
+        /// FK lógica cross-DB a cms.admin.journal_entry_type_origin(id_journal_entry_type_origin).
+        /// Define desde qué módulo fue generado el asiento (ej: manual, accounts_payable, sales).
+        /// No se declara FK real porque admin.journal_entry_type_origin vive en la BD central (cms).
+        /// </summary>
+        [Required]
+        [Column("id_journal_entry_type_origin")]
+        public int IdJournalEntryTypeOrigin { get; set; }
 
-        // ===== DIMENSIONES ANALÍTICAS =====
-
-        [MaxLength(30)]
-        [Column("cost_center_code")]
-        public string? CostCenterCode { get; set; }
-
-        [MaxLength(200)]
-        [Column("cost_center_name")]
-        public string? CostCenterName { get; set; }
-
-        [MaxLength(30)]
-        [Column("project_code")]
-        public string? ProjectCode { get; set; }
-
-        [MaxLength(200)]
-        [Column("project_name")]
-        public string? ProjectName { get; set; }
-
-        [MaxLength(30)]
-        [Column("department_code")]
-        public string? DepartmentCode { get; set; }
-
-        [MaxLength(200)]
-        [Column("department_name")]
-        public string? DepartmentName { get; set; }
-
-        // ===== BUSINESS PARTNER =====
-
-        /// <summary>Tipo: Customer, Supplier, Employee, Other</summary>
-        [MaxLength(20)]
-        [Column("business_partner_type")]
-        public string? BusinessPartnerType { get; set; }
-
-        [MaxLength(50)]
-        [Column("business_partner_code")]
-        public string? BusinessPartnerCode { get; set; }
-
-        [MaxLength(200)]
-        [Column("business_partner_name")]
-        public string? BusinessPartnerName { get; set; }
-
-        // ===== FECHA DE VENCIMIENTO =====
-
-        [Column("due_date")]
-        public DateOnly? DueDate { get; set; }
-
-        // ===== IMPUESTOS =====
-
-        [MaxLength(20)]
-        [Column("tax_code")]
-        public string? TaxCode { get; set; }
-
-        [Column("tax_rate")]
-        public decimal? TaxRate { get; set; }
-
-        [Column("tax_amount")]
-        public decimal? TaxAmount { get; set; }
-
-        // ===== RECONCILIACIÓN =====
-
-        [Column("is_reconciled")]
-        public bool IsReconciled { get; set; } = false;
-
-        [Column("reconciliation_date")]
-        public DateOnly? ReconciliationDate { get; set; }
-
-        [MaxLength(100)]
-        [Column("reconciliation_ref")]
-        public string? ReconciliationRef { get; set; }
+        /// <summary>FK lógica al documento de origen (id_document_origin)</summary>
+        [Required]
+        [Column("id_document_origin")]
+        public int IdDocumentOrigin { get; set; }
 
         // ===== CAMPOS DE AUDITORÍA ESTÁNDAR =====
 

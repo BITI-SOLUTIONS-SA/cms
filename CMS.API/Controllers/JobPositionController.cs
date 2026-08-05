@@ -42,9 +42,8 @@ namespace CMS.API.Controllers
         }
 
         private string GetCurrentUser() =>
-            User.FindFirst(JwtRegisteredClaimNames.Name)?.Value
-            ?? User.FindFirst(ClaimTypes.Name)?.Value
-            ?? "system";
+            User.FindFirstValue("cms_username") ?? User.FindFirst(ClaimTypes.Name)?.Value
+            ?? "SYSTEM";
 
         // ============================================================
         // GET /api/jobpositions

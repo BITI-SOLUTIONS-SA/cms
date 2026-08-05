@@ -85,6 +85,70 @@ namespace CMS.UI.Controllers
         }
 
         // =====================================================
+        // FACTURACIÓN ELECTRÓNICA CR v4.4
+        // =====================================================
+
+        /// <summary>GET /api/cabys/search?q=... - Buscar códigos CAByS</summary>
+        [HttpGet("cabys/search")]
+        public Task<IActionResult> CabysSearch([FromQuery] string q, [FromQuery] int limit = 50)
+            => ProxyGetAsync($"api/cabys/search?q={Uri.EscapeDataString(q ?? string.Empty)}&limit={limit}");
+
+        /// <summary>GET /api/billingissuer - Listar emisores</summary>
+        [HttpGet("billingissuer")]
+        public Task<IActionResult> BillingIssuers() => ProxyGetAsync("api/billingissuer");
+
+        /// <summary>POST /api/billingissuer - Crear emisor</summary>
+        [HttpPost("billingissuer")]
+        public Task<IActionResult> CreateBillingIssuer() => ProxyPostAsync("api/billingissuer");
+
+        /// <summary>POST /api/billingissuer/{id}/credential - Cargar .p12 (cifrado AES-256)</summary>
+        [HttpPost("billingissuer/{id:int}/credential")]
+        public Task<IActionResult> UploadCredential(int id) => ProxyPostAsync($"api/billingissuer/{id}/credential");
+
+        /// <summary>GET /api/billingissuer/{id}/credentials - Overview ambos ambientes</summary>
+        [HttpGet("billingissuer/{id:int}/credentials")]
+        public Task<IActionResult> CredentialsOverview(int id) => ProxyGetAsync($"api/billingissuer/{id}/credentials");
+
+        /// <summary>PUT /api/billingissuer/{id}/active-environment - Cambiar ambiente activo</summary>
+        [HttpPut("billingissuer/{id:int}/active-environment")]
+        public Task<IActionResult> SetActiveEnvironment(int id) => ProxyPutAsync($"api/billingissuer/{id}/active-environment");
+
+        /// <summary>GET /api/electronicinvoice - Listar comprobantes</summary>
+        [HttpGet("electronicinvoice")]
+        public Task<IActionResult> ElectronicInvoices([FromQuery] int? issuerId, [FromQuery] string? status, [FromQuery] int limit = 100)
+            => ProxyGetAsync($"api/electronicinvoice?issuerId={issuerId}&status={status}&limit={limit}");
+
+        /// <summary>POST /api/electronicinvoice/emit - Emitir comprobante</summary>
+        [HttpPost("electronicinvoice/emit")]
+        public Task<IActionResult> EmitInvoice() => ProxyPostAsync("api/electronicinvoice/emit");
+
+        /// <summary>POST /api/electronicinvoice/{id}/process - Reprocesar</summary>
+        [HttpPost("electronicinvoice/{id:int}/process")]
+        public Task<IActionResult> ProcessInvoice(int id) => ProxyPostAsync($"api/electronicinvoice/{id}/process");
+
+        /// <summary>GET /api/electronicinvoice/{id}/pdf - Descargar PDF</summary>
+        [HttpGet("electronicinvoice/{id:int}/pdf")]
+        public async Task<IActionResult> InvoicePdf(int id)
+        {
+            var client = GetAuthenticatedClient();
+            var response = await client.GetAsync($"api/electronicinvoice/{id}/pdf");
+            if (!response.IsSuccessStatusCode) return StatusCode((int)response.StatusCode);
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+            return File(bytes, "application/pdf", $"comprobante_{id}.pdf");
+        }
+
+        /// <summary>GET /api/electronicinvoice/{id}/xml - Descargar XML firmado</summary>
+        [HttpGet("electronicinvoice/{id:int}/xml")]
+        public async Task<IActionResult> InvoiceXml(int id)
+        {
+            var client = GetAuthenticatedClient();
+            var response = await client.GetAsync($"api/electronicinvoice/{id}/xml");
+            if (!response.IsSuccessStatusCode) return StatusCode((int)response.StatusCode);
+            var xml = await response.Content.ReadAsStringAsync();
+            return Content(xml, "application/xml");
+        }
+
+        // =====================================================
         // HELPERS
         // =====================================================
 

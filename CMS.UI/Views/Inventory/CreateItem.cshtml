@@ -11,6 +11,10 @@
     ViewData["Title"] = "Nuevo Artículo";
 }
 
+<style>
+    small, .form-text, small.text-muted, .text-muted small { color: #cbd5e1 !important; }
+</style>
+
 <div class="content-container">
     <!-- ===== HEADER ===== -->
     <div class="page-header mb-4">
@@ -243,6 +247,57 @@
                                            style="background-color: #1e293b; color: #f0f0f0; border-color: rgba(6, 182, 212, 0.5);">
                                     <span class="input-group-text" style="background-color: #334155; border-color: rgba(6, 182, 212, 0.5); color: #06b6d4;">%</span>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== FACTURACIÓN ELECTRÓNICA ===== -->
+                <div class="card border-0 mb-4" style="background: linear-gradient(135deg, #1a1f36 0%, #252b47 100%);">
+                    <div class="card-header" style="background: rgba(0, 0, 0, 0.2); border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
+                        <h5 class="mb-0 text-white">
+                            <i class="bi bi-receipt me-2 text-info"></i>Facturación Electrónica (Hacienda CR)
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label text-white">
+                                    <i class="bi bi-upc-scan me-1 text-info"></i>Código CAByS (13 dígitos)
+                                </label>
+                                <input type="text" asp-for="CabysCode" class="form-control" maxlength="13"
+                                       placeholder="9799000000000"
+                                       style="background-color: #1e293b; color: #f0f0f0; border-color: rgba(6, 182, 212, 0.5);">
+                                <small class="form-text">Clasificador de Bienes y Servicios. Default: 9799000000000.</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label text-white">
+                                    <i class="bi bi-percent me-1 text-info"></i>Código Tarifa IVA
+                                </label>
+                                <select asp-for="TaxRateCode" class="form-select"
+                                        style="background-color: #1e293b; color: #f0f0f0; border-color: rgba(6, 182, 212, 0.5);">
+                                    <option value="01">01 - Tarifa 0% (exento)</option>
+                                    <option value="02">02 - Tarifa reducida 1%</option>
+                                    <option value="03">03 - Tarifa reducida 2%</option>
+                                    <option value="04">04 - Tarifa reducida 4%</option>
+                                    <option value="05">05 - Transitorio 0%</option>
+                                    <option value="06">06 - Transitorio 4%</option>
+                                    <option value="07">07 - Transitorio 8%</option>
+                                    <option value="08" selected>08 - Tarifa general 13%</option>
+                                    <option value="09">09 - Tarifa reducida 0.5%</option>
+                                    <option value="10">10 - Tarifa exenta</option>
+                                    <option value="11">11 - Tarifa 0% sin derecho a crédito</option>
+                                </select>
+                                <small class="form-text">Código de tarifa v4.4. Default: 08 (13%).</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label text-white">
+                                    <i class="bi bi-person me-1 text-info"></i>Cliente (id_customer)
+                                </label>
+                                <input type="number" asp-for="IdCustomer" class="form-control" min="1"
+                                       placeholder="1"
+                                       style="background-color: #1e293b; color: #f0f0f0; border-color: rgba(6, 182, 212, 0.5);">
+                                <small class="form-text">Cliente propietario del ítem. Default: 1.</small>
                             </div>
                         </div>
                     </div>

@@ -17,17 +17,24 @@
 @* Recorrer todos los menús de nivel raíz (ParentId == 0) *@
 @foreach (var parent in Model.Where(m => m.IdParent == 0))
 {
-    // Obtener los menús hijos de este padre
+    // Obtener los menús hijos directos de este padre
     var children = Model
         .Where(m => m.IdParent == parent.IdMenu)
         .OrderBy(m => m.Order)
         .ToList();
 
-    // Determinar si este grupo debe estar expandido (open)
-    // Se expande si algún hijo está activo o si el padre está activo
-    bool isOpen =
-        children.Any(c => currentPath.StartsWith(c.Url.ToLower())) ||
-        currentPath.StartsWith(parent.Url.ToLower());
+    // Helper: una URL es "activa" si no es vacía y la ruta actual empieza por ella
+    Func<string, bool> isUrlActive = url =>
+        !string.IsNullOrWhiteSpace(url) && currentPath.StartsWith(url.ToLower());
+
+    // Función recursiva para determinar si algún descendiente está activo
+    Func<int, bool> hasActiveDescendant = null!;
+    hasActiveDescendant = id =>
+        Model.Where(m => m.IdParent == id)
+             .Any(m => isUrlActive(m.Url) || hasActiveDescendant(m.IdMenu));
+
+    // Este grupo debe estar expandido si el padre o algún descendiente está activo
+    bool isOpen = isUrlActive(parent.Url) || hasActiveDescendant(parent.IdMenu);
 
     @* Si el menú tiene hijos, renderizar como grupo expandible *@
     if (children.Any())
@@ -43,22 +50,62 @@
                 <i class="bi bi-chevron-down ms-auto"></i>
             </a>
 
-            @* Lista de menús hijos *@
+            @* Lista de menús hijos (nivel 2) *@
             <ul class="nav nav-group-items">
                 @foreach (var child in children)
                 {
-                    // Determinar si este hijo está activo
-                    bool isActive = currentPath.StartsWith(child.Url.ToLower());
+                    // Verificar si este hijo tiene a su vez hijos (nivel 3)
+                    var grandchildren = Model
+                        .Where(m => m.IdParent == child.IdMenu)
+                        .OrderBy(m => m.Order)
+                        .ToList();
 
-                    <li class="nav-item">
-                        <a class="nav-link @(isActive ? "active" : "")" href="@child.Url">
-                            @if (!string.IsNullOrEmpty(child.Icon))
-                            {
-                                <i class="@child.Icon"></i>
-                            }
-                            <span>@child.Name</span>
-                        </a>
-                    </li>
+                    if (grandchildren.Any())
+                    {
+                        // Es un subgrupo (nivel 2 con hijos) — ej: General Accounting
+                        bool subIsOpen = isUrlActive(child.Url) ||
+                                         grandchildren.Any(g => isUrlActive(g.Url));
+
+                        <li class="nav-item nav-group nav-subgroup @(subIsOpen ? "open" : "")">
+                            <a class="nav-link nav-group-toggle nav-subgroup-toggle" href="javascript:void(0)">
+                                @if (!string.IsNullOrEmpty(child.Icon))
+                                {
+                                    <i class="@child.Icon"></i>
+                                }
+                                <span>@child.Name</span>
+                                <i class="bi bi-chevron-down ms-auto"></i>
+                            </a>
+                            <ul class="nav nav-group-items nav-subgroup-items">
+                                @foreach (var grand in grandchildren)
+                                {
+                                    bool grandIsActive = isUrlActive(grand.Url);
+                                    <li class="nav-item">
+                                        <a class="nav-link @(grandIsActive ? "active" : "")" href="@grand.Url">
+                                            @if (!string.IsNullOrEmpty(grand.Icon))
+                                            {
+                                                <i class="@grand.Icon"></i>
+                                            }
+                                            <span>@grand.Name</span>
+                                        </a>
+                                    </li>
+                                }
+                            </ul>
+                        </li>
+                    }
+                    else
+                    {
+                        // Hijo simple (nivel 2 sin hijos)
+                        bool isActive = isUrlActive(child.Url);
+                        <li class="nav-item">
+                            <a class="nav-link @(isActive ? "active" : "")" href="@child.Url">
+                                @if (!string.IsNullOrEmpty(child.Icon))
+                                {
+                                    <i class="@child.Icon"></i>
+                                }
+                                <span>@child.Name</span>
+                            </a>
+                        </li>
+                    }
                 }
             </ul>
         </li>
@@ -66,7 +113,7 @@
     else
     {
         @* Menú de nivel raíz sin hijos (menú simple) *@
-        bool isActive = currentPath.StartsWith(parent.Url.ToLower());
+        bool isActive = isUrlActive(parent.Url);
 
         <li class="nav-item">
             <a class="nav-link @(isActive ? "active" : "")" href="@parent.Url">

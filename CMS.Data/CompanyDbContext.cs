@@ -10,6 +10,7 @@
 
 using CMS.Entities.Operational;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace CMS.Data
 {
@@ -24,7 +25,40 @@ namespace CMS.Data
         public CompanyDbContext(DbContextOptions<CompanyDbContext> options, string schema) 
             : base(options)
         {
+            if (string.IsNullOrWhiteSpace(schema))
+                throw new ArgumentException("El schema de la compañía no puede estar vacío", nameof(schema));
+
             _schema = schema;
+        }
+
+        /// <summary>
+        /// CRÍTICO: Retornar un ID único por schema para evitar caché de modelos.
+        /// Sin esto, EF Core cachea el modelo con el primer schema y lo reutiliza para todos.
+        /// </summary>
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            base.OnConfiguring(optionsBuilder);
+
+            // Forzar modelo único por schema (evita caché cross-schema)
+            optionsBuilder.ReplaceService<IModelCacheKeyFactory, DynamicSchemaModelCacheKeyFactory>();
+        }
+
+        /// <summary>
+        /// Factory para generar claves de caché únicas por schema.
+        /// Esto asegura que cada schema tenga su propio modelo compilado.
+        /// </summary>
+        private class DynamicSchemaModelCacheKeyFactory : IModelCacheKeyFactory
+        {
+            public object Create(DbContext context, bool designTime)
+            {
+                if (context is CompanyDbContext companyContext)
+                {
+                    // Clave de caché única por schema
+                    return (context.GetType(), companyContext._schema, designTime);
+                }
+
+                return (context.GetType(), designTime);
+            }
         }
 
         // ===== TABLAS OPERACIONALES =====
@@ -169,6 +203,12 @@ namespace CMS.Data
         /// </summary>
         public DbSet<GlobalParameter> GlobalParameters { get; set; } = null!;
 
+        /// <summary>
+        /// Consecutivos de numeración de documentos
+        /// Configuración de consecutivos por entidad y tipo de documento
+        /// </summary>
+        public DbSet<Consecutive> Consecutives { get; set; } = null!;
+
         // ===== ACCOUNTING TABLES =====
 
         /// <summary>
@@ -200,6 +240,54 @@ namespace CMS.Data
         /// Catálogo de razones predefinidas para cancelar asientos
         /// </summary>
         public DbSet<JournalEntryCancelReason> JournalEntryCancelReasons { get; set; } = null!;
+
+        /// <summary>
+        /// Catálogo de tipos de tasa de cambio (PER, SER, UER, etc.)
+        /// </summary>
+        public DbSet<ExchangeRate> ExchangeRates { get; set; } = null!;
+
+        // ===== CRM & CLIENTES =====
+
+        /// <summary>
+        /// Maestro de clientes (CRM/Ventas).
+        /// Solo datos operacionales, sin facturación electrónica.
+        /// </summary>
+        public DbSet<Customer> Customers { get; set; } = null!;
+
+        /// <summary>
+        /// Maestro de proveedores (Purchasing/AP).
+        /// Datos operacionales y comerciales de proveedores.
+        /// </summary>
+        public DbSet<Supplier> Suppliers { get; set; } = null!;
+
+        // ===== FACTURACIÓN ELECTRÓNICA CR v4.4 (HACIENDA-CORE) =====
+
+        /// <summary>
+        /// Credenciales completas de facturación electrónica (emisores y receptores).
+        /// Contiene TODA la información necesaria para emisión/recepción.
+        /// </summary>
+        public DbSet<CustomerBillingCredential> CustomerBillingCredentials { get; set; } = null!;
+
+        /// <summary>Consecutivos fiscales por emisor/sucursal/terminal/tipo.</summary>
+        public DbSet<FiscalConsecutive> FiscalConsecutives { get; set; } = null!;
+
+        /// <summary>Comprobantes electrónicos (cabecera).</summary>
+        public DbSet<ElectronicDocument> ElectronicDocuments { get; set; } = null!;
+
+        /// <summary>Líneas de detalle de comprobantes.</summary>
+        public DbSet<ElectronicDocumentLine> ElectronicDocumentLines { get; set; } = null!;
+
+        /// <summary>Impuestos por línea de comprobante.</summary>
+        public DbSet<ElectronicDocumentTax> ElectronicDocumentTaxes { get; set; } = null!;
+
+        /// <summary>Referencias a documentos previos (NC/ND/REP).</summary>
+        public DbSet<ElectronicDocumentReference> ElectronicDocumentReferences { get; set; } = null!;
+
+        /// <summary>Cola de reintentos para resiliencia ante Hacienda.</summary>
+        public DbSet<EInvoiceRetryQueue> EInvoiceRetryQueue { get; set; } = null!;
+
+        /// <summary>Bitácora de seguimiento del proceso de emisión.</summary>
+        public DbSet<ElectronicDocumentLog> ElectronicDocumentLogs { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -431,6 +519,15 @@ namespace CMS.Data
                 entity.HasIndex(e => e.IdWarehouseDest);
                 entity.HasIndex(e => e.IsTransitTransfer);
                 entity.HasIndex(e => e.SecuritySeal).IsUnique().HasFilter("security_seal IS NOT NULL");
+
+                // FK real a sinai.journal_entry (misma BD/schema de compañía)
+                entity.HasIndex(e => e.IdJournalEntry)
+                      .HasDatabaseName($"ix_{_schema}_inventory_transaction_journal_entry");
+                entity.HasOne(e => e.JournalEntry)
+                      .WithMany()
+                      .HasForeignKey(e => e.IdJournalEntry)
+                      .OnDelete(DeleteBehavior.Restrict)
+                      .IsRequired(true);
             });
 
             modelBuilder.Entity<InventoryTransactionWarehouseTransit>(entity =>
@@ -578,7 +675,7 @@ namespace CMS.Data
                 entity.HasKey(e => e.IdChartOfAccounts);
                 entity.Property(e => e.IdChartOfAccounts).HasColumnName("id_chart_of_accounts");
                 entity.HasIndex(e => e.Code).IsUnique();
-                entity.HasIndex(e => e.AccountType);
+                entity.HasIndex(e => e.IdChartOfAccountsType);
                 entity.HasIndex(e => e.IdParentAccount);
                 entity.HasIndex(e => e.IsActive);
                 entity.HasIndex(e => e.IsDetail);
@@ -602,8 +699,9 @@ namespace CMS.Data
                 entity.HasKey(e => e.IdJournalEntry);
                 entity.Property(e => e.IdJournalEntry).HasColumnName("id_journal_entry");
                 entity.HasIndex(e => e.EntryNumber).IsUnique();
-                entity.HasIndex(e => e.Status);
-                entity.HasIndex(e => e.EntryType);
+                entity.HasIndex(e => e.IdTypeAccounting);
+                entity.HasIndex(e => e.IdJournalEntryClass);
+                entity.HasIndex(e => e.IdJournalEntryStatus);
                 entity.HasIndex(e => e.PostingDate);
                 entity.HasIndex(e => e.IdJournalEntryCancelReason);
                 entity.Ignore(e => e.Lines); // Navigation property
@@ -633,9 +731,102 @@ namespace CMS.Data
                 entity.Property(e => e.IdJournalEntry).HasColumnName("id_journal_entry");
                 entity.Property(e => e.IdJournalEntryLine).HasColumnName("id_journal_entry_line");
                 entity.HasIndex(e => e.IdChartOfAccounts);
-                entity.HasIndex(e => e.CostCenterCode);
-                entity.HasIndex(e => e.ProjectCode);
-                entity.HasIndex(e => e.DepartmentCode);
+                // FK real a sinai.cost_center
+                entity.HasOne(e => e.CostCenter)
+                      .WithMany()
+                      .HasForeignKey(e => e.IdCostCenter)
+                      .OnDelete(DeleteBehavior.Restrict)
+                      .IsRequired(true);
+                entity.HasIndex(e => e.IdCostCenter)
+                      .HasDatabaseName($"ix_{_schema}_journal_entry_line_cost_center");
+                entity.HasIndex(e => e.IdJournalEntryTypeOrigin)
+                      .HasDatabaseName($"ix_{_schema}_journal_entry_line_type_origin");
+                entity.HasIndex(e => e.IdDocumentOrigin)
+                      .HasDatabaseName($"ix_{_schema}_journal_entry_line_document_origin");
+            });
+
+            modelBuilder.Entity<ExchangeRate>(entity =>
+            {
+                entity.ToTable("exchange_rate", _schema);
+                entity.HasKey(e => e.IdExchangeRate);
+                entity.Property(e => e.IdExchangeRate).HasColumnName("id_exchange_rate");
+                entity.HasIndex(e => e.Code).IsUnique();
+                entity.HasIndex(e => e.IsActive);
+                entity.HasIndex(e => e.DisplayOrder);
+            });
+
+            // ===== CUSTOMER & BILLING CREDENTIALS =====
+
+            modelBuilder.Entity<Customer>(entity =>
+            {
+                entity.ToTable("customer", _schema);
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).HasColumnName("id_customer");
+                entity.HasIndex(e => e.Code).IsUnique().HasDatabaseName($"uix_{_schema}_customer_code");
+                entity.HasIndex(e => e.Identification).HasDatabaseName($"ix_{_schema}_customer_identification");
+                entity.HasIndex(e => e.Email).HasDatabaseName($"ix_{_schema}_customer_email");
+                entity.HasIndex(e => e.IsActive).HasDatabaseName($"ix_{_schema}_customer_active");
+                entity.HasIndex(e => e.IdParentCustomer).HasDatabaseName($"ix_{_schema}_customer_parent");
+                entity.HasIndex(e => e.CustomerType).HasDatabaseName($"ix_{_schema}_customer_type");
+
+                // Self-referencing relationship (parent/child customers)
+                entity.HasOne(e => e.ParentCustomer)
+                      .WithMany(e => e.ChildCustomers)
+                      .HasForeignKey(e => e.IdParentCustomer)
+                      .OnDelete(DeleteBehavior.Restrict)
+                      .IsRequired(false);
+            });
+
+            modelBuilder.Entity<Supplier>(entity =>
+            {
+                entity.ToTable("supplier", _schema);
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).HasColumnName("id_supplier");
+                entity.HasIndex(e => e.Code).IsUnique().HasDatabaseName($"uix_{_schema}_supplier_code");
+                entity.HasIndex(e => e.Identification).HasDatabaseName($"ix_{_schema}_supplier_identification");
+                entity.HasIndex(e => e.Email).HasDatabaseName($"ix_{_schema}_supplier_email");
+                entity.HasIndex(e => e.IsActive).HasDatabaseName($"ix_{_schema}_supplier_active");
+                entity.HasIndex(e => e.IdParentSupplier).HasDatabaseName($"ix_{_schema}_supplier_parent");
+                entity.HasIndex(e => e.SupplierType).HasDatabaseName($"ix_{_schema}_supplier_type");
+
+                // Self-referencing relationship (parent/child suppliers)
+                entity.HasOne(e => e.ParentSupplier)
+                      .WithMany(e => e.ChildSuppliers)
+                      .HasForeignKey(e => e.IdParentSupplier)
+                      .OnDelete(DeleteBehavior.Restrict)
+                      .IsRequired(false);
+            });
+
+            modelBuilder.Entity<CustomerBillingCredential>(entity =>
+            {
+                entity.ToTable("customer_billing_credential", _schema);
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).HasColumnName("id_customer_billing_credential");
+
+                // Unique constraint per customer/environment
+                entity.HasIndex(e => new { e.IdCustomer, e.Environment })
+                      .IsUnique()
+                      .HasDatabaseName($"uq_{_schema}_customer_billing_credential_env");
+
+                // Índice único para company owner
+                entity.HasIndex(e => e.IsCompanyOwner)
+                      .IsUnique()
+                      .HasFilter("is_company_owner = true AND is_active = true")
+                      .HasDatabaseName($"uix_{_schema}_cbc_company_owner");
+
+                entity.HasIndex(e => e.IdCustomer).HasDatabaseName($"ix_{_schema}_cbc_customer");
+                entity.HasIndex(e => e.Environment).HasDatabaseName($"ix_{_schema}_cbc_env");
+                entity.HasIndex(e => e.IsActive).HasDatabaseName($"ix_{_schema}_cbc_active");
+                entity.HasIndex(e => e.IsIssuer).HasDatabaseName($"ix_{_schema}_cbc_issuer");
+                entity.HasIndex(e => e.Identification).HasDatabaseName($"ix_{_schema}_cbc_identification");
+                entity.HasIndex(e => e.Email).HasDatabaseName($"ix_{_schema}_cbc_email");
+
+                // FK to Customer (NULLABLE)
+                entity.HasOne(e => e.Customer)
+                      .WithMany()
+                      .HasForeignKey(e => e.IdCustomer)
+                      .OnDelete(DeleteBehavior.Restrict)
+                      .IsRequired(false);
             });
         }
     }

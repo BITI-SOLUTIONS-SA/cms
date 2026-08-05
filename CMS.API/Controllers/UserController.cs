@@ -74,6 +74,10 @@ namespace CMS.API.Controllers
             }
         }
 
+        // Devuelve el nombre del usuario autenticado para campos de auditoría (created_by / updated_by)
+        private string GetAuditUser() =>
+            User.FindFirstValue("cms_username") ?? User.FindFirstValue(ClaimTypes.Name) ?? "SYSTEM";
+
         // GET: api/user/me (usuario actual)
         [HttpGet("me")]
         public IActionResult GetCurrentUser()
@@ -81,7 +85,7 @@ namespace CMS.API.Controllers
             var userInfo = new
             {
                 Id = User.FindFirstValue(ClaimTypes.NameIdentifier),
-                Name = User.Identity?.Name,
+                Name = User.FindFirstValue("cms_username") ?? User.FindFirstValue(ClaimTypes.Name),
                 Email = User.FindFirstValue(ClaimTypes.Email) ?? User.FindFirstValue("preferred_username"),
                 Roles = User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList(),
                 Groups = User.FindAll("groups").Select(c => c.Value).ToList(),
@@ -283,8 +287,8 @@ namespace CMS.API.Controllers
                     RecordDate = DateTime.UtcNow,
                     CreateDate = DateTime.UtcNow,
                     RowPointer = Guid.NewGuid(),
-                    CreatedBy = User.Identity?.Name ?? "SYSTEM",
-                    UpdatedBy = User.Identity?.Name ?? "SYSTEM"
+                    CreatedBy = GetAuditUser(),
+                    UpdatedBy = GetAuditUser()
                 };
 
                 _db.Users.Add(user);
@@ -323,13 +327,13 @@ namespace CMS.API.Controllers
                             RecordDate = DateTime.UtcNow,
                             CreateDate = DateTime.UtcNow,
                             RowPointer = Guid.NewGuid(),
-                            CreatedBy = User.Identity?.Name ?? "SYSTEM",
-                            UpdatedBy = User.Identity?.Name ?? "SYSTEM"
+                            CreatedBy = GetAuditUser(),
+                            UpdatedBy = GetAuditUser()
                         });
                     }
                 }
                 await _db.SaveChangesAsync();
-                _logger.LogInformation("✅ Compañías asignadas: {Companies}", string.Join(", ", companyIdsToAssign));
+                _logger.LogInformation("Compañías asignadas: {Companies}", string.Join(", ", companyIdsToAssign));
 
                 // ⭐ Asignar roles EN CADA COMPAÑÍA (nueva arquitectura)
                 if (dto.RoleIds != null && dto.RoleIds.Any())
@@ -350,14 +354,14 @@ namespace CMS.API.Controllers
                                     RecordDate = DateTime.UtcNow,
                                     CreateDate = DateTime.UtcNow,
                                     RowPointer = Guid.NewGuid(),
-                                    CreatedBy = User.Identity?.Name ?? "SYSTEM",
-                                    UpdatedBy = User.Identity?.Name ?? "SYSTEM"
+                                    CreatedBy = GetAuditUser(),
+                                    UpdatedBy = GetAuditUser()
                                 });
                             }
                         }
                     }
                     await _db.SaveChangesAsync();
-                    _logger.LogInformation("✅ Roles por compañía asignados: {Roles} en {Companies} compañías", 
+                    _logger.LogInformation("Roles por compañía asignados: {Roles} en {Companies} compañías",
                         string.Join(", ", dto.RoleIds), companyIdsToAssign.Count);
                 }
 
@@ -508,7 +512,7 @@ namespace CMS.API.Controllers
 
                 user.IS_ACTIVE = dto.IsActive;
                 user.IS_EMAIL_VERIFIED = dto.IsEmailVerified;
-                user.UpdatedBy = User.Identity?.Name ?? "system";
+                user.UpdatedBy = GetAuditUser();
 
                 await _db.SaveChangesAsync();
 
@@ -544,18 +548,18 @@ namespace CMS.API.Controllers
                                     RecordDate = DateTime.UtcNow,
                                     CreateDate = DateTime.UtcNow,
                                     RowPointer = Guid.NewGuid(),
-                                    CreatedBy = User.Identity?.Name ?? "SYSTEM",
-                                    UpdatedBy = User.Identity?.Name ?? "SYSTEM"
+                                    CreatedBy = GetAuditUser(),
+                                    UpdatedBy = GetAuditUser()
                                 });
                             }
                         }
                     }
                     await _db.SaveChangesAsync();
-                    _logger.LogInformation("✅ Roles actualizados para usuario {UserId}: {Roles} en {Count} compañías", 
+                    _logger.LogInformation("Roles actualizados para usuario {UserId}: {Roles} en {Count} compañías",
                         id, string.Join(", ", dto.RoleIds), userCompanyIds.Count);
                 }
 
-                _logger.LogInformation("✅ Usuario {UserId} actualizado", id);
+                _logger.LogInformation("Usuario {UserId} actualizado", id);
 
                 return NoContent();
             }
@@ -579,7 +583,7 @@ namespace CMS.API.Controllers
 
                 // Soft delete
                 user.IS_ACTIVE = false;
-                user.UpdatedBy = User.Identity?.Name ?? "system";
+                user.UpdatedBy = GetAuditUser();
                 await _db.SaveChangesAsync();
 
                 return NoContent();
@@ -655,7 +659,7 @@ namespace CMS.API.Controllers
                 _db.UserCompanyRoles.RemoveRange(currentRoles);
 
                 // Agregar nuevos roles en cada compañía
-                var userName = User.Identity?.Name ?? "system";
+                var userName = GetAuditUser();
                 foreach (var companyId in userCompanyIds)
                 {
                     foreach (var roleId in roleIds)
@@ -677,7 +681,7 @@ namespace CMS.API.Controllers
 
                 await _db.SaveChangesAsync();
 
-                _logger.LogInformation("Roles asignados al usuario {UserId}: {Roles} en {Count} compañías", 
+                _logger.LogInformation("Roles asignados al usuario {UserId}: {Roles} en {Count} compañías",
                     id, string.Join(", ", roleIds), userCompanyIds.Count);
 
                 return NoContent();
@@ -775,7 +779,7 @@ namespace CMS.API.Controllers
                 _db.UserCompanyPermissions.RemoveRange(currentPermissions);
 
                 // Agregar nuevos permisos en cada compañía
-                var userName = User.Identity?.Name ?? "system";
+                var userName = GetAuditUser();
                 foreach (var companyId in userCompanyIds)
                 {
                     foreach (var perm in permissions)
@@ -825,7 +829,7 @@ namespace CMS.API.Controllers
                     return NotFound(new { message = "Usuario no encontrado" });
 
                 user.IS_ACTIVE = true;
-                user.UpdatedBy = User.Identity?.Name ?? "system";
+                user.UpdatedBy = GetAuditUser();
                 await _db.SaveChangesAsync();
 
                 _logger.LogInformation("Usuario activado: {UserId}", id);
@@ -870,12 +874,12 @@ namespace CMS.API.Controllers
                 user.LAST_PASSWORD_CHANGE = null; // Forzar cambio de contraseña
                 user.LOCKOUT_END = null; // ⭐ Desbloquear cuenta
                 user.FAILED_LOGIN_ATTEMPTS = 0; // ⭐ Reiniciar intentos fallidos
-                user.UpdatedBy = User.Identity?.Name ?? "system";
+                user.UpdatedBy = GetAuditUser();
                 await _db.SaveChangesAsync();
 
                 // Enviar email - Usar URL de la compañía desde BD
                 var baseUrl = await GetUiBaseUrlFromCompanyAsync();
-                _logger.LogInformation("📧 Enviando email de reset a {Email} con baseUrl: {BaseUrl}", user.EMAIL, baseUrl);
+                _logger.LogInformation("Enviando email de reset a {Email} con baseUrl: {BaseUrl}", user.EMAIL, baseUrl);
 
                 var emailResult = await _emailService.SendPasswordResetEmailAsync(
                     user.EMAIL,
@@ -944,9 +948,9 @@ namespace CMS.API.Controllers
                 user.LAST_PASSWORD_CHANGE = DateTime.UtcNow; // Marcar como cambiada para evitar prompt de cambio
                 user.LOCKOUT_END = null; // ⭐ Desbloquear cuenta
                 user.FAILED_LOGIN_ATTEMPTS = 0; // ⭐ Reiniciar intentos fallidos
-                user.UpdatedBy = User.Identity?.Name ?? "system";
+                user.UpdatedBy = GetAuditUser();
 
-                // Forzar que EF Core detecte el cambio en PASSWORD_HASH
+                // Forzar que EF Core detecte
                 _db.Entry(user).Property(u => u.PASSWORD_HASH).IsModified = true;
 
                 await _db.SaveChangesAsync();
@@ -1096,12 +1100,12 @@ namespace CMS.API.Controllers
                 user.PASSWORD_HASH = passwordHash;
                 user.EMAIL_VERIFICATION_TOKEN = verificationToken;
                 user.EMAIL_VERIFICATION_TOKEN_EXPIRY = DateTime.UtcNow.AddMinutes(VERIFICATION_TOKEN_EXPIRY_MINUTES);
-                user.UpdatedBy = User.Identity?.Name ?? "system";
+                user.UpdatedBy = GetAuditUser();
                 await _db.SaveChangesAsync();
 
                 // Enviar email - Usar URL de la compañía desde BD
                 var baseUrl = await GetUiBaseUrlFromCompanyAsync();
-                _logger.LogInformation("📧 Enviando email de verificación a {Email} con baseUrl: {BaseUrl}", user.EMAIL, baseUrl);
+                _logger.LogInformation("Enviando email de verificación a {Email} con baseUrl: {BaseUrl}", user.EMAIL, baseUrl);
 
                 var emailResult = await _emailService.SendVerificationEmailAsync(
                     user.EMAIL,
@@ -1180,7 +1184,7 @@ namespace CMS.API.Controllers
                 await _db.SaveChangesAsync();
 
                 _logger.LogInformation("🗑️ Usuario {UserId} ({Username}) eliminado permanentemente por {DeletedBy}", 
-                    id, user.USER_NAME, User.Identity?.Name);
+                    id, user.USER_NAME, GetAuditUser());
 
                 return Ok(new { 
                     success = true, 
@@ -1227,7 +1231,7 @@ namespace CMS.API.Controllers
                 await _db.SaveChangesAsync();
 
                 _logger.LogInformation("🗑️ Usuario {UserId} ({Username}) eliminado permanentemente (forzado) por {DeletedBy}", 
-                    id, user.USER_NAME, User.Identity?.Name);
+                    id, user.USER_NAME, GetAuditUser());
 
                 return Ok(new { 
                     success = true, 
@@ -1574,7 +1578,7 @@ namespace CMS.API.Controllers
                 _db.UserCompanyRoles.RemoveRange(currentRoles);
 
                 // Agregar nuevos roles
-                var userName = User.Identity?.Name ?? "system";
+                var userName = GetAuditUser();
                 foreach (var roleId in roleIds)
                 {
                     _db.UserCompanyRoles.Add(new UserCompanyRole
@@ -1592,7 +1596,7 @@ namespace CMS.API.Controllers
 
                 await _db.SaveChangesAsync();
 
-                _logger.LogInformation("✅ Roles asignados a usuario {UserId} en compañía {CompanyId}: {Roles}", 
+                _logger.LogInformation("Roles asignados a usuario {UserId} en compañía {CompanyId}: {Roles}",
                     userId, companyId, string.Join(", ", roleIds));
 
                 return Ok(new { success = true, message = $"Se asignaron {roleIds.Count} rol(es)" });
@@ -1629,7 +1633,7 @@ namespace CMS.API.Controllers
                 _db.UserCompanyPermissions.RemoveRange(currentPermissions);
 
                 // Agregar nuevos permisos
-                var userName = User.Identity?.Name ?? "system";
+                var userName = GetAuditUser();
                 foreach (var perm in permissions)
                 {
                     _db.UserCompanyPermissions.Add(new UserCompanyPermission

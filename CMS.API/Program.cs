@@ -140,6 +140,7 @@ builder.Services.AddScoped<CMS.Data.Services.IEmailService, CMS.Data.Services.Em
 // SERVICIOS MULTI-BD (Bases de datos por compañía)
 // ================================================================================
 builder.Services.AddScoped<ICompanyDbContextFactory, CompanyDbContextFactory>();
+builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IItemService, ItemService>();
 builder.Services.AddScoped<IWarehouseService, WarehouseService>();
 builder.Services.AddScoped<IStockTransferService, StockTransferService>();
@@ -154,6 +155,24 @@ builder.Services.AddScoped<IChartOfAccountsService, ChartOfAccountsService>();
 builder.Services.AddScoped<ICostCenterService, CostCenterService>();
 builder.Services.AddScoped<IJournalEntryService, JournalEntryService>();
 builder.Services.AddScoped<IJournalEntryCancelReasonService, JournalEntryCancelReasonService>();
+builder.Services.AddScoped<IExchangeRateService, ExchangeRateService>();
+builder.Services.AddScoped<CMS.Data.Services.Interfaces.IConsecutiveService, CMS.Data.Services.ConsecutiveService>();
+builder.Services.AddScoped<ICustomerService, CustomerService>(); // ⭐ Nuevo servicio Customer
+
+// ================================================================================
+// FACTURACIÓN ELECTRÓNICA CR v4.4 (HACIENDA-CORE)
+// ================================================================================
+builder.Services.AddSingleton<CMS.Data.Services.EInvoice.IEInvoiceVaultService, CMS.Data.Services.EInvoice.EInvoiceVaultService>();
+builder.Services.AddScoped<CMS.Data.Services.EInvoice.IClaveNumericaGenerator, CMS.Data.Services.EInvoice.ClaveNumericaGenerator>();
+builder.Services.AddScoped<CMS.Data.Services.EInvoice.IElectronicDocumentXmlBuilder, CMS.Data.Services.EInvoice.ElectronicDocumentXmlBuilder>();
+builder.Services.AddScoped<CMS.Data.Services.EInvoice.IXadesSignatureService, CMS.Data.Services.EInvoice.XadesSignatureService>();
+builder.Services.AddScoped<CMS.Data.Services.EInvoice.IHaciendaAuthService, CMS.Data.Services.EInvoice.HaciendaAuthService>();
+builder.Services.AddScoped<CMS.Data.Services.EInvoice.IHaciendaApiClient, CMS.Data.Services.EInvoice.HaciendaApiClient>();
+builder.Services.AddScoped<CMS.Data.Services.EInvoice.IElectronicDocumentService, CMS.Data.Services.EInvoice.ElectronicDocumentService>();
+builder.Services.AddScoped<CMS.Data.Services.EInvoice.IEInvoicePdfService, CMS.Data.Services.EInvoice.EInvoicePdfService>();
+builder.Services.AddHttpClient("hacienda-idp");
+builder.Services.AddHttpClient("hacienda-api");
+builder.Services.AddHostedService<CMS.Data.Services.EInvoice.EInvoiceRetryWorker>();
 
 // ================================================================================
 // FASE 3: CARGAR CONFIGURACIÓN DESDE [ADMIN].[COMPANY]

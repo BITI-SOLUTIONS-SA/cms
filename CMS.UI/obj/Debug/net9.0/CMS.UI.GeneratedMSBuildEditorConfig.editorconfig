@@ -31,6 +31,22 @@ build_property._RazorSourceGeneratorDebug =
 build_property.EffectiveAnalysisLevelStyle = 9.0
 build_property.EnableCodeStyleSeverity = 
 
+[C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Pages/Customers/Create.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQ3VzdG9tZXJzXENyZWF0ZS5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Pages/Customers/Details.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQ3VzdG9tZXJzXERldGFpbHMuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Pages/Customers/Edit.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQ3VzdG9tZXJzXEVkaXQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Pages/Customers/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQ3VzdG9tZXJzXEluZGV4LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/Accounting/ChartOfAccounts.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWNjb3VudGluZ1xDaGFydE9mQWNjb3VudHMuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
@@ -91,8 +107,20 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cQmFja3VwLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/Admin/ChartOfAccountsType.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cQ2hhcnRPZkFjY291bnRzVHlwZS5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/Admin/Dashboard.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cRGFzaGJvYXJkLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/Admin/EntityDocuments.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cRW50aXR5RG9jdW1lbnRzLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/Admin/EntityTypes.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cRW50aXR5VHlwZXMuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/Admin/Health.cshtml]
@@ -103,12 +131,28 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cSm9icy5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/Admin/JournalEntryClass.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cSm91cm5hbEVudHJ5Q2xhc3MuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/Admin/JournalEntryStatus.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cSm91cm5hbEVudHJ5U3RhdHVzLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/Admin/JournalEntryTypeOrigins.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cSm91cm5hbEVudHJ5VHlwZU9yaWdpbnMuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/Admin/Logs.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cTG9ncy5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/Admin/System.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cU3lzdGVtLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/Admin/TypeAccountings.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cVHlwZUFjY291bnRpbmdzLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/Companies/Create.cshtml]
@@ -127,8 +171,28 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ29tcGFuaWVzXEluZGV4LmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/Customers/Customers.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ3VzdG9tZXJzXEN1c3RvbWVycy5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/Documentation/Index.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRG9jdW1lbnRhdGlvblxJbmRleC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/ElectronicInvoice/Emit.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRWxlY3Ryb25pY0ludm9pY2VcRW1pdC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/ElectronicInvoice/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRWxlY3Ryb25pY0ludm9pY2VcSW5kZXguY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/ElectronicInvoice/Issuers.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRWxlY3Ryb25pY0ludm9pY2VcSXNzdWVycy5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/ElectronicInvoice/_CredentialForm.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRWxlY3Ryb25pY0ludm9pY2VcX0NyZWRlbnRpYWxGb3JtLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/Files/Categories.cshtml]
@@ -273,6 +337,14 @@ build_metadata.AdditionalFiles.CssScope =
 
 [C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/Roles/ManagePermissions.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUm9sZXNcTWFuYWdlUGVybWlzc2lvbnMuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/Settings/Consecutives.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2V0dGluZ3NcQ29uc2VjdXRpdmVzLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/Settings/ExchangeRates.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2V0dGluZ3NcRXhjaGFuZ2VSYXRlcy5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Disco/BITI Solutions S.A/BITI Solutions/Proyectos/CMS/CMS/CMS.UI/Views/Settings/FleetCatalogs.cshtml]

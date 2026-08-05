@@ -280,7 +280,8 @@ namespace CMS.Data.Services
             InventoryTransaction transaction,
             List<InventoryTransactionLine> lines,
             string createdBy,
-            int userId)
+            int userId,
+            Dictionary<int, string?>? groupNotes = null)
         {
             using var db = await _dbContextFactory.CreateDbContextAsync(companyId);
 
@@ -325,13 +326,17 @@ namespace CMS.Data.Services
                 int lineNumGlobal = 1;
                 foreach (var grp in destGroups)
                 {
+                    var destKey = grp.Key == 0 ? (int?)null : grp.Key;
+                    string? grpNotes = null;
+                    groupNotes?.TryGetValue(grp.Key, out grpNotes);
                     var transit = new InventoryTransactionWarehouseTransit
                     {
                         IdInventoryTransaction = transaction.Id,
                         LineNumber             = groupNum++,
                         IdWarehouseOriginLine  = transaction.IdWarehouseOrigin,
-                        IdWarehouseDestLine    = grp.Key == 0 ? null : grp.Key,
+                        IdWarehouseDestLine    = destKey,
                         LineStatus             = "Pending",
+                        Notes      = string.IsNullOrWhiteSpace(grpNotes) ? null : grpNotes.Trim(),
                         CreatedBy  = auditUser,
                         UpdatedBy  = auditUser,
                         CreateDate = DateTime.UtcNow,
@@ -407,7 +412,7 @@ namespace CMS.Data.Services
             return existing;
         }
 
-        public async Task SaveLinesAsync(int companyId, int transactionId, List<InventoryTransactionLine> lines, string updatedBy)
+        public async Task SaveLinesAsync(int companyId, int transactionId, List<InventoryTransactionLine> lines, string updatedBy, Dictionary<int, string?>? groupNotes = null)
         {
             using var db = await _dbContextFactory.CreateDbContextAsync(companyId);
 
@@ -442,6 +447,8 @@ namespace CMS.Data.Services
                 int groupNum = 1;
                 foreach (var grp in destGroups)
                 {
+                    string? grpNotes = null;
+                    groupNotes?.TryGetValue(grp.Key, out grpNotes);
                     var transit = new InventoryTransactionWarehouseTransit
                     {
                         IdInventoryTransaction = transactionId,
@@ -449,6 +456,7 @@ namespace CMS.Data.Services
                         IdWarehouseOriginLine  = existing.IdWarehouseOrigin,
                         IdWarehouseDestLine    = grp.Key == 0 ? null : grp.Key,
                         LineStatus             = "Pending",
+                        Notes      = string.IsNullOrWhiteSpace(grpNotes) ? null : grpNotes.Trim(),
                         CreatedBy  = auditUser,
                         UpdatedBy  = auditUser,
                         CreateDate = DateTime.UtcNow,
@@ -589,7 +597,8 @@ namespace CMS.Data.Services
             string? signature = null,
             int? transitGroupId = null,
             Dictionary<int, decimal>? lineReturns = null,
-            List<NewReturnLineDto>? newReturnLines = null)
+            List<NewReturnLineDto>? newReturnLines = null,
+            string? receiveNotes = null)
         {
             using var db = await _dbContextFactory.CreateDbContextAsync(companyId);
 
@@ -661,7 +670,15 @@ namespace CMS.Data.Services
                 if (!string.IsNullOrWhiteSpace(destSeal))
                     activeGroup.DestSecuritySeal = destSeal.Trim().Length > 50
                         ? destSeal.Trim()[..50] : destSeal.Trim();
-                activeGroup.Notes       = null;
+                // Concatenar notas: preservar lo que se escribió al crear/editar y agregar las de recepción
+                if (!string.IsNullOrWhiteSpace(receiveNotes))
+                {
+                    var prev = activeGroup.Notes;
+                    activeGroup.Notes = string.IsNullOrWhiteSpace(prev)
+                        ? receiveNotes.Trim()
+                        : $"{prev}\n---\n{receiveNotes.Trim()}";
+                }
+                // Si no hay notas de recepción, se preservan las previas sin cambio
                 activeGroup.UpdatedBy   = auditUser;
                 activeGroup.RecordDate  = now;
             }

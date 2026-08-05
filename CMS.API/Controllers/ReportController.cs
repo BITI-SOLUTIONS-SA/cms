@@ -977,8 +977,8 @@ namespace CMS.API.Controllers
                     ErrorMessage = errorMessage,
                     IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
                     UserAgent = Request.Headers.UserAgent.ToString(),
-                    CreatedBy = User.Identity?.Name ?? "SYSTEM",
-                    UpdatedBy = User.Identity?.Name ?? "SYSTEM"
+                    CreatedBy = User.FindFirstValue("cms_username") ?? User.FindFirstValue(System.Security.Claims.ClaimTypes.Name) ?? "SYSTEM",
+                    UpdatedBy = User.FindFirstValue("cms_username") ?? User.FindFirstValue(System.Security.Claims.ClaimTypes.Name) ?? "SYSTEM"
                 };
 
                 _db.ReportExecutionLogs.Add(log);
@@ -1441,8 +1441,8 @@ namespace CMS.API.Controllers
                     AllowExportCsv = dto.AllowExportCsv,
                     RequiredPermission = dto.RequiredPermission,
                     IsActive = dto.IsActive,
-                    CreatedBy = User.Identity?.Name ?? "SYSTEM",
-                    UpdatedBy = User.Identity?.Name ?? "SYSTEM"
+                    CreatedBy = User.FindFirstValue("cms_username") ?? User.FindFirstValue(System.Security.Claims.ClaimTypes.Name) ?? "SYSTEM",
+                    UpdatedBy = User.FindFirstValue("cms_username") ?? User.FindFirstValue(System.Security.Claims.ClaimTypes.Name) ?? "SYSTEM"
                 };
 
                 _db.ReportDefinitions.Add(report);
@@ -1491,7 +1491,7 @@ namespace CMS.API.Controllers
                 report.AllowExportCsv = dto.AllowExportCsv;
                 report.RequiredPermission = dto.RequiredPermission;
                 report.IsActive = dto.IsActive;
-                report.UpdatedBy = User.Identity?.Name ?? "SYSTEM";
+                report.UpdatedBy = User.FindFirstValue("cms_username") ?? User.FindFirstValue(System.Security.Claims.ClaimTypes.Name) ?? "SYSTEM";
 
                 await _db.SaveChangesAsync();
 
@@ -1519,7 +1519,7 @@ namespace CMS.API.Controllers
 
                 // Soft delete
                 report.IsActive = false;
-                report.UpdatedBy = User.Identity?.Name ?? "SYSTEM";
+                report.UpdatedBy = User.FindFirstValue("cms_username") ?? User.FindFirstValue(System.Security.Claims.ClaimTypes.Name) ?? "SYSTEM";
                 await _db.SaveChangesAsync();
 
                 _logger.LogInformation("🗑️ Reporte desactivado: {ReportCode}", report.ReportCode);
@@ -1593,7 +1593,7 @@ namespace CMS.API.Controllers
         {
             try
             {
-                var currentUser = User.Identity?.Name ?? "SYSTEM";
+                var currentUser = User.FindFirstValue("cms_username") ?? User.FindFirstValue(System.Security.Claims.ClaimTypes.Name) ?? "SYSTEM";
 
                 foreach (var permission in request.Permissions)
                 {

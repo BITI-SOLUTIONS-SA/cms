@@ -1,0 +1,171 @@
+@* ================================================================================
+   VISTA: CMS.UI/Views/Admin/ChartOfAccountsType.cshtml
+   PROPÓSITO: Mantenimiento del catálogo admin.chart_of_accounts_type
+   TABLA:     admin.chart_of_accounts_type  (BD central: cms)
+   DESCRIPCIÓN: Define los tipos de cuenta del plan de cuentas
+                (ej: Activo, Pasivo, Patrimonio, Ingreso, Gasto, Fuera de Balance)
+   ================================================================================ *@
+@{
+    ViewData["Title"] = "Tipos de Cuenta Contable";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<style>
+    small, .form-text, small.text-muted, .text-muted small { color: #cbd5e1 !important; }
+    .cat-code { font-size: .8rem; color: #7dd3fc; font-family: monospace; }
+</style>
+
+<div class="container-fluid py-3">
+
+    <!-- Header -->
+    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+        <div>
+            <h4 class="text-white mb-0">
+                <i class="bi bi-tags me-2 text-info"></i>Tipos de Cuenta Contable
+            </h4>
+            <small class="text-muted">
+                Catálogo central compartido por todas las compañías —
+                clasifica las cuentas del plan contable (Activo, Pasivo, Patrimonio, etc.)
+            </small>
+        </div>
+        <button class="btn btn-primary" onclick="CAT.openNew()">
+            <i class="bi bi-plus-lg me-1"></i>Nuevo Tipo
+        </button>
+    </div>
+
+    <!-- Alert página -->
+    <div id="catAlert" class="alert d-none mb-3" role="alert"></div>
+
+    <!-- Tabla -->
+    <div class="card bg-dark border-secondary">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-dark table-hover table-sm mb-0" id="tblCAT">
+                    <thead>
+                        <tr>
+                            <th style="width:50px;">Orden</th>
+                            <th>Código</th>
+                            <th>Descripción</th>
+                            <th class="text-center">Icono</th>
+                            <th class="text-center" style="width:80px;">Activo</th>
+                            <th style="width:110px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="bodyCAT">
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-3">
+                                <i class="bi bi-hourglass-split me-1"></i>Cargando…
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     MODAL CREAR / EDITAR
+     ============================================================ -->
+<div class="modal fade" id="catModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark border-secondary text-light">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title" id="catModalTitle">
+                    <i class="bi bi-tags me-2 text-info"></i>Tipo de Cuenta Contable
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="catId">
+                <!-- Alert dentro del modal -->
+                <div id="catModalAlert" class="alert d-none" role="alert"></div>
+                <div class="row g-3">
+                    <div class="col-12 col-md-5">
+                        <label class="form-label">Código *
+                            <small>(máx. 30 — snake_case)</small>
+                        </label>
+                        <input type="text" id="catCode" class="form-control" maxlength="30"
+                               placeholder="Ej: asset">
+                        <small>Identificador único del tipo de cuenta</small>
+                    </div>
+                    <div class="col-12 col-md-7">
+                        <label class="form-label">Descripción</label>
+                        <input type="text" id="catDesc" class="form-control" maxlength="100"
+                               placeholder="Ej: Activo">
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label">Icono Bootstrap Icons</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark border-secondary">
+                                <i id="catIconPreview" class="bi bi-question-circle text-info"></i>
+                            </span>
+                            <input type="text" id="catIcon" class="form-control" maxlength="50"
+                                   placeholder="Ej: bi-bank" oninput="CAT.previewIcon(this.value)">
+                        </div>
+                        <small>Clase de Bootstrap Icons</small>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label">Orden</label>
+                        <input type="number" id="catOrder" class="form-control" min="0" step="10" value="10">
+                    </div>
+                    <div class="col-6 col-md-3 d-flex align-items-end">
+                        <div class="form-check form-switch mb-1">
+                            <input class="form-check-input" type="checkbox" id="catActive" checked>
+                            <label class="form-check-label" for="catActive">Activo</label>
+                            <div><small>Disponible para usar</small></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="CAT.save()">
+                    <i class="bi bi-floppy me-1"></i>Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal desactivar -->
+<div class="modal fade" id="catDeleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark border-danger text-light">
+            <div class="modal-header border-danger">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Desactivar
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Desea desactivar el tipo de cuenta <strong id="catDeleteCode"></strong>?</p>
+                <small class="text-muted">
+                    Las cuentas contables existentes con este tipo no se verán afectadas.
+                </small>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" onclick="CAT.confirmDelete()">
+                    <i class="bi bi-trash me-1"></i>Desactivar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    window.CAT_API   = '@ViewBag.ApiBaseUrl';
+    window.CAT_TOKEN = '@ViewBag.ApiToken';
+</script>
+<script src="~/js/chartOfAccountsType.js" asp-append-version="true"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        ['catModal', 'catDeleteModal'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) document.body.appendChild(el);
+        });
+    });
+</script>
+}

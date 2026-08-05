@@ -78,13 +78,13 @@ namespace CMS.Data.Services
         Task<(bool IsBusy, string? TransactionNumber)> CheckTransitWarehouseBusyAsync(int companyId, int warehouseId, int? excludeTransactionId = null);
 
         /// <summary>Crea un nuevo movimiento en estado Draft.</summary>
-        Task<InventoryTransaction> CreateAsync(int companyId, InventoryTransaction transaction, List<InventoryTransactionLine> lines, string createdBy, int userId);
+        Task<InventoryTransaction> CreateAsync(int companyId, InventoryTransaction transaction, List<InventoryTransactionLine> lines, string createdBy, int userId, Dictionary<int, string?>? groupNotes = null);
 
         /// <summary>Actualiza el encabezado de un movimiento en estado Draft.</summary>
         Task<InventoryTransaction> UpdateAsync(int companyId, InventoryTransaction transaction, string updatedBy);
 
         /// <summary>Reemplaza las líneas de un movimiento Draft.</summary>
-        Task SaveLinesAsync(int companyId, int transactionId, List<InventoryTransactionLine> lines, string updatedBy);
+        Task SaveLinesAsync(int companyId, int transactionId, List<InventoryTransactionLine> lines, string updatedBy, Dictionary<int, string?>? groupNotes = null);
 
         // ================================================================
         // FLUJO DE ESTADOS
@@ -106,7 +106,7 @@ namespace CMS.Data.Services
         /// Cuando todos los grupos están recibidos, el estado pasa a Completed.
         /// Actualiza existencias (qty_in_transit ↓, qty_on_hand ↑).
         /// </summary>
-        Task<InventoryTransaction> ReceiveLinesAsync(int companyId, int transactionId, List<int> lineIds, int receivedByUserId, string receivedBy, string? arrivalTime = null, string? departureTime = null, decimal? odometerOut = null, string? destSeal = null, int? nextWarehouseId = null, Dictionary<int, decimal>? lineQtys = null, string? signature = null, int? transitGroupId = null, Dictionary<int, decimal>? lineReturns = null, List<NewReturnLineDto>? newReturnLines = null);
+        Task<InventoryTransaction> ReceiveLinesAsync(int companyId, int transactionId, List<int> lineIds, int receivedByUserId, string receivedBy, string? arrivalTime = null, string? departureTime = null, decimal? odometerOut = null, string? destSeal = null, int? nextWarehouseId = null, Dictionary<int, decimal>? lineQtys = null, string? signature = null, int? transitGroupId = null, Dictionary<int, decimal>? lineReturns = null, List<NewReturnLineDto>? newReturnLines = null, string? receiveNotes = null);
 
         /// <summary>
         /// Completa un movimiento simple (Confirmed → Completed).

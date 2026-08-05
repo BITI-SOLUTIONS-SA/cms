@@ -1,0 +1,385 @@
+@* ================================================================================ *@
+@* ARCHIVO: CMS.UI/Views/Admin/EntityDocuments.cshtml                               *@
+@* PROPÓSITO: Gestión de Entity Documents (Tipos de Documentos por Entidad)        *@
+@* AUTOR: BITI SOLUTIONS S.A                                                        *@
+@* CREADO: 2025-01-22                                                               *@
+@* ================================================================================ *@
+
+@{
+    ViewData["Title"] = "Entity Documents";
+}
+
+<div class="content-container">
+    <!-- ===== HEADER ===== -->
+    <div class="page-header mb-4">
+        <div class="page-header-content">
+            <h1><i class="bi bi-file-earmark-text me-2"></i>Entity Documents</h1>
+            <p class="text-muted mb-0">Tipos de documentos por tipo de entidad (JOU, CHE, EMP, SUP, CUS, etc.)</p>
+        </div>
+        <div class="page-header-actions">
+            <button type="button" class="btn btn-tech-primary" data-bs-toggle="modal" data-bs-target="#modalEntityDocument">
+                <i class="bi bi-plus-lg me-2"></i>Nuevo Entity Document
+            </button>
+        </div>
+    </div>
+
+    <!-- ===== ALERTAS ===== -->
+    <div id="alert-container"></div>
+
+    <!-- ===== FILTROS ===== -->
+    <div class="card bg-dark-card border-0 mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Filtrar por Entity Type</label>
+                    <select id="filterEntityType" class="form-select bg-dark text-light">
+                        <option value="">Todos los tipos</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Buscar</label>
+                    <input type="text" id="searchInput" class="form-control bg-dark text-light" placeholder="Buscar por código o nombre...">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="button" class="btn btn-tech-secondary w-100" onclick="ED.applyFilters()">
+                        <i class="bi bi-funnel me-2"></i>Filtrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== TABLA ===== -->
+    <div class="card bg-dark-card border-0">
+        <div class="card-header bg-dark-header">
+            <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>Tipos de Documento</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-dark table-hover mb-0" id="tableEntityDocuments">
+                    <thead>
+                        <tr>
+                            <th style="width: 120px;">Entity Type</th>
+                            <th style="width: 100px;">Código</th>
+                            <th>Nombre</th>
+                            <th>Descripción</th>
+                            <th style="width: 80px;">Orden</th>
+                            <th style="width: 100px;">Estado</th>
+                            <th style="width: 120px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MODAL CREAR/EDITAR ===== -->
+<div class="modal fade" id="modalEntityDocument" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">
+                    <i class="bi bi-file-earmark-text me-2"></i><span id="modalTitleText">Nuevo Entity Document</span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formEntityDocument">
+                    <input type="hidden" id="entityDocumentId">
+
+                    <div class="mb-3">
+                        <label for="idEntityType" class="form-label">Entity Type <span class="text-danger">*</span></label>
+                        <select class="form-select bg-dark text-light" id="idEntityType" required>
+                            <option value="">Seleccione...</option>
+                        </select>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label for="code" class="form-label">Código <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control bg-dark text-light" id="code" maxlength="10" required>
+                            <small class="text-muted">Máx. 10 caracteres</small>
+                        </div>
+                        <div class="col-md-8">
+                            <label for="name" class="form-label">Nombre <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control bg-dark text-light" id="name" maxlength="100" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Descripción</label>
+                        <textarea class="form-control bg-dark text-light" id="description" rows="3" maxlength="500"></textarea>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="sortOrder" class="form-label">Orden</label>
+                            <input type="number" class="form-control bg-dark text-light" id="sortOrder" value="0" min="0">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label d-block">Estado</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="isActive" checked>
+                                <label class="form-check-label" for="isActive">Activo</label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="ED.save()">
+                    <i class="bi bi-save me-2"></i>Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+// Entity Documents Module
+const ED = {
+    data: [],
+    entityTypes: [],
+
+    init() {
+        this.loadEntityTypes();
+        this.loadData();
+        this.setupModal();
+    },
+
+    async loadEntityTypes() {
+        try {
+            const response = await fetch('/api/EntityType/active');
+            if (!response.ok) throw new Error('Error cargando entity types');
+
+            this.entityTypes = await response.json();
+            this.populateEntityTypeSelectors();
+        } catch (error) {
+            console.error(error);
+            this.showAlert('Error cargando entity types', 'danger');
+        }
+    },
+
+    populateEntityTypeSelectors() {
+        // Selector del modal
+        const modalSelect = document.getElementById('idEntityType');
+        modalSelect.innerHTML = '<option value="">Seleccione...</option>' +
+            this.entityTypes.map(et => `<option value="${et.id}">${et.code} - ${et.name}</option>`).join('');
+
+        // Filtro
+        const filterSelect = document.getElementById('filterEntityType');
+        filterSelect.innerHTML = '<option value="">Todos los tipos</option>' +
+            this.entityTypes.map(et => `<option value="${et.id}">${et.code} - ${et.name}</option>`).join('');
+    },
+
+    async loadData() {
+        try {
+            const response = await fetch('/api/EntityDocument');
+            if (!response.ok) throw new Error('Error cargando entity documents');
+
+            this.data = await response.json();
+            this.renderTable();
+        } catch (error) {
+            console.error(error);
+            this.showAlert('Error cargando datos', 'danger');
+        }
+    },
+
+    renderTable() {
+        const tbody = document.querySelector('#tableEntityDocuments tbody');
+        if (!this.data.length) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        <i class="bi bi-inbox display-6 d-block mb-2"></i>
+                        No hay entity documents registrados
+                    </td>
+                </tr>`;
+            return;
+        }
+
+        tbody.innerHTML = this.data.map(item => `
+            <tr data-entity-type="${item.idEntityType}">
+                <td>
+                    <span class="badge bg-info">${this.escapeHtml(item.entityTypeCode)}</span>
+                    <br><small class="text-muted">${this.escapeHtml(item.entityTypeName)}</small>
+                </td>
+                <td><code class="text-info">${this.escapeHtml(item.code)}</code></td>
+                <td class="fw-semibold">${this.escapeHtml(item.name)}</td>
+                <td class="text-muted small">${this.escapeHtml(item.description || '')}</td>
+                <td>${item.sortOrder}</td>
+                <td>
+                    ${item.isActive 
+                        ? '<span class="badge bg-success">Activo</span>' 
+                        : '<span class="badge bg-secondary">Inactivo</span>'}
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick="ED.edit(${item.id})" title="Editar">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="ED.confirmDelete(${item.id})" title="Eliminar">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    },
+
+    applyFilters() {
+        const entityTypeFilter = document.getElementById('filterEntityType').value;
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+        const rows = document.querySelectorAll('#tableEntityDocuments tbody tr');
+
+        rows.forEach(row => {
+            const entityType = row.getAttribute('data-entity-type');
+            const text = row.textContent.toLowerCase();
+
+            const matchesEntityType = !entityTypeFilter || entityType === entityTypeFilter;
+            const matchesSearch = !searchTerm || text.includes(searchTerm);
+
+            row.style.display = matchesEntityType && matchesSearch ? '' : 'none';
+        });
+    },
+
+    setupModal() {
+        const modal = document.getElementById('modalEntityDocument');
+        modal?.addEventListener('hidden.bs.modal', () => this.resetForm());
+    },
+
+    resetForm() {
+        document.getElementById('formEntityDocument').reset();
+        document.getElementById('entityDocumentId').value = '';
+        document.getElementById('modalTitleText').textContent = 'Nuevo Entity Document';
+        document.getElementById('isActive').checked = true;
+    },
+
+    async edit(id) {
+        try {
+            const response = await fetch(`/api/EntityDocument/${id}`);
+            if (!response.ok) throw new Error('Error cargando entity document');
+
+            const data = await response.json();
+            document.getElementById('entityDocumentId').value = data.id;
+            document.getElementById('idEntityType').value = data.idEntityType;
+            document.getElementById('code').value = data.code;
+            document.getElementById('name').value = data.name;
+            document.getElementById('description').value = data.description || '';
+            document.getElementById('sortOrder').value = data.sortOrder;
+            document.getElementById('isActive').checked = data.isActive;
+            document.getElementById('modalTitleText').textContent = 'Editar Entity Document';
+
+            new bootstrap.Modal(document.getElementById('modalEntityDocument')).show();
+        } catch (error) {
+            console.error(error);
+            this.showAlert('Error cargando datos', 'danger');
+        }
+    },
+
+    async save() {
+        const id = document.getElementById('entityDocumentId').value;
+        const dto = {
+            idEntityType: parseInt(document.getElementById('idEntityType').value),
+            code: document.getElementById('code').value.trim(),
+            name: document.getElementById('name').value.trim(),
+            description: document.getElementById('description').value.trim(),
+            sortOrder: parseInt(document.getElementById('sortOrder').value),
+            isActive: document.getElementById('isActive').checked
+        };
+
+        if (!dto.idEntityType || !dto.code || !dto.name) {
+            this.showAlert('Complete los campos obligatorios', 'warning');
+            return;
+        }
+
+        try {
+            const url = id ? `/api/EntityDocument/${id}` : '/api/EntityDocument';
+            const method = id ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dto)
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'Error guardando');
+            }
+
+            bootstrap.Modal.getInstance(document.getElementById('modalEntityDocument')).hide();
+            this.showAlert(id ? 'Entity document actualizado exitosamente' : 'Entity document creado exitosamente', 'success');
+            this.loadData();
+        } catch (error) {
+            console.error(error);
+            this.showAlert(error.message, 'danger');
+        }
+    },
+
+    async confirmDelete(id) {
+        if (!confirm('¿Está seguro de eliminar este entity document?')) return;
+
+        try {
+            const response = await fetch(`/api/EntityDocument/${id}`, { method: 'DELETE' });
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'Error eliminando');
+            }
+
+            this.showAlert('Entity document eliminado exitosamente', 'success');
+            this.loadData();
+        } catch (error) {
+            console.error(error);
+            this.showAlert(error.message, 'danger');
+        }
+    },
+
+    showAlert(message, type) {
+        const container = document.getElementById('alert-container');
+        const alert = `
+            <div class="alert alert-${type} alert-dismissible fade show mb-4" role="alert">
+                <i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-triangle'}-fill me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>`;
+        container.innerHTML = alert;
+        setTimeout(() => container.innerHTML = '', 5000);
+    },
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+};
+
+// Inicializar al cargar la página
+document.addEventListener('DOMContentLoaded', () => ED.init());
+
+// Mover modales al body
+document.addEventListener('DOMContentLoaded', function () {
+    ['modalEntityDocument'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) document.body.appendChild(el);
+    });
+});
+</script>
+
+<style>
+    .bg-dark-card { background: linear-gradient(135deg, #1a1f36 0%, #252b47 100%); }
+    .bg-dark-header { background: rgba(0, 0, 0, 0.2); border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+    .table-dark { --bs-table-bg: transparent; }
+    small, .form-text, small.text-muted, .text-muted small { color: #cbd5e1 !important; }
+</style>
+}

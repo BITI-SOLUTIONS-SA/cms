@@ -93,7 +93,7 @@ namespace CMS.API.Controllers
             settings.TIMEZONE = dto.Timezone ?? "America/Costa_Rica";
             settings.DATE_FORMAT = dto.DateFormat ?? "dd/MM/yyyy";
             settings.TIME_FORMAT = dto.TimeFormat ?? "24h";
-            settings.UpdatedBy = User.Identity?.Name ?? "SYSTEM";
+            settings.UpdatedBy = User.FindFirstValue("cms_username") ?? User.FindFirstValue(ClaimTypes.Name) ?? "SYSTEM";
             settings.RecordDate = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();

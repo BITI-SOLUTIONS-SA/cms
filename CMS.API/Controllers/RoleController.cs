@@ -9,6 +9,7 @@ using CMS.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace CMS.API.Controllers
 {
@@ -25,6 +26,11 @@ namespace CMS.API.Controllers
             _db = db;
             _logger = logger;
         }
+
+        private string GetAuditUser() =>
+            User.FindFirstValue("cms_username")
+            ?? User.FindFirstValue(ClaimTypes.Name)
+            ?? "SYSTEM";
 
         /// <summary>
         /// Obtener todos los roles activos
@@ -211,8 +217,8 @@ namespace CMS.API.Controllers
                     IS_SYSTEM = false,
                     IS_ACTIVE = true,
                     CreateDate = DateTime.UtcNow,
-                    CreatedBy = User.FindFirst("email")?.Value ?? "SYSTEM",
-                    UpdatedBy = User.FindFirst("email")?.Value ?? "SYSTEM",
+                    CreatedBy = GetAuditUser(),
+                    UpdatedBy = GetAuditUser(),
                     RecordDate = DateTime.UtcNow
                 };
 
@@ -269,12 +275,12 @@ namespace CMS.API.Controllers
                 if (model.IsActive.HasValue)
                     role.IS_ACTIVE = model.IsActive.Value;
 
-                role.UpdatedBy = User.FindFirst("email")?.Value ?? "SYSTEM";
+                role.UpdatedBy = GetAuditUser();
                 role.RecordDate = DateTime.UtcNow;
 
                 await _db.SaveChangesAsync();
 
-                _logger.LogInformation("✅ Rol actualizado: {RoleName} (ID: {Id})", role.ROLE_NAME, role.ID_ROLE);
+                _logger.LogInformation("Rol actualizado: {RoleName} (ID: {Id})", role.ROLE_NAME, role.ID_ROLE);
 
                 return Ok(new RoleDto
                 {
@@ -315,12 +321,12 @@ namespace CMS.API.Controllers
 
                 // Soft delete
                 role.IS_ACTIVE = false;
-                role.UpdatedBy = User.FindFirst("email")?.Value ?? "SYSTEM";
+                role.UpdatedBy = GetAuditUser();
                 role.RecordDate = DateTime.UtcNow;
 
                 await _db.SaveChangesAsync();
 
-                _logger.LogInformation("🗑️ Rol eliminado: {RoleName} (ID: {Id})", role.ROLE_NAME, role.ID_ROLE);
+                _logger.LogInformation("Rol eliminado: {RoleName} (ID: {Id})", role.ROLE_NAME, role.ID_ROLE);
 
                 return Ok(new { message = "Rol eliminado correctamente" });
             }
@@ -355,7 +361,7 @@ namespace CMS.API.Controllers
                 _db.RolePermissions.RemoveRange(currentPermissions);
 
                 // Agregar nuevos permisos
-                var user = User.FindFirst("email")?.Value ?? "SYSTEM";
+                var auditUser = GetAuditUser();
                 foreach (var permissionId in model.PermissionIds ?? new List<int>())
                 {
                     var newRolePermission = new CMS.Entities.RolePermission
@@ -364,8 +370,8 @@ namespace CMS.API.Controllers
                         PermissionId = permissionId,
                         IsAllowed = true,
                         CreateDate = DateTime.UtcNow,
-                        CreatedBy = user,
-                        UpdatedBy = user,
+                        CreatedBy = auditUser,
+                        UpdatedBy = auditUser,
                         RecordDate = DateTime.UtcNow
                     };
                     _db.RolePermissions.Add(newRolePermission);
@@ -470,7 +476,7 @@ namespace CMS.API.Controllers
                     {
                         existingAssignment.IS_ACTIVE = true;
                         existingAssignment.RecordDate = DateTime.UtcNow;
-                        existingAssignment.UpdatedBy = User.FindFirst("email")?.Value ?? "SYSTEM";
+                        existingAssignment.UpdatedBy = GetAuditUser();
                         await _db.SaveChangesAsync();
 
                         _logger.LogInformation("✅ Usuario {Username} reactivado en rol {RoleName} para compañía {CompanyId}",
@@ -491,8 +497,8 @@ namespace CMS.API.Controllers
                     RowPointer = Guid.NewGuid(),
                     CreateDate = DateTime.UtcNow,
                     RecordDate = DateTime.UtcNow,
-                    CreatedBy = User.FindFirst("email")?.Value ?? "SYSTEM",
-                    UpdatedBy = User.FindFirst("email")?.Value ?? "SYSTEM"
+                    CreatedBy = GetAuditUser(),
+                    UpdatedBy = GetAuditUser()
                 };
 
                 _db.UserCompanyRoles.Add(assignment);

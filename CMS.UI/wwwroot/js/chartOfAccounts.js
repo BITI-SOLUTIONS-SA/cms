@@ -16,6 +16,7 @@ const COA = (() => {
     let _pageSize    = 50;
     let _totalCount  = 0;
     let _filters     = {};
+    let _accountTypes = []; // catálogo admin.chart_of_accounts_type
 
     // ============================================================
     // FETCH HELPER
@@ -88,7 +89,7 @@ const COA = (() => {
         }
         tbody.innerHTML = items.map((a, i) => {
             const levelClass = `account-level-${Math.min(a.accountLevel || 1, 6)}`;
-            const typeBadge = getAccountTypeBadge(a.accountType);
+            const typeBadge = getAccountTypeBadge(a.idChartOfAccountsType);
             const statusBadge = a.isActive
                 ? '<span class="badge bg-success">Activa</span>'
                 : '<span class="badge bg-secondary">Inactiva</span>';
@@ -137,16 +138,12 @@ const COA = (() => {
         }).join('');
     }
 
-    function getAccountTypeBadge(type) {
-        const badges = {
-            'Asset':       '<span class="badge badge-account-type bg-primary">Activo</span>',
-            'Liability':   '<span class="badge badge-account-type bg-danger">Pasivo</span>',
-            'Equity':      '<span class="badge badge-account-type bg-warning text-dark">Patrimonio</span>',
-            'Revenue':     '<span class="badge badge-account-type bg-success">Ingreso</span>',
-            'Expense':     '<span class="badge badge-account-type bg-info">Gasto</span>',
-            'Off-Balance': '<span class="badge badge-account-type bg-secondary">Fuera Balance</span>',
-        };
-        return badges[type] || '<span class="badge badge-account-type bg-dark">—</span>';
+    function getAccountTypeBadge(idChartOfAccountsType) {
+        const colors = [undefined, 'primary', 'danger', 'warning', 'success', 'info', 'secondary'];
+        const t = _accountTypes.find(x => x.id === idChartOfAccountsType);
+        if (!t) return '<span class="badge badge-account-type bg-dark">—</span>';
+        const color = colors[idChartOfAccountsType] || 'secondary';
+        return `<span class="badge badge-account-type bg-${color}">${t.description}</span>`;
     }
 
     function renderPagination(totalPages) {
@@ -195,7 +192,7 @@ const COA = (() => {
         if (search) _filters.search = search;
 
         const accountType = document.getElementById('selAccountType')?.value;
-        if (accountType) _filters.accountType = accountType;
+        if (accountType) _filters.idChartOfAccountsType = accountType;
 
         const isDetail = document.getElementById('selIsDetail')?.value;
         if (isDetail) _filters.isDetail = isDetail;
@@ -234,7 +231,9 @@ const COA = (() => {
     async function openView(id) {
         try {
             const account = await coaFetch(`/api/chart-of-accounts/${id}`);
-            alert(`Cuenta: ${account.accountCode} - ${account.accountName}\n\nTipo: ${account.accountType}\nNivel: ${account.accountLevel}\nDetalle: ${account.isDetail ? 'Sí' : 'No'}\nActiva: ${account.isActive ? 'Sí' : 'No'}`);
+            const t = _accountTypes.find(x => x.id === account.idChartOfAccountsType);
+            const typeName = t ? t.description : account.idChartOfAccountsType;
+            alert(`Cuenta: ${account.code} - ${account.name}\n\nTipo: ${typeName}\nNivel: ${account.accountLevel}\nDetalle: ${account.isDetail ? 'Sí' : 'No'}\nActiva: ${account.isActive ? 'Sí' : 'No'}`);
         } catch (e) {
             showAlert(e.message, 'danger');
         }
@@ -259,7 +258,7 @@ const COA = (() => {
             await loadParentAccounts(account.idChartOfAccounts);
             document.getElementById('coaParent').value = account.idParentAccount || '';
             document.getElementById('coaLevel').value = account.accountLevel;
-            document.getElementById('coaAccountType').value = account.accountType;
+            document.getElementById('coaAccountType').value = account.idChartOfAccountsType || '';
             document.getElementById('coaIsHeader').checked = account.isHeader;
             document.getElementById('coaIsDetail').checked = account.isDetail;
 
@@ -335,7 +334,7 @@ const COA = (() => {
             accountLevel: parseInt(document.getElementById('coaLevel').value) || 1,
             isHeader,
             isDetail,
-            accountType: type,
+            idChartOfAccountsType: parseInt(type),
             accountClass: document.getElementById('coaAccountClass').value || null,
             normalBalance: document.getElementById('coaNormalBalance').value,
             isDebitBalance: document.getElementById('coaNormalBalance').value === 'Debit',
@@ -464,10 +463,33 @@ const COA = (() => {
     }
 
     // ============================================================
+    // CATÁLOGO DE TIPOS DE CUENTA
+    // ============================================================
+
+    async function loadAccountTypes() {
+        try {
+            const data = await coaFetch('/api/chart-of-accounts-type');
+            _accountTypes = (data || []).filter(t => t.isActive);
+
+            const opts = _accountTypes
+                .map(t => `<option value="${t.id}">${t.description}</option>`)
+                .join('');
+
+            const selFilter = document.getElementById('selAccountType');
+            const selModal  = document.getElementById('coaAccountType');
+            if (selFilter) selFilter.innerHTML = '<option value="">Todos</option>' + opts;
+            if (selModal)  selModal.innerHTML  = '<option value="">Seleccionar...</option>' + opts;
+        } catch (e) {
+            console.error('Error al cargar tipos de cuenta:', e);
+        }
+    }
+
+    // ============================================================
     // INIT
     // ============================================================
 
-    function init() {
+    async function init() {
+        await loadAccountTypes();
         load(1);
     }
 

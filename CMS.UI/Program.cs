@@ -548,6 +548,12 @@ app.MapControllerRoute(
     pattern: "Warehouse/{action=Warehouses}/{id?}",
     defaults: new { controller = "Warehouse" });
 
+// Electronic Invoice (Facturación Electrónica CR v4.4)
+app.MapControllerRoute(
+    name: "electronicinvoice",
+    pattern: "ElectronicInvoice/{action=Index}/{id?}",
+    defaults: new { controller = "ElectronicInvoice" });
+
 // Human Resources
 app.MapControllerRoute(
     name: "hr",

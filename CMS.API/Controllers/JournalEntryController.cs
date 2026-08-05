@@ -51,10 +51,8 @@ namespace CMS.API.Controllers
             return userId;
         }
 
-        private string GetCurrentUser()
-        {
-            return User.Identity?.Name ?? "anonymous";
-        }
+        private string GetCurrentUser() =>
+            User.FindFirstValue("cms_username") ?? User.FindFirstValue(ClaimTypes.Name) ?? "SYSTEM";
 
         // ===== CONSULTAS =====
 
@@ -63,8 +61,8 @@ namespace CMS.API.Controllers
         /// </summary>
         [HttpGet]
         public async Task<ActionResult<List<JournalEntryDto>>> GetJournalEntries(
-            [FromQuery] string? status = null,
-            [FromQuery] string? entryType = null,
+            [FromQuery] int? idJournalEntryStatus = null,
+            [FromQuery] int? idTypeAccounting = null,
             [FromQuery] string? dateFrom = null,
             [FromQuery] string? dateTo = null,
             [FromQuery] string? search = null)
@@ -83,7 +81,7 @@ namespace CMS.API.Controllers
                     parsedDateTo = to;
 
                 var entries = await _journalEntryService.GetJournalEntriesAsync(
-                    companyId, status, entryType, parsedDateFrom, parsedDateTo, search);
+                    companyId, idJournalEntryStatus, idTypeAccounting, parsedDateFrom, parsedDateTo, search);
 
                 var dtos = entries.Select(MapToDto).ToList();
 
@@ -193,10 +191,18 @@ namespace CMS.API.Controllers
             try
             {
                 var companyId = GetCompanyId();
+                var userId = GetUserId();
                 var currentUser = GetCurrentUser();
 
+                // Validar que se haya enviado el id_menu
+                if ((dto.IdMenu ?? 0) <= 0)
+                {
+                    return BadRequest(new { message = "El campo IdMenu es requerido para generar el consecutivo." });
+                }
+
                 var entry = MapToEntity(dto);
-                var created = await _journalEntryService.CreateJournalEntryAsync(companyId, entry, currentUser);
+                var created = await _journalEntryService.CreateJournalEntryAsync(
+                    companyId, entry, dto.IdMenu!.Value, userId, currentUser);
 
                 return CreatedAtAction(nameof(GetJournalEntryById), new { id = created.IdJournalEntry }, MapToDto(created));
             }
@@ -307,8 +313,11 @@ namespace CMS.API.Controllers
                 if (!DateOnly.TryParse(request.ReversalDate, out var reversalDate))
                     return BadRequest(new { message = "Fecha de reversión inválida" });
 
+                if (request.IdMenu <= 0)
+                    return BadRequest(new { message = "El campo IdMenu es requerido para generar el consecutivo de la reversión." });
+
                 var reversed = await _journalEntryService.ReverseJournalEntryAsync(
-                    companyId, id, reversalDate, request.IdCancelReason, userId, currentUser);
+                    companyId, id, reversalDate, request.IdCancelReason, request.IdMenu, userId, currentUser);
 
                 return Ok(MapToDto(reversed));
             }
@@ -430,12 +439,15 @@ namespace CMS.API.Controllers
             {
                 IdJournalEntry = entry.IdJournalEntry,
                 EntryNumber = entry.EntryNumber,
-                EntryType = entry.EntryType,
+                IdTypeAccounting = entry.IdTypeAccounting,
+                IdJournalEntryClass = entry.IdJournalEntryClass,
+                IdJournalEntryStatus = entry.IdJournalEntryStatus,
                 Reference = entry.Reference,
                 EntryDate = entry.EntryDate.ToString("yyyy-MM-dd"),
                 PostingDate = entry.PostingDate.ToString("yyyy-MM-dd"),
-                CurrencyCode = entry.CurrencyCode,
-                ExchangeRate = entry.ExchangeRate,
+                IdMenu = entry.IdMenu,
+                CurrencyLocal = entry.CurrencyLocal,
+                CurrencyExchange = entry.CurrencyExchange,
                 Status = entry.Status,
                 IsReversing = entry.IsReversing,
                 IdReversedEntry = entry.IdReversedEntry,
@@ -459,33 +471,17 @@ namespace CMS.API.Controllers
         {
             return new JournalEntryLineDto
             {
-                IdJournalEntry = line.IdJournalEntry,
-                IdJournalEntryLine = line.IdJournalEntryLine,
-                IdChartOfAccounts = line.IdChartOfAccounts,
-                LineDescription = line.LineDescription,
-                Reference = line.Reference,
-                DebitAmount = line.DebitAmount,
-                CreditAmount = line.CreditAmount,
-                CurrencyCode = line.CurrencyCode,
-                ExchangeRate = line.ExchangeRate,
-                DebitAmountBase = line.DebitAmountBase,
-                CreditAmountBase = line.CreditAmountBase,
-                CostCenterCode = line.CostCenterCode,
-                CostCenterName = line.CostCenterName,
-                ProjectCode = line.ProjectCode,
-                ProjectName = line.ProjectName,
-                DepartmentCode = line.DepartmentCode,
-                DepartmentName = line.DepartmentName,
-                BusinessPartnerType = line.BusinessPartnerType,
-                BusinessPartnerCode = line.BusinessPartnerCode,
-                BusinessPartnerName = line.BusinessPartnerName,
-                DueDate = line.DueDate?.ToString("yyyy-MM-dd"),
-                TaxCode = line.TaxCode,
-                TaxRate = line.TaxRate,
-                TaxAmount = line.TaxAmount,
-                IsReconciled = line.IsReconciled,
-                ReconciliationDate = line.ReconciliationDate?.ToString("yyyy-MM-dd"),
-                ReconciliationRef = line.ReconciliationRef
+                IdJournalEntry      = line.IdJournalEntry,
+                IdJournalEntryLine  = line.IdJournalEntryLine,
+                IdChartOfAccounts   = line.IdChartOfAccounts,
+                Description         = line.Description,
+                Reference           = line.Reference,
+                DebitAmount         = line.DebitAmount,
+                CreditAmount        = line.CreditAmount,
+                IdCostCenter                = line.IdCostCenter,
+                CostCenterName              = line.CostCenter?.Name,
+                IdJournalEntryTypeOrigin    = line.IdJournalEntryTypeOrigin,
+                IdDocumentOrigin            = line.IdDocumentOrigin
             };
         }
 
@@ -495,13 +491,15 @@ namespace CMS.API.Controllers
             {
                 IdJournalEntry = dto.IdJournalEntry,
                 EntryNumber = dto.EntryNumber ?? string.Empty,
-                EntryType = dto.EntryType ?? "Manual",
+                IdTypeAccounting = dto.IdTypeAccounting,
+                IdJournalEntryClass = dto.IdJournalEntryClass,
+                IdJournalEntryStatus = dto.IdJournalEntryStatus,
                 Reference = dto.Reference,
                 EntryDate = DateOnly.Parse(dto.EntryDate ?? DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd")),
                 PostingDate = DateOnly.Parse(dto.PostingDate ?? DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd")),
-                CurrencyCode = dto.CurrencyCode ?? "CRC",
-                ExchangeRate = dto.ExchangeRate == 0 ? 1.0m : dto.ExchangeRate,
-                Status = dto.Status ?? "Draft",
+                IdMenu = dto.IdMenu,
+                CurrencyLocal = dto.CurrencyLocal,
+                CurrencyExchange = dto.CurrencyExchange,
                 IsReversing = dto.IsReversing,
                 IdReversedEntry = dto.IdReversedEntry,
                 ReversalDate = string.IsNullOrWhiteSpace(dto.ReversalDate) ? null : DateOnly.Parse(dto.ReversalDate),
@@ -520,33 +518,16 @@ namespace CMS.API.Controllers
         {
             return new JournalEntryLine
             {
-                IdJournalEntry = dto.IdJournalEntry,
+                IdJournalEntry     = dto.IdJournalEntry,
                 IdJournalEntryLine = dto.IdJournalEntryLine,
-                IdChartOfAccounts = dto.IdChartOfAccounts,
-                LineDescription = dto.LineDescription ?? string.Empty,
-                Reference = dto.Reference,
-                DebitAmount = dto.DebitAmount,
-                CreditAmount = dto.CreditAmount,
-                CurrencyCode = dto.CurrencyCode ?? "CRC",
-                ExchangeRate = dto.ExchangeRate == 0 ? 1.0m : dto.ExchangeRate,
-                DebitAmountBase = dto.DebitAmountBase,
-                CreditAmountBase = dto.CreditAmountBase,
-                CostCenterCode = dto.CostCenterCode,
-                CostCenterName = dto.CostCenterName,
-                ProjectCode = dto.ProjectCode,
-                ProjectName = dto.ProjectName,
-                DepartmentCode = dto.DepartmentCode,
-                DepartmentName = dto.DepartmentName,
-                BusinessPartnerType = dto.BusinessPartnerType,
-                BusinessPartnerCode = dto.BusinessPartnerCode,
-                BusinessPartnerName = dto.BusinessPartnerName,
-                DueDate = string.IsNullOrWhiteSpace(dto.DueDate) ? null : DateOnly.Parse(dto.DueDate),
-                TaxCode = dto.TaxCode,
-                TaxRate = dto.TaxRate,
-                TaxAmount = dto.TaxAmount,
-                IsReconciled = dto.IsReconciled,
-                ReconciliationDate = string.IsNullOrWhiteSpace(dto.ReconciliationDate) ? null : DateOnly.Parse(dto.ReconciliationDate),
-                ReconciliationRef = dto.ReconciliationRef
+                IdChartOfAccounts  = dto.IdChartOfAccounts,
+                Description        = dto.Description ?? string.Empty,
+                Reference          = dto.Reference ?? string.Empty,
+                DebitAmount        = dto.DebitAmount,
+                CreditAmount       = dto.CreditAmount,
+                IdCostCenter                = dto.IdCostCenter,
+                IdJournalEntryTypeOrigin    = dto.IdJournalEntryTypeOrigin,
+                IdDocumentOrigin            = dto.IdDocumentOrigin
             };
         }
     }
@@ -557,12 +538,18 @@ namespace CMS.API.Controllers
     {
         public int IdJournalEntry { get; set; }
         public string? EntryNumber { get; set; }
-        public string? EntryType { get; set; }
+        /// <summary>FK lógica cross-DB → cms.admin.type_accounting (default 1 = general)</summary>
+        public int IdTypeAccounting { get; set; } = 1;
+        /// <summary>FK lógica cross-DB → cms.admin.journal_entry_class (default 3 = Normal)</summary>
+        public int IdJournalEntryClass { get; set; } = 3;
+        /// <summary>FK lógica cross-DB → cms.admin.journal_entry_status (default 1 = Draft)</summary>
+        public int IdJournalEntryStatus { get; set; } = 1;
         public string? Reference { get; set; }
         public string? EntryDate { get; set; }
         public string? PostingDate { get; set; }
-        public string? CurrencyCode { get; set; }
-        public decimal ExchangeRate { get; set; }
+        public int? IdMenu { get; set; }  // FK lógica a admin.menu
+        public int CurrencyLocal { get; set; } = 33;   // ID moneda base (admin.currency)
+        public int CurrencyExchange { get; set; } = 141; // ID moneda secundaria (admin.currency)
         public string? Status { get; set; }
         public bool IsReversing { get; set; }
         public int? IdReversedEntry { get; set; }
@@ -586,38 +573,24 @@ namespace CMS.API.Controllers
         public int IdJournalEntry { get; set; }
         public int IdJournalEntryLine { get; set; }
         public int IdChartOfAccounts { get; set; }
-        public string? AccountCode { get; set; } // Para display
-        public string? AccountName { get; set; } // Para display
-        public string? LineDescription { get; set; }
+        public string? AccountCode { get; set; }   // Para display
+        public string? AccountName { get; set; }   // Para display
+        public string? Description { get; set; }
         public string? Reference { get; set; }
         public decimal DebitAmount { get; set; }
         public decimal CreditAmount { get; set; }
-        public string? CurrencyCode { get; set; }
-        public decimal ExchangeRate { get; set; }
-        public decimal DebitAmountBase { get; set; }
-        public decimal CreditAmountBase { get; set; }
-        public string? CostCenterCode { get; set; }
-        public string? CostCenterName { get; set; }
-        public string? ProjectCode { get; set; }
-        public string? ProjectName { get; set; }
-        public string? DepartmentCode { get; set; }
-        public string? DepartmentName { get; set; }
-        public string? BusinessPartnerType { get; set; }
-        public string? BusinessPartnerCode { get; set; }
-        public string? BusinessPartnerName { get; set; }
-        public string? DueDate { get; set; }
-        public string? TaxCode { get; set; }
-        public decimal? TaxRate { get; set; }
-        public decimal? TaxAmount { get; set; }
-        public bool IsReconciled { get; set; }
-        public string? ReconciliationDate { get; set; }
-        public string? ReconciliationRef { get; set; }
+        public int IdCostCenter { get; set; }
+        public string? CostCenterName { get; set; } // Para display
+        /// <summary>FK lógica cross-DB → cms.admin.journal_entry_type_origin</summary>
+        public int IdJournalEntryTypeOrigin { get; set; }
+        public int IdDocumentOrigin { get; set; }
     }
 
     public class ReversalRequest
     {
         public string? ReversalDate { get; set; }
         public int IdCancelReason { get; set; }
+        public int IdMenu { get; set; } // ⭐ Menú desde donde se hace la reversión
     }
 
     public class CancelRequest

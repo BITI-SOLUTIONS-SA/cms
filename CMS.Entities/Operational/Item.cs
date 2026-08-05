@@ -267,6 +267,29 @@ namespace CMS.Entities.Operational
         [Column("tax_rate", TypeName = "decimal(28,8)")]
         public decimal TaxRate { get; set; }
 
+        // ===== FACTURACIÓN ELECTRÓNICA (Fase B) =====
+
+        /// <summary>
+        /// Cliente propietario del ítem. NOT NULL DEFAULT 1. FK → sinai.customer.
+        /// </summary>
+        [Column("id_customer")]
+        public int IdCustomer { get; set; } = 1;
+
+        /// <summary>
+        /// CodigoTarifaIVA v4.4 (relación lógica cross-DB → cms.admin.tax_rate_code.code).
+        /// Default '08' (13% tarifa general).
+        /// </summary>
+        [MaxLength(2)]
+        [Column("tax_rate_code")]
+        public string TaxRateCode { get; set; } = "08";
+
+        /// <summary>
+        /// Código CAByS de 13 dígitos. Default '9799000000000'.
+        /// </summary>
+        [MaxLength(13)]
+        [Column("cabys_code")]
+        public string CabysCode { get; set; } = "9799000000000";
+
         // ===== STOCK =====
 
         /// <summary>
