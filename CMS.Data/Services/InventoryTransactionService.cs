@@ -751,7 +751,7 @@ namespace CMS.Data.Services
                         QtyDispatched = 0,
                         QtyReceived = 0,
                         QtyReturned = newReturn.QtyReturned,
-                        IdUnitOfMeasure = item.IdUnitOfMeasure,
+                        IdElectronicDocumentUnitOfMeasure = item.IdElectronicDocumentUnitOfMeasure,
                         UnitOfMeasureCode = null, // Se puede agregar si es necesario
                         UnitCost = item.CostPrice,
                         TotalCost = item.CostPrice * newReturn.QtyReturned,

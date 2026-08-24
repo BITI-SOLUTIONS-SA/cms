@@ -45,6 +45,11 @@ namespace CMS.Entities.Operational
         [Column("item_code")]
         public string? ItemCode { get; set; }
 
+        /// <summary>Tipo de impuesto de Hacienda de la línea (CodigoImpuesto v4.4).
+        /// Relación lógica cross-DB → cms.admin.electronic_document_tax_type. Default 1 (01=IVA).</summary>
+        [Column("id_electronic_document_tax_type")]
+        public int IdElectronicDocumentTaxType { get; set; } = 1;
+
         [Required]
         [MaxLength(200)]
         [Column("detail")]
@@ -78,6 +83,15 @@ namespace CMS.Entities.Operational
         [Column("discount_nature")]
         public string? DiscountNature { get; set; }
 
+        /// <summary>
+        /// JSON con la lista de descuentos de la línea (Hacienda v4.4 admite hasta 5
+        /// nodos &lt;Descuento&gt;). Forma: [{"nature":"06","amount":70.0}].
+        /// Los escalares DiscountAmount/DiscountNature guardan la suma total y la
+        /// naturaleza principal para compatibilidad con totales, PDF y ruta REP.
+        /// </summary>
+        [Column("discounts")]
+        public string? Discounts { get; set; }
+
         [Column("sub_total", TypeName = "decimal(18,5)")]
         public decimal SubTotal { get; set; }
 
@@ -108,7 +122,6 @@ namespace CMS.Entities.Operational
         [MaxLength(2)]
         [Column("tax_rate_code_iva")]
         public string? TaxRateCodeIva { get; set; }
-
         /// <summary>Porcentaje de IVA aplicado (p.ej. 0.13).</summary>
         [Column("tax_rate_iva", TypeName = "decimal(5,4)")]
         public decimal? TaxRateIva { get; set; }
@@ -136,8 +149,14 @@ namespace CMS.Entities.Operational
         [MaxLength(160)]
         [Column("exon_institution")]
         public string? ExonInstitution { get; set; }
+        /// <summary>Número de artículo que establece la exoneración o autorización (opcional, máx 6 dígitos).</summary>
+        [Column("exon_article")]
+        public int? ExonArticle { get; set; }
 
-        /// <summary>FechaEmision del documento de exoneración.</summary>
+        /// <summary>Número de inciso que establece la exoneración o autorización (obligatorio cuando hay exoneración, máx 6 dígitos).</summary>
+        [Column("exon_subsection")]
+        public int? ExonSubsection { get; set; }
+
         [Column("exon_date")]
         public DateTime? ExonDate { get; set; }
 
@@ -172,5 +191,8 @@ namespace CMS.Entities.Operational
         // ===== Navegación =====
         [InverseProperty(nameof(ElectronicDocumentTax.ElectronicDocumentLine))]
         public virtual ICollection<ElectronicDocumentTax> Taxes { get; set; } = new List<ElectronicDocumentTax>();
+
+        [InverseProperty(nameof(ElectronicDocumentDiscountLine.ElectronicDocumentLine))]
+        public virtual ICollection<ElectronicDocumentDiscountLine> DiscountLines { get; set; } = new List<ElectronicDocumentDiscountLine>();
     }
 }

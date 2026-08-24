@@ -76,6 +76,12 @@ namespace CMS.Entities.Operational
         [Column("payment_method")]
         public string PaymentMethod { get; set; } = "01";
 
+        /// <summary>Lista de medios de pago seleccionados, CSV (ej: "01,02,06").
+        /// Hacienda v4.4 admite varios &lt;MedioPago&gt;. Si es null se usa <see cref="PaymentMethod"/>.</summary>
+        [MaxLength(50)]
+        [Column("payment_methods")]
+        public string? PaymentMethods { get; set; }
+
         // ===== Moneda y montos =====
         [Required]
         [MaxLength(3)]
@@ -304,6 +310,14 @@ namespace CMS.Entities.Operational
         [Column("total_comprobante", TypeName = "decimal(18,5)")]
         public decimal? TotalComprobante { get; set; }
 
+        /// <summary>
+        /// Otros cargos del documento (nodo &lt;OtrosCargos&gt; Hacienda CR v4.4) serializados como JSON.
+        /// Cada elemento contiene: typeCode, otherTypeDescription, detail, amount, thirdIdentType,
+        /// thirdIdentNumber, thirdName. Se persiste como JSON para evitar una tabla adicional.
+        /// </summary>
+        [Column("other_charges")]
+        public string? OtherCharges { get; set; }
+
         // Desglose de impuesto del resumen
         [MaxLength(2)]
         [Column("desglose_impuesto_codigo")]
@@ -347,5 +361,8 @@ namespace CMS.Entities.Operational
 
         [InverseProperty(nameof(ElectronicDocumentReference.ElectronicDocument))]
         public virtual ICollection<ElectronicDocumentReference> References { get; set; } = new List<ElectronicDocumentReference>();
+
+        [InverseProperty(nameof(ElectronicDocumentOtherChargeLine.ElectronicDocument))]
+        public virtual ICollection<ElectronicDocumentOtherChargeLine> OtherChargeLines { get; set; } = new List<ElectronicDocumentOtherChargeLine>();
     }
 }

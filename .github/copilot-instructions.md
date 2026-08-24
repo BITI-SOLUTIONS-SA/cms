@@ -8,6 +8,7 @@
 - Dominio: cms.biti-solutions.com. 
 - Registry: registry.biti-solutions.com.
 - Base de datos CMS: PostgreSQL 15, esquema principal "admin" (ej: admin.menu). Usuario: cmssystem. Credenciales en Kubernetes Secret cms-db-secret.
+- La BD real del proyecto CMS está en el servidor 10.0.0.1:5432. Central: Database=cms, Username=cmssystem, Password=SYScmsPOStgres1024. La única BD de cliente es 'sinai' (schema sinai). Todas las tablas centrales están en cms schema admin. psql local: C:\Program Files\PostgreSQL\16\bin\psql.exe. (El localhost:5432 con cms_dev NO es la BD del proyecto.)
 
 ## ⚠️ Configuración del Proyecto ⚠️
 - **Archivos de configuración**: El proyecto usa archivos `appsettings.json` estándar de .NET (NO `connectionstrings.json`).
@@ -38,8 +39,8 @@
    - **Tablas**: `item` (artículos), `inventory`, `sales`, `purchases`, etc.
    - **Connection String**: Se construye dinámicamente según la compañía activa
 
-3. **Reglas de conexión**:BD Central:  Host=localhost;Database=cms;Username=cmssystem;Password=xxx
-BD Compañía: Host=localhost;Database={company_code};Username=cmssystem;Password=xxx
+3. **Reglas de conexión**: BD Central:  Host=localhost;Database=cms;Username=cmssystem;Password=xxx
+   BD Compañía: Host=localhost;Database={company_code};Username=cmssystem;Password=xxx
 4. **Servicios para acceso multi-BD**:
    - `CompanyDbContextFactory` - Crea DbContext dinámico para la BD de la compañía activa
    - `ICompanyDbContext` - Interface para operaciones en BD de compañía
@@ -331,7 +332,8 @@ Todos los scripts de creación de tablas en bases de datos de compañía **DEBEN
 4. **Ejecución**: El script debe incluir instrucciones de ejecución con `psql` en el encabezado.
 5. **Borrado seguro**: Siempre comenzar con `DROP TABLE IF EXISTS {schema}.tabla CASCADE;`
 
-### Secciones obligatorias (en este orden)1.  Bloque START  (comentario visual delimitador de = en 3 líneas)
+### Secciones obligatorias (en este orden)
+1.  Bloque START  (comentario visual delimitador de = en 3 líneas)
 2.  Encabezado    (SCRIPT, PROPÓSITO, DESCRIPCIÓN, EJECUCIÓN, AUTOR, CREADO)
 3.  -- TABLA: nombre
 4.  DROP TABLE IF EXISTS … CASCADE
@@ -342,22 +344,32 @@ Todos los scripts de creación de tablas en bases de datos de compañía **DEBEN
 9.  Función trigger  tr_{tabla}_update_fn()
 10. Trigger BEFORE UPDATE  tr_{tabla}_update
 11. Bloque END   (comentario visual delimitador de = en 3 líneas)
-### Columnas de auditoría obligatorias (SIEMPRE las últimas columnas antes de los Constraints)createdate      TIMESTAMP    NOT NULL DEFAULT now(),
+
+### Columnas de auditoría obligatorias (SIEMPRE las últimas columnas antes de los Constraints)
+createdate      TIMESTAMP    NOT NULL DEFAULT now(),
 record_date     TIMESTAMP    NOT NULL DEFAULT now(),
 created_by      VARCHAR(30)  NOT NULL DEFAULT current_user,
 updated_by      VARCHAR(30)  NOT NULL DEFAULT current_user,
 rowpointer      UUID         NOT NULL DEFAULT gen_random_uuid(),
-### Constraints obligatoriosCONSTRAINT {tabla}_pkey               PRIMARY KEY (id_{tabla}),
+
+### Constraints obligatorios
+CONSTRAINT {tabla}_pkey               PRIMARY KEY (id_{tabla}),
 CONSTRAINT rpix_{schema}_{tabla}      UNIQUE (rowpointer),
 CONSTRAINT uq_{schema}_{tabla}_code   UNIQUE (code),   -- si la tabla tiene campo code
-### Nomenclatura de índices-- Índice único sobre code:
+
+### Nomenclatura de índices
+-- Índice único sobre code:
 CREATE UNIQUE INDEX IF NOT EXISTS uix_{schema}_{tabla}_code    ON {schema}.{tabla}(code);
 -- Índices adicionales:
 CREATE INDEX        IF NOT EXISTS ix_{schema}_{tabla}_{campo}  ON {schema}.{tabla}({campo});
-### Permisos estándarGRANT SELECT, INSERT, UPDATE, DELETE ON {schema}.{tabla} TO PUBLIC;
+
+### Permisos estándar
+GRANT SELECT, INSERT, UPDATE, DELETE ON {schema}.{tabla} TO PUBLIC;
 GRANT ALL ON {schema}.{tabla} TO cmssystem;
 GRANT USAGE, SELECT ON SEQUENCE {schema}.{tabla}_id_{tabla}_seq TO cmssystem;
-### Trigger estándar de auditoríaCREATE OR REPLACE FUNCTION {schema}.tr_{tabla}_update_fn()
+
+### Trigger estándar de auditoría
+CREATE OR REPLACE FUNCTION {schema}.tr_{tabla}_update_fn()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN
     NEW.updated_by  := current_user;
@@ -369,14 +381,18 @@ $$;
 CREATE TRIGGER tr_{tabla}_update
 BEFORE UPDATE ON {schema}.{tabla}
 FOR EACH ROW EXECUTE FUNCTION {schema}.tr_{tabla}_update_fn();
+
 ### Relaciones cross-database (FK lógicas — NO declarar FK real)
 
-Cuando una tabla operacional referencia la BD central (`cms.admin.*`), NO se declara FK real. Se documenta con un comentario estándar:-- RELACIÓN LÓGICA CROSS-DB: campo_id referencia cms.admin.tabla.id
+Cuando una tabla operacional referencia la BD central (`cms.admin.*`), NO se declara FK real. Se documenta con un comentario estándar:
+-- RELACIÓN LÓGICA CROSS-DB: campo_id referencia cms.admin.tabla.id
 --    No se puede declarar FK real porque esta tabla está en la BD de la compañía
 --    y admin.tabla está en la BD central (cms). La integridad se mantiene a nivel
 --    de aplicación en el Service / Controller correspondiente.
 campo_id   INTEGER,
-### Patrón de columnas agrupadas por categoríaCREATE TABLE {schema}.{tabla} (
+
+### Patrón de columnas agrupadas por categoría
+CREATE TABLE {schema}.{tabla} (
     -- PK + campos base
     id_{tabla}       SERIAL        NOT NULL,
     code             VARCHAR(30)   NOT NULL,
@@ -416,6 +432,7 @@ campo_id   INTEGER,
     CONSTRAINT rpix_{schema}_{tabla}     UNIQUE (rowpointer),
     CONSTRAINT uq_{schema}_{tabla}_code  UNIQUE (code)
 );
+
 ## Credenciales PostgreSQL CMS
 - Usuario: postgres
 - Password: POStgres2026
@@ -423,8 +440,7 @@ campo_id   INTEGER,
 - Host: 10.0.0.1
 - Base de datos operacional: sinai (o según compañía)
 - Base de datos central: cms
-
-SIEMPRE usar estas credenciales para ejecutar scripts SQL o comandos psql en el proyecto CMS.
+- Usuario adicional: cmssystem, contraseña: Postgres2026. psql está en `C:\Program Files\PostgreSQL\16\bin\psql.exe`.
 
 ## Datos de Factura
 - ProveedorSistemas: 2100042005
@@ -434,6 +450,7 @@ SIEMPRE usar estas credenciales para ejecutar scripts SQL o comandos psql en el 
 - SignaturePolicy: Identifier='https://atv.hacienda.go.cr/ATV/ComprobanteElectronico/docs/esquemas/2024/v4.4/Resoluci%C3%B3n_General_sobre_disposiciones_t%C3%A9cnicas_comprobantes_electr%C3%B3nicos_para_efectos_tributarios.pdf'
 - SigPolicyHash (HEX): '0D6C629F5C5639E23C3AE5905DACE1E158CB5806822C003DE787A6EC3321D21F'
 - La firma usa formato FirmaXadesNet (confirmado correcto).
+- Para el código de impuesto 08 (IVA régimen de bienes usados) en facturación electrónica CR v4.4, el monto se calcula por FACTOR: base imponible × factor (sin dividir entre 100). En el XML se emite el nodo <FactorIVA> con 5 decimales, sin CodigoTarifaIVA ni Tarifa.
 
 ## HITO LOGRADO
 - Factura electrónica CR v4.4 ACEPTADA por Hacienda sandbox (ind-estado: aceptado) end-to-end con el sistema HACIENDA-CORE del CMS. Cadena completa funcional: Vault AES-256 -> Clave 50 díg -> XML v4.4 -> firma XAdES-EPES (FirmaXadesNetCore) -> OAuth realm rut-stag -> POST api-sandbox.comprobanteselectronicos.go.cr/recepcion/v1 -> aceptado. El -37 (ubicación no concuerda) es advertencia informativa, no rechazo.

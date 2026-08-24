@@ -25,6 +25,12 @@ namespace CMS.Data.Services.EInvoice
         /// <param name="situation">Situación (1=normal,2=contingencia,3=sin internet).</param>
         /// <param name="issueDate">Fecha de emisión (para día/mes/año de la clave).</param>
         /// <param name="userId">Usuario que genera.</param>
+        /// <param name="consecutiveId">
+        /// (Opcional) Id del consecutivo fiscal específico seleccionado por el usuario en la
+        /// pantalla de emisión. Cuando se indica, se usa exactamente ese registro (validando que
+        /// esté activo y corresponda al emisor y tipo de documento). Si es null, se resuelve el
+        /// consecutivo por defecto activo (comportamiento histórico).
+        /// </param>
         Task<ClaveNumericaResult> GenerateAsync(
             int companyId,
             int issuerId,
@@ -34,6 +40,7 @@ namespace CMS.Data.Services.EInvoice
             string terminal,
             string situation,
             DateTime issueDate,
-            int userId);
+            int userId,
+            int? consecutiveId = null);
     }
 }

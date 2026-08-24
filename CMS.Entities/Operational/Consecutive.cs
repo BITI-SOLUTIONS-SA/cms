@@ -85,12 +85,17 @@ namespace CMS.Entities.Operational
         public bool IS_ACTIVE { get; set; } = true;
 
         // Auditoría
+        // Generadas por la BD (DEFAULT gen_random_uuid() / now() y trigger).
+        // Computed => EF no las envía en INSERT/UPDATE (evita rowpointer duplicado).
+        [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
         [Column("rowpointer")]
         public Guid RowPointer { get; set; }
 
+        [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
         [Column("record_date")]
         public DateTime RecordDate { get; set; }
 
+        [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
         [Column("createdate")]
         public DateTime CreateDate { get; set; }
 

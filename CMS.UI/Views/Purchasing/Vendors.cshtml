@@ -1,0 +1,266 @@
+@{
+    ViewData["Title"] = "Vendors (Proveedores)";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var apiBaseUrl = ViewBag.ApiBaseUrl as string ?? "";
+    var apiToken   = ViewBag.ApiToken   as string ?? "";
+}
+
+@section Styles {
+<style>
+    :root {
+        --vd-bg:     #0f1629;
+        --vd-card:   #1a2340;
+        --vd-border: #2a3a5c;
+        --vd-accent: #6c63ff;
+        --vd-text:   #e2e8f0;
+        --vd-muted:  #94a3b8;
+        --vd-hover:  #1e2d4a;
+    }
+
+    body { background: var(--vd-bg); color: var(--vd-text); }
+
+    /* Texto general legible sobre fondo oscuro */
+    small, .form-text, small.text-muted, .text-muted small { color: #cbd5e1 !important; }
+
+    /* Bootstrap .text-muted / .text-secondary por defecto (#6c757d) es casi invisible
+       sobre el fondo oscuro. Se aclaran en toda la pantalla, incluido el grid y el paginador. */
+    .text-muted, .text-secondary { color: #cbd5e1 !important; }
+    .form-label, label { color: var(--vd-text); }
+    .form-check-label { color: var(--vd-text); }
+    h6, .modal-title { color: #fff; }
+
+    /* Contenido dinámico del grid y paginador */
+    #vdResults, #vdResults td, #vdPager, #activitiesBody, #activitiesBody td { color: var(--vd-text); }
+    #vdResults .text-muted, #activitiesBody .text-muted { color: #cbd5e1 !important; }
+
+    .vd-header {
+        background: linear-gradient(135deg, #1a2340 0%, #0f1629 100%);
+        border-bottom: 1px solid var(--vd-border);
+        padding: 1.25rem 1.5rem;
+    }
+    .vd-title { font-size: 1.5rem; font-weight: 700; color: #fff; }
+    .vd-subtitle { font-size: .82rem; color: var(--vd-muted); }
+
+    .vd-panel {
+        background: var(--vd-card);
+        border: 1px solid var(--vd-border);
+        border-radius: .6rem;
+    }
+
+    .vd-table { width: 100%; border-collapse: collapse; }
+    .vd-table th {
+        text-align: left; font-size: .74rem; text-transform: uppercase;
+        color: var(--vd-muted); padding: .6rem .8rem; border-bottom: 1px solid var(--vd-border);
+    }
+    .vd-table td { padding: .55rem .8rem; border-bottom: 1px solid var(--vd-border); font-size: .85rem; }
+    .vd-table tbody tr:hover, .vd-table tr:hover { background: var(--vd-hover); }
+
+    .modal-content { background: var(--vd-card); color: var(--vd-text); border: 1px solid var(--vd-border); }
+    .modal-header, .modal-footer { border-color: var(--vd-border); }
+    .form-control, .form-select {
+        background: #0f1629; color: var(--vd-text); border: 1px solid var(--vd-border);
+    }
+    .form-control:focus, .form-select:focus {
+        background: #0f1629; color: var(--vd-text);
+        border-color: var(--vd-accent); box-shadow: 0 0 0 .2rem rgba(108,99,255,.25);
+    }
+    .form-control::placeholder { color: #64748b; }
+</style>
+}
+
+<div class="vd-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <div class="vd-title"><i class="bi bi-bag-check me-2"></i>Vendors (Proveedores)</div>
+        <div class="vd-subtitle">Mantenimiento de proveedores y sus actividades económicas · Purchasing / AP</div>
+    </div>
+    <button class="btn btn-primary" onclick="openVendorModal()">
+        <i class="bi bi-plus-lg me-1"></i>Nuevo Vendor
+    </button>
+</div>
+
+<div class="p-3">
+    <div class="vd-panel p-3 mb-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label small">Buscar</label>
+                <input type="text" id="vdSearch" class="form-control" placeholder="Código, nombre, identificación o correo...">
+            </div>
+            <div class="col-md-3">
+                <div class="form-check mt-4">
+                    <input class="form-check-input" type="checkbox" id="vdIncludeInactive">
+                    <label class="form-check-label small" for="vdIncludeInactive">Incluir inactivos</label>
+                </div>
+            </div>
+            <div class="col-md-4 text-end">
+                <button class="btn btn-outline-light" onclick="loadVendors()">
+                    <i class="bi bi-search me-1"></i>Buscar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="vd-panel">
+        <table class="vd-table">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                    <th>Identificación</th>
+                    <th>Tipo</th>
+                    <th>Correo</th>
+                    <th>Teléfono</th>
+                    <th class="text-center">Estado</th>
+                    <th class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="vdResults">
+                <tr><td colspan="8" class="text-center text-muted p-3">Cargando...</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div id="vdPager" class="d-flex justify-content-between align-items-center mt-2 small text-muted"></div>
+</div>
+
+<!-- Modal Vendor (crear/editar) -->
+<div class="modal fade" id="vendorModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="vendorModalTitle"><i class="bi bi-bag-check me-2"></i>Nuevo Vendor</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="fldVendorId">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label small">Código *</label>
+                        <input type="text" id="fldCode" class="form-control" maxlength="30">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small">Nombre / Razón social *</label>
+                        <input type="text" id="fldName" class="form-control" maxlength="200">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Nombre comercial</label>
+                        <input type="text" id="fldCommercialName" class="form-control" maxlength="200">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label small">Tipo identificación</label>
+                        <select id="fldIdentificationType" class="form-select">
+                            <option value="">—</option>
+                            <option value="1">01 - Física</option>
+                            <option value="2">02 - Jurídica</option>
+                            <option value="3">03 - DIMEX</option>
+                            <option value="4">04 - NITE</option>
+                            <option value="5">05 - Extranjero</option>
+                            <option value="6">06 - No contribuyente</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Identificación</label>
+                        <input type="text" id="fldIdentification" class="form-control" maxlength="20">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Actividad económica</label>
+                        <input type="text" id="fldEconomicActivity" class="form-control" maxlength="6" placeholder="Ej: 620200">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Tipo de vendor</label>
+                        <select id="fldVendorType" class="form-select">
+                            <option value="Both">Ambos</option>
+                            <option value="Goods">Bienes</option>
+                            <option value="Services">Servicios</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label small">Correo</label>
+                        <input type="email" id="fldEmail" class="form-control" maxlength="160">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">Cód. área</label>
+                        <input type="text" id="fldPhoneCode" class="form-control" maxlength="3" placeholder="506">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Teléfono</label>
+                        <input type="text" id="fldPhone" class="form-control" maxlength="20">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Moneda</label>
+                        <input type="text" id="fldCurrency" class="form-control" maxlength="3" placeholder="CRC">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label small">Días de crédito</label>
+                        <input type="number" id="fldCreditDays" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Límite de crédito</label>
+                        <input type="number" step="0.01" id="fldCreditLimit" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small">Notas</label>
+                        <input type="text" id="fldNotes" class="form-control" maxlength="2000">
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" id="fldIsActive" checked>
+                            <label class="form-check-label small" for="fldIsActive">Activo</label>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="border-secondary my-3" />
+                <div id="activitiesSection" class="d-none">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0"><i class="bi bi-briefcase me-2"></i>Actividades económicas</h6>
+                        <div class="d-flex gap-2">
+                            <select id="fldNewActivity" class="form-select form-select-sm" style="width:400px;">
+                                <option value="">Seleccione una actividad económica...</option>
+                            </select>
+                            <button class="btn btn-sm btn-outline-light" onclick="addActivity()"><i class="bi bi-plus-lg"></i></button>
+                        </div>
+                    </div>
+                    <table class="vd-table">
+                        <thead>
+                            <tr><th>Código</th><th>Descripción</th><th class="text-center">Predeterminada</th><th class="text-center">Acciones</th></tr>
+                        </thead>
+                        <tbody id="activitiesBody">
+                            <tr><td colspan="4" class="text-center text-muted p-2">Sin actividades registradas.</td></tr>
+                        </tbody>
+                    </table>
+                    <small class="d-block mt-1">La actividad predeterminada se usa como actividad del receptor al emitir comprobantes.</small>
+                </div>
+                <div id="activitiesHint" class="text-muted small">
+                    Guarde el vendor para poder administrar sus actividades económicas.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" id="btnSaveVendor" onclick="saveVendor()">
+                    <i class="bi bi-check-lg me-1"></i>Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    window.VD_API   = '@Html.Raw(apiBaseUrl)';
+    window.VD_TOKEN = '@Html.Raw(apiToken)';
+</script>
+<script src="~/js/identification-validator.js" asp-append-version="true"></script>
+<script src="~/js/vendors.js" asp-append-version="true"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    ['vendorModal'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) document.body.appendChild(el);
+    });
+    loadVendors();
+});
+</script>
+}

@@ -32,7 +32,7 @@ namespace CMS.Entities.Operational
         public int Id { get; set; }
 
         /// <summary>
-        /// FK al customer/supplier.
+        /// FK al customer/vendor.
         /// Puede ser NULL si la credencial es standalone (ej: receptor genérico).
         /// </summary>
         [Column("id_customer")]
@@ -109,9 +109,15 @@ namespace CMS.Entities.Operational
         [Column("foreign_identification")]
         public string? ForeignIdentification { get; set; }
 
-        /// <summary>Código de actividad económica (6 dígitos).</summary>
-        [MaxLength(6)]
-        [Column("economic_activity")]
+        /// <summary>
+        /// Código de actividad económica (6 dígitos).
+        /// NO se persiste en customer_billing_credential (la columna fue eliminada):
+        /// la actividad económica del emisor/receptor se toma de la tabla
+        /// {schema}.customer_economic_activity. Esta propiedad se conserva únicamente
+        /// como portador EN MEMORIA para inyectar el valor seleccionado en la emisión
+        /// (pantalla /ElectronicInvoice/Emit) hacia el generador de XML.
+        /// </summary>
+        [NotMapped]
         public string? EconomicActivity { get; set; }
 
         // ===== UBICACIÓN (códigos Hacienda CR) =====
@@ -208,7 +214,7 @@ namespace CMS.Entities.Operational
 
         /// <summary>
         /// TRUE = credential activa que usa el sistema.
-        /// Solo puede haber una activa por (customer/supplier, environment).
+        /// Solo puede haber una activa por (customer/vendor, environment).
         /// </summary>
         [Column("is_active")]
         public bool IsActive { get; set; } = true;

@@ -1,0 +1,356 @@
+@{
+    ViewData["Title"] = "Tipos de Documento Electrónico";
+    var apiBaseUrl = ViewBag.ApiBaseUrl as string ?? "";
+    var apiToken = ViewBag.ApiToken as string ?? "";
+}
+
+<style>
+    .edt-card { background: #16213e; border: 1px solid #23305c; border-radius: .75rem; }
+    /* La tabla usa fondo claro; el texto debe ser OSCURO para contrastar */
+    .edt-table { color: #1e293b; background-color: #ffffff; }
+    .edt-table thead th { color: #334155; border-color: #cbd5e1; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; background-color: #f1f5f9; }
+    .edt-table td, .edt-table th { border-color: #cbd5e1; vertical-align: middle; }
+    .edt-table td { color: #1e293b; }
+    /* Texto secundario dentro de la tabla: gris oscuro legible sobre fondo claro */
+    .edt-table td small, .edt-table td .text-muted, .edt-table .text-muted { color: #475569 !important; }
+    .edt-code { font-family: monospace; font-weight: 700; color: #1d4ed8; }
+    .badge-flag { font-size: .68rem; }
+    small, .form-text, small.text-muted, .text-muted small { color: #cbd5e1 !important; }
+    .modal-content { background: #16213e; color: #e0e0e0; border: 1px solid #23305c; }
+    .modal-header, .modal-footer { border-color: #23305c; }
+    .form-check-label { color: #e0e0e0; }
+    .edt-flag-group { border: 1px solid #23305c; border-radius: .5rem; padding: .75rem; margin-bottom: .75rem; }
+    .edt-flag-group > legend { font-size: .8rem; color: #7dd3fc; float: none; width: auto; padding: 0 .4rem; }
+</style>
+
+<div class="container-fluid py-3 text-light">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-file-earmark-ruled me-2"></i>Tipos de Documento Electrónico</h4>
+        <a asp-action="Emit" class="btn btn-outline-light btn-sm"><i class="bi bi-receipt-cutoff"></i> Emitir</a>
+    </div>
+
+    <div class="card edt-card mb-3">
+        <div class="card-body">
+            <p class="text-light mb-3">
+                Catálogo central (<code>admin.electronic_document_type</code>) que gobierna la visibilidad en la
+                pantalla de emisión y todo el comportamiento parametrizable de generación de XML por tipo (Hacienda CR v4.4).
+            </p>
+            <div class="row g-2 align-items-end mb-3">
+                <div class="col-md-4">
+                    <label class="form-label mb-1"><i class="bi bi-layers me-1"></i>Versión del esquema</label>
+                    <select id="edtVersionSelect" class="form-select">
+                        <option value="">Cargando versiones...</option>
+                    </select>
+                    <small class="form-text">Selecciona la versión para ver/editar sus tipos de documento.</small>
+                </div>
+                <div class="col-md-8 text-md-end">
+                    <a asp-action="DocumentVersions" class="btn btn-outline-info btn-sm">
+                        <i class="bi bi-layers"></i> Administrar versiones
+                    </a>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table edt-table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Nombre</th>
+                            <th class="text-center">En Emit</th>
+                            <th class="text-center">Receptor</th>
+                            <th class="text-center">Referencia</th>
+                            <th class="text-center">Saldos</th>
+                            <th class="text-center">Activo</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="edtTableBody">
+                        <tr><td colspan="8" class="text-center text-muted py-4">Cargando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal edición -->
+<div class="modal fade" id="edtModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Editar Tipo de Documento</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="f_id" />
+                <div class="row g-3 mb-2">
+                    <div class="col-md-2">
+                        <label class="form-label">Código</label>
+                        <input type="text" id="f_code" class="form-control" readonly />
+                        <small class="form-text">Inmutable (fiscal).</small>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Código corto</label>
+                        <input type="text" id="f_shortCode" class="form-control" maxlength="5" />
+                    </div>
+                    <div class="col-md-7">
+                        <label class="form-label">Nombre</label>
+                        <input type="text" id="f_name" class="form-control" maxlength="100" />
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Descripción</label>
+                    <input type="text" id="f_description" class="form-control" maxlength="500" />
+                </div>
+                <div class="row g-3 mb-2">
+                    <div class="col-md-4">
+                        <label class="form-label">Orden</label>
+                        <input type="number" id="f_sortOrder" class="form-control" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Condición venta forzada</label>
+                        <input type="text" id="f_forcedSaleCondition" class="form-control" maxlength="2" placeholder="(ninguna)" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Permiso</label>
+                        <input type="text" id="f_permissionCode" class="form-control" maxlength="100" />
+                    </div>
+                </div>
+
+                <fieldset class="edt-flag-group">
+                    <legend>Presentación y naturaleza</legend>
+                    <div class="row">
+                        <div class="col-md-4 form-check ms-2"><input type="checkbox" class="form-check-input" id="f_showInEmit"><label class="form-check-label" for="f_showInEmit">Visible en Emit</label></div>
+                        <div class="col-md-4 form-check ms-2"><input type="checkbox" class="form-check-input" id="f_isSalesDocument"><label class="form-check-label" for="f_isSalesDocument">Documento de venta</label></div>
+                        <div class="col-md-4 form-check ms-2"><input type="checkbox" class="form-check-input" id="f_isReceiverMessage"><label class="form-check-label" for="f_isReceiverMessage">Mensaje receptor</label></div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="edt-flag-group">
+                    <legend>Emisor / Receptor</legend>
+                    <div class="row">
+                        <div class="col-md-4 form-check ms-2"><input type="checkbox" class="form-check-input" id="f_requiresReceptor"><label class="form-check-label" for="f_requiresReceptor">Requiere receptor</label></div>
+                        <div class="col-md-4 form-check ms-2"><input type="checkbox" class="form-check-input" id="f_emisorReduced"><label class="form-check-label" for="f_emisorReduced">Emisor reducido</label></div>
+                        <div class="col-md-4 form-check ms-2"><input type="checkbox" class="form-check-input" id="f_allowCodigoActividadEmisor"><label class="form-check-label" for="f_allowCodigoActividadEmisor">Cód. actividad emisor</label></div>
+                        <div class="col-md-4 form-check ms-2"><input type="checkbox" class="form-check-input" id="f_allowCodigoActividadReceptor"><label class="form-check-label" for="f_allowCodigoActividadReceptor">Cód. actividad receptor</label></div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="edt-flag-group">
+                    <legend>Detalle de línea</legend>
+                    <div class="row">
+                        <div class="col-md-4 form-check ms-2"><input type="checkbox" class="form-check-input" id="f_lineReduced"><label class="form-check-label" for="f_lineReduced">Línea reducida</label></div>
+                        <div class="col-md-4 form-check ms-2"><input type="checkbox" class="form-check-input" id="f_allowLineDiscount"><label class="form-check-label" for="f_allowLineDiscount">Permite descuento línea</label></div>
+                        <div class="col-md-4 form-check ms-2"><input type="checkbox" class="form-check-input" id="f_allowImpuestoAsumido"><label class="form-check-label" for="f_allowImpuestoAsumido">Impuesto asumido</label></div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="edt-flag-group">
+                    <legend>Resumen</legend>
+                    <div class="row">
+                        <div class="col-md-4 form-check ms-2"><input type="checkbox" class="form-check-input" id="f_allowResumenClassification"><label class="form-check-label" for="f_allowResumenClassification">Clasificación resumen</label></div>
+                        <div class="col-md-4 form-check ms-2"><input type="checkbox" class="form-check-input" id="f_allowTotalDescuentos"><label class="form-check-label" for="f_allowTotalDescuentos">Total descuentos</label></div>
+                        <div class="col-md-4 form-check ms-2"><input type="checkbox" class="form-check-input" id="f_forceVentaNetaEqualsVenta"><label class="form-check-label" for="f_forceVentaNetaEqualsVenta">Venta neta = venta</label></div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="edt-flag-group">
+                    <legend>Referencias / Saldos / Estado</legend>
+                    <div class="row">
+                        <div class="col-md-4 form-check ms-2"><input type="checkbox" class="form-check-input" id="f_requiresReference"><label class="form-check-label" for="f_requiresReference">Requiere referencia</label></div>
+                        <div class="col-md-4 form-check ms-2"><input type="checkbox" class="form-check-input" id="f_emitsOtrosClave"><label class="form-check-label" for="f_emitsOtrosClave">Emite Otros/Clave</label></div>
+                        <div class="col-md-4 form-check ms-2"><input type="checkbox" class="form-check-input" id="f_balanceControlled"><label class="form-check-label" for="f_balanceControlled">Control de saldos</label></div>
+                        <div class="col-md-4 form-check ms-2"><input type="checkbox" class="form-check-input" id="f_isActive"><label class="form-check-label" for="f_isActive">Activo</label></div>
+                    </div>
+                </fieldset>
+
+                <div class="mb-2">
+                    <label class="form-label">Notas</label>
+                    <textarea id="f_notes" class="form-control" rows="2" maxlength="2000"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="edtSaveBtn"><i class="bi bi-save"></i> Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    window.EDT_API   = '@Html.Raw(apiBaseUrl)';
+    window.EDT_TOKEN = '@Html.Raw(apiToken)';
+</script>
+<script>
+(function () {
+    const EDT = { api: window.EDT_API || '', token: window.EDT_TOKEN || '' };
+    let modal;
+
+    async function edtFetch(path, options = {}) {
+        const opts = Object.assign({ headers: {} }, options);
+        if (EDT.token) opts.headers['Authorization'] = `Bearer ${EDT.token}`;
+        if (options.body) opts.headers['Content-Type'] = 'application/json';
+        return fetch(EDT.api + path, opts);
+    }
+
+    function boolBadge(v, yes, no) {
+        return v
+            ? `<span class="badge bg-success badge-flag">${yes || 'Sí'}</span>`
+            : `<span class="badge bg-secondary badge-flag">${no || 'No'}</span>`;
+    }
+
+    let cache = [];
+
+    async function loadVersionsSelect() {
+        const sel = document.getElementById('edtVersionSelect');
+        try {
+            const r = await edtFetch('/api/electronicdocumentversion');
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const versions = await r.json();
+            if (!versions.length) {
+                sel.innerHTML = '<option value="">Sin versiones</option>';
+                return;
+            }
+            // La versión vigente queda seleccionada por defecto.
+            sel.innerHTML = versions.map(v =>
+                `<option value="${v.id}" ${v.isCurrent ? 'selected' : ''}>${v.code}${v.isCurrent ? ' (vigente)' : ''}</option>`
+            ).join('');
+        } catch (e) {
+            console.error(e);
+            sel.innerHTML = '<option value="">Error al cargar versiones</option>';
+        }
+    }
+
+    async function loadTypes() {
+        const body = document.getElementById('edtTableBody');
+        const versionId = document.getElementById('edtVersionSelect').value;
+        try {
+            const path = versionId
+                ? `/api/electronicdocumenttype/byversion/${versionId}`
+                : '/api/electronicdocumenttype';
+            const r = await edtFetch(path);
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            cache = await r.json();
+            if (!cache.length) {
+                body.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">Sin registros.</td></tr>';
+                return;
+            }
+            body.innerHTML = cache.map(t => `
+                <tr>
+                    <td><span class="edt-code">${t.code}</span> <small class="text-muted">${t.shortCode || ''}</small></td>
+                    <td>${t.name || ''}</td>
+                    <td class="text-center">${boolBadge(t.showInEmit)}</td>
+                    <td class="text-center">${boolBadge(t.requiresReceptor)}</td>
+                    <td class="text-center">${boolBadge(t.requiresReference)}</td>
+                    <td class="text-center">${boolBadge(t.balanceControlled)}</td>
+                    <td class="text-center">${boolBadge(t.isActive)}</td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-outline-info" data-edit="${t.id}"><i class="bi bi-pencil"></i></button>
+                    </td>
+                </tr>`).join('');
+            body.querySelectorAll('[data-edit]').forEach(btn =>
+                btn.addEventListener('click', () => openEdit(parseInt(btn.dataset.edit, 10))));
+        } catch (e) {
+            console.error(e);
+            body.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Error al cargar.</td></tr>';
+        }
+    }
+
+    const setV = (id, val) => { document.getElementById(id).value = val ?? ''; };
+    const setC = (id, val) => { document.getElementById(id).checked = !!val; };
+    const getV = (id) => document.getElementById(id).value;
+    const getC = (id) => document.getElementById(id).checked;
+
+    function openEdit(id) {
+        const t = cache.find(x => x.id === id);
+        if (!t) return;
+        setV('f_id', t.id);
+        setV('f_code', t.code);
+        setV('f_shortCode', t.shortCode);
+        setV('f_name', t.name);
+        setV('f_description', t.description);
+        setV('f_sortOrder', t.sortOrder);
+        setV('f_forcedSaleCondition', t.forcedSaleCondition);
+        setV('f_permissionCode', t.permissionCode);
+        setV('f_notes', t.notes);
+        setC('f_showInEmit', t.showInEmit);
+        setC('f_isSalesDocument', t.isSalesDocument);
+        setC('f_isReceiverMessage', t.isReceiverMessage);
+        setC('f_requiresReceptor', t.requiresReceptor);
+        setC('f_emisorReduced', t.emisorReduced);
+        setC('f_allowCodigoActividadEmisor', t.allowCodigoActividadEmisor);
+        setC('f_allowCodigoActividadReceptor', t.allowCodigoActividadReceptor);
+        setC('f_lineReduced', t.lineReduced);
+        setC('f_allowLineDiscount', t.allowLineDiscount);
+        setC('f_allowImpuestoAsumido', t.allowImpuestoAsumido);
+        setC('f_allowResumenClassification', t.allowResumenClassification);
+        setC('f_allowTotalDescuentos', t.allowTotalDescuentos);
+        setC('f_forceVentaNetaEqualsVenta', t.forceVentaNetaEqualsVenta);
+        setC('f_requiresReference', t.requiresReference);
+        setC('f_emitsOtrosClave', t.emitsOtrosClave);
+        setC('f_balanceControlled', t.balanceControlled);
+        setC('f_isActive', t.isActive);
+        modal.show();
+    }
+
+    async function save() {
+        const id = parseInt(getV('f_id'), 10);
+        const original = cache.find(x => x.id === id) || {};
+        const payload = Object.assign({}, original, {
+            shortCode: getV('f_shortCode'),
+            name: getV('f_name'),
+            description: getV('f_description'),
+            sortOrder: parseInt(getV('f_sortOrder'), 10) || 0,
+            forcedSaleCondition: getV('f_forcedSaleCondition') || null,
+            permissionCode: getV('f_permissionCode') || null,
+            notes: getV('f_notes') || null,
+            showInEmit: getC('f_showInEmit'),
+            isSalesDocument: getC('f_isSalesDocument'),
+            isReceiverMessage: getC('f_isReceiverMessage'),
+            requiresReceptor: getC('f_requiresReceptor'),
+            emisorReduced: getC('f_emisorReduced'),
+            allowCodigoActividadEmisor: getC('f_allowCodigoActividadEmisor'),
+            allowCodigoActividadReceptor: getC('f_allowCodigoActividadReceptor'),
+            lineReduced: getC('f_lineReduced'),
+            allowLineDiscount: getC('f_allowLineDiscount'),
+            allowImpuestoAsumido: getC('f_allowImpuestoAsumido'),
+            allowResumenClassification: getC('f_allowResumenClassification'),
+            allowTotalDescuentos: getC('f_allowTotalDescuentos'),
+            forceVentaNetaEqualsVenta: getC('f_forceVentaNetaEqualsVenta'),
+            requiresReference: getC('f_requiresReference'),
+            emitsOtrosClave: getC('f_emitsOtrosClave'),
+            balanceControlled: getC('f_balanceControlled'),
+            isActive: getC('f_isActive')
+        });
+
+        const btn = document.getElementById('edtSaveBtn');
+        btn.disabled = true;
+        try {
+            const r = await edtFetch(`/api/electronicdocumenttype/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify(payload)
+            });
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            modal.hide();
+            await loadTypes();
+        } catch (e) {
+            console.error(e);
+            alert('No se pudo guardar el tipo de documento.');
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', async function () {
+        // Mover modal al body para evitar conflicto de z-index con el sidebar fijo.
+        const el = document.getElementById('edtModal');
+        if (el) document.body.appendChild(el);
+        modal = new bootstrap.Modal(el);
+        document.getElementById('edtSaveBtn').addEventListener('click', save);
+        document.getElementById('edtVersionSelect').addEventListener('change', loadTypes);
+        await loadVersionsSelect();
+        await loadTypes();
+    });
+})();
+</script>
+}

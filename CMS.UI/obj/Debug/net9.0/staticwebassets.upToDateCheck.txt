@@ -43,6 +43,7 @@ C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.UI\wwwroot\lib\
 C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.UI\wwwroot\js\location.js
 C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.UI\wwwroot\lib\jquery\dist\jquery.min.map
 C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.UI\wwwroot\js\typeAccountings.js
+C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.UI\wwwroot\js\vendors.js
 C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.UI\wwwroot\js\transportUnits.js
 C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.UI\wwwroot\lib\bootstrap\dist\css\bootstrap-utilities.min.css.map
 C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.UI\wwwroot\lib\jquery-validation\LICENSE.md
@@ -67,6 +68,7 @@ C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.UI\wwwroot\lib\
 C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.UI\wwwroot\lib\bootstrap\dist\css\bootstrap-reboot.rtl.min.css.map
 C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.UI\wwwroot\lib\jquery-validation\dist\additional-methods.js
 C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.UI\wwwroot\js\journalEntryClass.js
+C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.UI\wwwroot\js\identification-validator.js
 C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.UI\wwwroot\lib\bootstrap\dist\css\bootstrap.rtl.min.css
 C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.UI\wwwroot\img\logo-tech.svg
 C:\Disco\BITI Solutions S.A\BITI Solutions\Proyectos\CMS\CMS\CMS.UI\wwwroot\lib\bootstrap\dist\css\bootstrap-grid.rtl.min.css.map
@@ -105,6 +107,7 @@ wwwroot\js\employees.js
 wwwroot\js\exchangeRates.js
 wwwroot\js\fleetCatalogs.js
 wwwroot\js\globalParameters.js
+wwwroot\js\identification-validator.js
 wwwroot\js\insurers.js
 wwwroot\js\inventoryMovements.js
 wwwroot\js\inventoryTransactionTypes.js
@@ -120,6 +123,7 @@ wwwroot\js\site.js
 wwwroot\js\stockTransfers.js
 wwwroot\js\transportUnits.js
 wwwroot\js\typeAccountings.js
+wwwroot\js\vendors.js
 wwwroot\js\warehouse-locations.js
 wwwroot\js\warehouses.js
 wwwroot\lib\bootstrap\LICENSE

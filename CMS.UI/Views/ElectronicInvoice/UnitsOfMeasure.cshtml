@@ -1,0 +1,307 @@
+@{
+    ViewData["Title"] = "Unidades de Medida";
+    var apiBaseUrl = ViewBag.ApiBaseUrl as string ?? "";
+    var apiToken = ViewBag.ApiToken as string ?? "";
+}
+
+<style>
+    .dum-card { background: #16213e; border: 1px solid #23305c; border-radius: .75rem; }
+    .dum-table { color: #1e293b; background-color: #ffffff; }
+    .dum-table thead th { color: #334155; border-color: #cbd5e1; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; background-color: #f1f5f9; }
+    .dum-table td, .dum-table th { border-color: #cbd5e1; vertical-align: middle; }
+    .dum-table td { color: #1e293b; }
+    .dum-code { font-family: monospace; font-weight: 700; color: #1d4ed8; }
+    .badge-flag { font-size: .68rem; }
+    small, .form-text, small.text-muted, .text-muted small { color: #cbd5e1 !important; }
+    .modal-content { background: #16213e; color: #e0e0e0; border: 1px solid #23305c; }
+    .modal-header, .modal-footer { border-color: #23305c; }
+    .form-check-label { color: #e0e0e0; }
+    .dum-table td small, .dum-table .text-muted { color: #475569 !important; }
+</style>
+
+<div class="container-fluid py-3 text-light">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-rulers me-2"></i>Unidades de Medida</h4>
+        <div>
+            <a asp-action="TaxRates" class="btn btn-outline-light btn-sm"><i class="bi bi-percent"></i> Códigos de Tarifa</a>
+            <button id="dumNewBtn" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nueva unidad</button>
+        </div>
+    </div>
+
+    <div class="card dum-card mb-3">
+        <div class="card-body">
+            <p class="text-light mb-3">
+                Catálogo central de <strong>códigos de unidad de medida del Ministerio de Hacienda</strong>
+                (<code>CodigoUnidadMedida</code>, formato v4.4). Es compartido por todas las compañías.
+                Los códigos marcados como <strong>activos</strong> aparecen en el selector "Unidad de Medida"
+                de las pantallas de mantenimiento de artículos <em>"/Inventory/CreateItem"</em> y <em>"/Inventory/EditItem"</em>.
+            </p>
+
+            <div class="row g-2 mb-3 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label text-light">Buscar (código o nombre)</label>
+                    <div class="input-group input-group-sm">
+                        <input type="text" id="dumSearch" class="form-control" placeholder="Ej: kilogramo..." />
+                        <button class="btn btn-outline-info" type="button" id="dumSearchBtn"><i class="bi bi-search"></i></button>
+                        <button class="btn btn-outline-secondary" type="button" id="dumSearchClear" title="Limpiar"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" id="dumOnlyActive" />
+                        <label class="form-check-label" for="dumOnlyActive">Solo activos</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table dum-table align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width: 90px;">Código</th>
+                            <th>Nombre</th>
+                            <th style="width: 90px;">Símbolo</th>
+                            <th class="text-center" style="width: 100px;">Decimales</th>
+                            <th class="text-center" style="width: 90px;">Default</th>
+                            <th class="text-center" style="width: 90px;">Orden</th>
+                            <th class="text-center" style="width: 80px;">Activo</th>
+                            <th class="text-end" style="width: 130px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dumTableBody">
+                        <tr><td colspan="8" class="text-center text-muted py-4">Cargando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center">
+                <small class="text-light" id="dumInfo"></small>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-light" id="dumPrev"><i class="bi bi-chevron-left"></i></button>
+                    <button class="btn btn-outline-light" id="dumNext"><i class="bi bi-chevron-right"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal edición/creación -->
+<div class="modal fade" id="dumModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i><span id="dumModalTitle">Editar unidad</span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="fu_id" />
+                <div class="row g-2">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Código</label>
+                        <input type="text" id="fu_code" class="form-control" maxlength="20" placeholder="Unid" />
+                        <small class="form-text">Código Hacienda v4.4</small>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Símbolo</label>
+                        <input type="text" id="fu_symbol" class="form-control" maxlength="20" placeholder="u" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Orden</label>
+                        <input type="number" id="fu_displayOrder" class="form-control" min="0" max="999" value="0" />
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Nombre</label>
+                    <input type="text" id="fu_name" class="form-control" maxlength="200" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Descripción</label>
+                    <textarea id="fu_description" class="form-control" rows="2" maxlength="1000"></textarea>
+                </div>
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="fu_allowsDecimals" checked />
+                            <label class="form-check-label" for="fu_allowsDecimals">Permite decimales</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="fu_isDefault" />
+                            <label class="form-check-label" for="fu_isDefault">Default</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="fu_isActive" checked />
+                            <label class="form-check-label" for="fu_isActive">Activo</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="dumSaveBtn"><i class="bi bi-check-lg"></i> Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const DUM = { api: '@Html.Raw(apiBaseUrl)', token: '@Html.Raw(apiToken)' };
+    let dumPage = 1, dumPageSize = 50, dumTotal = 0;
+
+    function escapeHtml(s) {
+        return String(s ?? '').replace(/[&<>"']/g, m =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    async function dumFetch(path, options = {}) {
+        const opts = Object.assign({ headers: {} }, options);
+        if (DUM.token) opts.headers['Authorization'] = `Bearer ${DUM.token}`;
+        if (options.body) opts.headers['Content-Type'] = 'application/json';
+        return fetch(DUM.api + path, opts);
+    }
+
+    function boolBadge(v) {
+        return v
+            ? '<span class="badge bg-success badge-flag">Sí</span>'
+            : '<span class="badge bg-secondary badge-flag">No</span>';
+    }
+
+    async function loadUnits() {
+        const body = document.getElementById('dumTableBody');
+        body.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">Cargando...</td></tr>';
+        const search = document.getElementById('dumSearch').value.trim();
+        const onlyActive = document.getElementById('dumOnlyActive').checked;
+        const qs = new URLSearchParams({ page: dumPage, pageSize: dumPageSize, onlyActive });
+        if (search) qs.set('search', search);
+        try {
+            const r = await dumFetch('/api/electronicdocumentunitofmeasure?' + qs.toString());
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const data = await r.json();
+            dumTotal = data.total;
+            const rows = data.items || [];
+            if (!rows.length) {
+                body.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">Sin resultados.</td></tr>';
+            } else {
+                body.innerHTML = rows.map(a => `
+                    <tr>
+                        <td><span class="dum-code">${escapeHtml(a.code)}</span></td>
+                        <td>${escapeHtml(a.name)}</td>
+                        <td>${escapeHtml(a.symbol ?? '')}</td>
+                        <td class="text-center">${boolBadge(a.allowsDecimals)}</td>
+                        <td class="text-center">${boolBadge(a.isDefault)}</td>
+                        <td class="text-center">${a.displayOrder ?? 0}</td>
+                        <td class="text-center">${boolBadge(a.isActive)}</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-primary" onclick='dumEdit(${JSON.stringify(a).replace(/'/g, "&#39;")})'><i class="bi bi-pencil"></i></button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="dumDelete(${a.id})"><i class="bi bi-trash"></i></button>
+                        </td>
+                    </tr>`).join('');
+            }
+            const from = dumTotal === 0 ? 0 : (dumPage - 1) * dumPageSize + 1;
+            const to = Math.min(dumPage * dumPageSize, dumTotal);
+            document.getElementById('dumInfo').textContent = `Mostrando ${from}-${to} de ${dumTotal}`;
+        } catch (e) {
+            console.error(e);
+            body.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Error al cargar.</td></tr>';
+        }
+    }
+
+    function dumOpenModal(title) {
+        document.getElementById('dumModalTitle').textContent = title;
+        new bootstrap.Modal(document.getElementById('dumModal')).show();
+    }
+
+    function dumNew() {
+        document.getElementById('fu_id').value = '';
+        document.getElementById('fu_code').value = '';
+        document.getElementById('fu_name').value = '';
+        document.getElementById('fu_description').value = '';
+        document.getElementById('fu_symbol').value = '';
+        document.getElementById('fu_displayOrder').value = '0';
+        document.getElementById('fu_allowsDecimals').checked = true;
+        document.getElementById('fu_isDefault').checked = false;
+        document.getElementById('fu_isActive').checked = true;
+        document.getElementById('fu_code').disabled = false;
+        dumOpenModal('Nueva unidad');
+    }
+
+    function dumEdit(a) {
+        document.getElementById('fu_id').value = a.id;
+        document.getElementById('fu_code').value = a.code;
+        document.getElementById('fu_name').value = a.name;
+        document.getElementById('fu_description').value = a.description ?? '';
+        document.getElementById('fu_symbol').value = a.symbol ?? '';
+        document.getElementById('fu_displayOrder').value = a.displayOrder ?? 0;
+        document.getElementById('fu_allowsDecimals').checked = a.allowsDecimals;
+        document.getElementById('fu_isDefault').checked = a.isDefault;
+        document.getElementById('fu_isActive').checked = a.isActive;
+        document.getElementById('fu_code').disabled = false;
+        dumOpenModal('Editar unidad');
+    }
+
+    async function dumSave() {
+        const id = document.getElementById('fu_id').value;
+        const payload = {
+            code: document.getElementById('fu_code').value.trim(),
+            name: document.getElementById('fu_name').value.trim(),
+            description: document.getElementById('fu_description').value.trim(),
+            symbol: document.getElementById('fu_symbol').value.trim(),
+            displayOrder: parseInt(document.getElementById('fu_displayOrder').value, 10) || 0,
+            allowsDecimals: document.getElementById('fu_allowsDecimals').checked,
+            isDefault: document.getElementById('fu_isDefault').checked,
+            isActive: document.getElementById('fu_isActive').checked
+        };
+        if (!payload.code || !payload.name) {
+            alert('Código y nombre son obligatorios.');
+            return;
+        }
+        try {
+            const r = id
+                ? await dumFetch('/api/electronicdocumentunitofmeasure/' + id, { method: 'PUT', body: JSON.stringify(payload) })
+                : await dumFetch('/api/electronicdocumentunitofmeasure', { method: 'POST', body: JSON.stringify(payload) });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                alert(err.message || 'Error al guardar.');
+                return;
+            }
+            bootstrap.Modal.getInstance(document.getElementById('dumModal')).hide();
+            await loadUnits();
+        } catch (e) { console.error(e); alert('Error de red.'); }
+    }
+
+    async function dumDelete(id) {
+        if (!confirm('¿Eliminar esta unidad de medida?')) return;
+        try {
+            const r = await dumFetch('/api/electronicdocumentunitofmeasure/' + id, { method: 'DELETE' });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                alert(err.message || 'Error al eliminar.');
+                return;
+            }
+            await loadUnits();
+        } catch (e) { console.error(e); alert('Error de red.'); }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        ['dumModal'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) document.body.appendChild(el);
+        });
+
+        document.getElementById('dumNewBtn').addEventListener('click', dumNew);
+        document.getElementById('dumSaveBtn').addEventListener('click', dumSave);
+        document.getElementById('dumSearchBtn').addEventListener('click', () => { dumPage = 1; loadUnits(); });
+        document.getElementById('dumSearch').addEventListener('keyup', e => { if (e.key === 'Enter') { dumPage = 1; loadUnits(); } });
+        document.getElementById('dumSearchClear').addEventListener('click', () => { document.getElementById('dumSearch').value = ''; dumPage = 1; loadUnits(); });
+        document.getElementById('dumOnlyActive').addEventListener('change', () => { dumPage = 1; loadUnits(); });
+        document.getElementById('dumPrev').addEventListener('click', () => { if (dumPage > 1) { dumPage--; loadUnits(); } });
+        document.getElementById('dumNext').addEventListener('click', () => { if (dumPage * dumPageSize < dumTotal) { dumPage++; loadUnits(); } });
+
+        loadUnits();
+    });
+</script>
+}

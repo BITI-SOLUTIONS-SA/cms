@@ -1,0 +1,297 @@
+@{
+    ViewData["Title"] = "Condiciones de Venta";
+    var apiBaseUrl = ViewBag.ApiBaseUrl as string ?? "";
+    var apiToken = ViewBag.ApiToken as string ?? "";
+}
+
+<style>
+    .scc-card { background: #16213e; border: 1px solid #23305c; border-radius: .75rem; }
+    .scc-table { color: #1e293b; background-color: #ffffff; }
+    .scc-table thead th { color: #334155; border-color: #cbd5e1; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; background-color: #f1f5f9; }
+    .scc-table td, .scc-table th { border-color: #cbd5e1; vertical-align: middle; }
+    .scc-table td { color: #1e293b; }
+    .scc-code { font-family: monospace; font-weight: 700; color: #1d4ed8; }
+    .badge-flag { font-size: .68rem; }
+    small, .form-text, small.text-muted, .text-muted small { color: #cbd5e1 !important; }
+    .modal-content { background: #16213e; color: #e0e0e0; border: 1px solid #23305c; }
+    .modal-header, .modal-footer { border-color: #23305c; }
+    .form-check-label { color: #e0e0e0; }
+    .scc-table td small, .scc-table .text-muted { color: #475569 !important; }
+</style>
+
+<div class="container-fluid py-3 text-light">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-cash-coin me-2"></i>Condiciones de Venta</h4>
+        <div>
+            <a asp-action="EconomicActivities" class="btn btn-outline-light btn-sm"><i class="bi bi-briefcase"></i> Actividades Económicas</a>
+            <button id="sccNewBtn" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nueva condición</button>
+        </div>
+    </div>
+
+    <div class="card scc-card mb-3">
+        <div class="card-body">
+            <p class="text-light mb-3">
+                Catálogo central de <strong>condiciones de venta del Ministerio de Hacienda</strong>
+                (<code>CondicionVenta</code>, formato <code>00</code>). Es compartido por todas las compañías.
+                Las condiciones marcadas como <strong>Requiere plazo de crédito</strong> habilitan el campo
+                <em>"Plazo de crédito"</em> en la emisión de documentos electrónicos, con su valor por defecto.
+            </p>
+
+            <div class="row g-2 mb-3 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label text-light">Buscar (código o descripción)</label>
+                    <div class="input-group input-group-sm">
+                        <input type="text" id="sccSearch" class="form-control" placeholder="Ej: Crédito..." />
+                        <button class="btn btn-outline-info" type="button" id="sccSearchBtn"><i class="bi bi-search"></i></button>
+                        <button class="btn btn-outline-secondary" type="button" id="sccSearchClear" title="Limpiar"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" id="sccOnlyActive" />
+                        <label class="form-check-label" for="sccOnlyActive">Solo activas</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table scc-table align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width: 90px;">Código</th>
+                            <th>Descripción</th>
+                            <th class="text-center" style="width: 120px;">Requiere plazo</th>
+                            <th class="text-center" style="width: 110px;">Plazo (días)</th>
+                            <th class="text-center" style="width: 90px;">Activa</th>
+                            <th class="text-end" style="width: 130px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sccTableBody">
+                        <tr><td colspan="6" class="text-center text-muted py-4">Cargando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center">
+                <small class="text-light" id="sccInfo"></small>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-light" id="sccPrev"><i class="bi bi-chevron-left"></i></button>
+                    <button class="btn btn-outline-light" id="sccNext"><i class="bi bi-chevron-right"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal edición/creación -->
+<div class="modal fade" id="sccModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i><span id="sccModalTitle">Editar condición</span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="f_id" />
+                <div class="row g-2">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Código</label>
+                        <input type="text" id="f_code" class="form-control" maxlength="2" placeholder="00" />
+                        <small class="form-text">Formato Hacienda: 00</small>
+                    </div>
+                    <div class="col-md-8 mb-3">
+                        <label class="form-label">Orden</label>
+                        <input type="number" id="f_sortOrder" class="form-control" min="0" max="999" value="0" />
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Descripción</label>
+                    <textarea id="f_description" class="form-control" rows="2" maxlength="200"></textarea>
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="f_requiresCreditTerm" />
+                    <label class="form-check-label" for="f_requiresCreditTerm">Requiere plazo de crédito</label>
+                </div>
+                <div class="mb-3 d-none" id="f_creditTermWrapper">
+                    <label class="form-label">Plazo de crédito por defecto (días)</label>
+                    <input type="number" id="f_defaultCreditTermDays" class="form-control" min="1" max="999" value="30" />
+                    <small class="form-text">Valor que se autollenará en la emisión cuando se elija esta condición.</small>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="f_isActive" checked />
+                    <label class="form-check-label" for="f_isActive">Activa</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="sccSaveBtn"><i class="bi bi-check-lg"></i> Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const SCC = { api: '@Html.Raw(apiBaseUrl)', token: '@Html.Raw(apiToken)' };
+    let sccPage = 1, sccPageSize = 50, sccTotal = 0;
+
+    function escapeHtml(s) {
+        return String(s ?? '').replace(/[&<>"']/g, m =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    async function sccFetch(path, options = {}) {
+        const opts = Object.assign({ headers: {} }, options);
+        if (SCC.token) opts.headers['Authorization'] = `Bearer ${SCC.token}`;
+        if (options.body) opts.headers['Content-Type'] = 'application/json';
+        return fetch(SCC.api + path, opts);
+    }
+
+    function boolBadge(v) {
+        return v
+            ? '<span class="badge bg-success badge-flag">Sí</span>'
+            : '<span class="badge bg-secondary badge-flag">No</span>';
+    }
+
+    async function loadConditions() {
+        const body = document.getElementById('sccTableBody');
+        body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Cargando...</td></tr>';
+        const search = document.getElementById('sccSearch').value.trim();
+        const onlyActive = document.getElementById('sccOnlyActive').checked;
+        const qs = new URLSearchParams({ page: sccPage, pageSize: sccPageSize, onlyActive });
+        if (search) qs.set('search', search);
+        try {
+            const r = await sccFetch('/api/electronicdocumentsalescondition?' + qs.toString());
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const data = await r.json();
+            sccTotal = data.total;
+            const rows = data.items || [];
+            if (!rows.length) {
+                body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Sin resultados.</td></tr>';
+            } else {
+                body.innerHTML = rows.map(a => `
+                    <tr>
+                        <td><span class="scc-code">${escapeHtml(a.code)}</span></td>
+                        <td>${escapeHtml(a.description)}</td>
+                        <td class="text-center">${boolBadge(a.requiresCreditTerm)}</td>
+                        <td class="text-center">${a.requiresCreditTerm ? a.defaultCreditTermDays : '<span class="text-muted">—</span>'}</td>
+                        <td class="text-center">${boolBadge(a.isActive)}</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-primary" onclick='sccEdit(${JSON.stringify(a).replace(/'/g, "&#39;")})'><i class="bi bi-pencil"></i></button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="sccDelete(${a.id})"><i class="bi bi-trash"></i></button>
+                        </td>
+                    </tr>`).join('');
+            }
+            const from = sccTotal === 0 ? 0 : (sccPage - 1) * sccPageSize + 1;
+            const to = Math.min(sccPage * sccPageSize, sccTotal);
+            document.getElementById('sccInfo').textContent = `Mostrando ${from}-${to} de ${sccTotal}`;
+        } catch (e) {
+            console.error(e);
+            body.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">Error al cargar.</td></tr>';
+        }
+    }
+
+    // Muestra/oculta el campo de plazo por defecto según el checkbox de crédito.
+    function sccToggleCreditTerm() {
+        const requires = document.getElementById('f_requiresCreditTerm').checked;
+        document.getElementById('f_creditTermWrapper').classList.toggle('d-none', !requires);
+        if (requires) {
+            const inp = document.getElementById('f_defaultCreditTermDays');
+            if (!inp.value || parseInt(inp.value, 10) <= 0) inp.value = 30; // autollenado 30 días
+        }
+    }
+
+    function sccOpenModal(title) {
+        document.getElementById('sccModalTitle').textContent = title;
+        new bootstrap.Modal(document.getElementById('sccModal')).show();
+    }
+
+    function sccNew() {
+        document.getElementById('f_id').value = '';
+        document.getElementById('f_code').value = '';
+        document.getElementById('f_description').value = '';
+        document.getElementById('f_sortOrder').value = '0';
+        document.getElementById('f_requiresCreditTerm').checked = false;
+        document.getElementById('f_defaultCreditTermDays').value = '30';
+        document.getElementById('f_isActive').checked = true;
+        document.getElementById('f_code').disabled = false;
+        sccToggleCreditTerm();
+        sccOpenModal('Nueva condición');
+    }
+
+    function sccEdit(a) {
+        document.getElementById('f_id').value = a.id;
+        document.getElementById('f_code').value = a.code;
+        document.getElementById('f_description').value = a.description;
+        document.getElementById('f_sortOrder').value = a.sortOrder ?? 0;
+        document.getElementById('f_requiresCreditTerm').checked = !!a.requiresCreditTerm;
+        document.getElementById('f_defaultCreditTermDays').value = a.defaultCreditTermDays || 30;
+        document.getElementById('f_isActive').checked = a.isActive;
+        document.getElementById('f_code').disabled = false;
+        sccToggleCreditTerm();
+        sccOpenModal('Editar condición');
+    }
+
+    async function sccSave() {
+        const id = document.getElementById('f_id').value;
+        const requires = document.getElementById('f_requiresCreditTerm').checked;
+        const payload = {
+            code: document.getElementById('f_code').value.trim(),
+            description: document.getElementById('f_description').value.trim(),
+            requiresCreditTerm: requires,
+            defaultCreditTermDays: parseInt(document.getElementById('f_defaultCreditTermDays').value, 10) || 30,
+            sortOrder: parseInt(document.getElementById('f_sortOrder').value, 10) || 0,
+            isActive: document.getElementById('f_isActive').checked
+        };
+        if (!payload.code || !payload.description) {
+            alert('Código y descripción son obligatorios.');
+            return;
+        }
+        try {
+            const r = id
+                ? await sccFetch('/api/electronicdocumentsalescondition/' + id, { method: 'PUT', body: JSON.stringify(payload) })
+                : await sccFetch('/api/electronicdocumentsalescondition', { method: 'POST', body: JSON.stringify(payload) });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                alert(err.message || 'Error al guardar.');
+                return;
+            }
+            bootstrap.Modal.getInstance(document.getElementById('sccModal')).hide();
+            await loadConditions();
+        } catch (e) { console.error(e); alert('Error de red.'); }
+    }
+
+    async function sccDelete(id) {
+        if (!confirm('¿Eliminar esta condición de venta?')) return;
+        try {
+            const r = await sccFetch('/api/electronicdocumentsalescondition/' + id, { method: 'DELETE' });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                alert(err.message || 'Error al eliminar.');
+                return;
+            }
+            await loadConditions();
+        } catch (e) { console.error(e); alert('Error de red.'); }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Mover modal al body para evitar problemas de z-index con el sidebar
+        ['sccModal'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) document.body.appendChild(el);
+        });
+
+        document.getElementById('sccNewBtn').addEventListener('click', sccNew);
+        document.getElementById('sccSaveBtn').addEventListener('click', sccSave);
+        document.getElementById('f_requiresCreditTerm').addEventListener('change', sccToggleCreditTerm);
+        document.getElementById('sccSearchBtn').addEventListener('click', () => { sccPage = 1; loadConditions(); });
+        document.getElementById('sccSearch').addEventListener('keyup', e => { if (e.key === 'Enter') { sccPage = 1; loadConditions(); } });
+        document.getElementById('sccSearchClear').addEventListener('click', () => { document.getElementById('sccSearch').value = ''; sccPage = 1; loadConditions(); });
+        document.getElementById('sccOnlyActive').addEventListener('change', () => { sccPage = 1; loadConditions(); });
+        document.getElementById('sccPrev').addEventListener('click', () => { if (sccPage > 1) { sccPage--; loadConditions(); } });
+        document.getElementById('sccNext').addEventListener('click', () => { if (sccPage * sccPageSize < sccTotal) { sccPage++; loadConditions(); } });
+
+        loadConditions();
+    });
+</script>
+}

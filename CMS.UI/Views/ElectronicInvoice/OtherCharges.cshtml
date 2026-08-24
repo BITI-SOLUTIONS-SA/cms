@@ -1,0 +1,275 @@
+@{
+    ViewData["Title"] = "Otros cargos (Facturación Electrónica)";
+    var apiBaseUrl = ViewBag.ApiBaseUrl as string ?? "";
+    var apiToken = ViewBag.ApiToken as string ?? "";
+}
+
+<style>
+    .oc-card { background: #16213e; border: 1px solid #23305c; border-radius: .75rem; }
+    .oc-table { color: #1e293b; background-color: #ffffff; }
+    .oc-table thead th { color: #334155; border-color: #cbd5e1; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; background-color: #f1f5f9; }
+    .oc-table td, .oc-table th { border-color: #cbd5e1; vertical-align: middle; }
+    .oc-table td { color: #1e293b; }
+    .oc-code { font-family: monospace; font-weight: 700; color: #1d4ed8; }
+    .badge-flag { font-size: .68rem; }
+    small, .form-text, small.text-muted, .text-muted small { color: #cbd5e1 !important; }
+    .modal-content { background: #16213e; color: #e0e0e0; border: 1px solid #23305c; }
+    .modal-header, .modal-footer { border-color: #23305c; }
+    .form-check-label { color: #e0e0e0; }
+    .oc-table td small, .oc-table .text-muted { color: #475569 !important; }
+</style>
+
+<div class="container-fluid py-3 text-light">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-cash-coin me-2"></i>Otros cargos</h4>
+        <div>
+            <a asp-action="CabysCodes" class="btn btn-outline-light btn-sm"><i class="bi bi-upc-scan"></i> Códigos CAByS</a>
+            <button id="ocNewBtn" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nuevo cargo</button>
+        </div>
+    </div>
+
+    <div class="card oc-card mb-3">
+        <div class="card-body">
+            <p class="text-light mb-3">
+                Catálogo central de <strong>"Otros cargos"</strong> (OtroCargo) para facturación
+                electrónica CR v4.4 (<code>admin.electronic_document_other_charges</code>).
+                Es compartido por todas las compañías.
+            </p>
+
+            <div class="row g-2 mb-3 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label text-light">Buscar (código o descripción)</label>
+                    <div class="input-group input-group-sm">
+                        <input type="text" id="ocSearch" class="form-control" placeholder="Ej: 01 o parafiscal..." />
+                        <button class="btn btn-outline-info" type="button" id="ocSearchBtn"><i class="bi bi-search"></i></button>
+                        <button class="btn btn-outline-secondary" type="button" id="ocSearchClear" title="Limpiar"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" id="ocOnlyActive" />
+                        <label class="form-check-label" for="ocOnlyActive">Solo activos</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table oc-table align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width: 100px;">Código</th>
+                            <th>Descripción</th>
+                            <th class="text-center" style="width: 140px;">Req. Identif.</th>
+                            <th class="text-center" style="width: 90px;">Orden</th>
+                            <th class="text-center" style="width: 80px;">Activo</th>
+                            <th class="text-end" style="width: 130px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ocTableBody">
+                        <tr><td colspan="6" class="text-center text-muted py-4">Cargando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center">
+                <small class="text-light" id="ocInfo"></small>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-light" id="ocPrev"><i class="bi bi-chevron-left"></i></button>
+                    <button class="btn btn-outline-light" id="ocNext"><i class="bi bi-chevron-right"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal edición/creación -->
+<div class="modal fade" id="ocModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i><span id="ocModalTitle">Editar cargo</span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="fo_id" />
+                <div class="mb-3">
+                    <label class="form-label">Código</label>
+                    <input type="text" id="fo_code" class="form-control" maxlength="2" placeholder="01" />
+                    <small class="form-text">Formato 00 (01..13, 99).</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Descripción</label>
+                    <textarea id="fo_description" class="form-control" rows="2" maxlength="200"></textarea>
+                </div>
+                <div class="row g-2">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Orden</label>
+                        <input type="number" id="fo_sortOrder" class="form-control" value="0" min="0" />
+                    </div>
+                    <div class="col-md-6 mb-3 d-flex align-items-center">
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" id="fo_requiresId" />
+                            <label class="form-check-label" for="fo_requiresId">Requiere identificación</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="fo_isActive" checked />
+                    <label class="form-check-label" for="fo_isActive">Activo</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="ocSaveBtn"><i class="bi bi-check-lg"></i> Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const OC = { api: '@Html.Raw(apiBaseUrl)', token: '@Html.Raw(apiToken)' };
+    let ocPage = 1, ocPageSize = 50, ocTotal = 0;
+
+    function escapeHtml(s) {
+        return String(s ?? '').replace(/[&<>"']/g, m =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    async function ocFetch(path, options = {}) {
+        const opts = Object.assign({ headers: {} }, options);
+        if (OC.token) opts.headers['Authorization'] = `Bearer ${OC.token}`;
+        if (options.body) opts.headers['Content-Type'] = 'application/json';
+        return fetch(OC.api + path, opts);
+    }
+
+    function boolBadge(v) {
+        return v
+            ? '<span class="badge bg-success badge-flag">Sí</span>'
+            : '<span class="badge bg-secondary badge-flag">No</span>';
+    }
+
+    async function loadCharges() {
+        const body = document.getElementById('ocTableBody');
+        body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Cargando...</td></tr>';
+        const search = document.getElementById('ocSearch').value.trim();
+        const onlyActive = document.getElementById('ocOnlyActive').checked;
+        const qs = new URLSearchParams({ page: ocPage, pageSize: ocPageSize, onlyActive });
+        if (search) qs.set('search', search);
+        try {
+            const r = await ocFetch('/api/electronicdocumentothercharge?' + qs.toString());
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const data = await r.json();
+            ocTotal = data.total;
+            const rows = data.items || [];
+            if (!rows.length) {
+                body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Sin resultados.</td></tr>';
+            } else {
+                body.innerHTML = rows.map(a => `
+                    <tr>
+                        <td><span class="oc-code">${escapeHtml(a.code)}</span></td>
+                        <td>${escapeHtml(a.description)}</td>
+                        <td class="text-center">${boolBadge(a.requiresIdentification)}</td>
+                        <td class="text-center">${a.sortOrder}</td>
+                        <td class="text-center">${boolBadge(a.isActive)}</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-primary" onclick='ocEdit(${JSON.stringify(a).replace(/'/g, "&#39;")})'><i class="bi bi-pencil"></i></button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="ocDelete(${a.id})"><i class="bi bi-trash"></i></button>
+                        </td>
+                    </tr>`).join('');
+            }
+            const from = ocTotal === 0 ? 0 : (ocPage - 1) * ocPageSize + 1;
+            const to = Math.min(ocPage * ocPageSize, ocTotal);
+            document.getElementById('ocInfo').textContent = `Mostrando ${from}-${to} de ${ocTotal}`;
+        } catch (e) {
+            console.error(e);
+            body.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">Error al cargar.</td></tr>';
+        }
+    }
+
+    function ocOpenModal(title) {
+        document.getElementById('ocModalTitle').textContent = title;
+        new bootstrap.Modal(document.getElementById('ocModal')).show();
+    }
+
+    function ocNew() {
+        document.getElementById('fo_id').value = '';
+        document.getElementById('fo_code').value = '';
+        document.getElementById('fo_description').value = '';
+        document.getElementById('fo_sortOrder').value = '0';
+        document.getElementById('fo_requiresId').checked = false;
+        document.getElementById('fo_isActive').checked = true;
+        document.getElementById('fo_code').disabled = false;
+        ocOpenModal('Nuevo cargo');
+    }
+
+    function ocEdit(a) {
+        document.getElementById('fo_id').value = a.id;
+        document.getElementById('fo_code').value = a.code;
+        document.getElementById('fo_description').value = a.description ?? '';
+        document.getElementById('fo_sortOrder').value = a.sortOrder ?? 0;
+        document.getElementById('fo_requiresId').checked = !!a.requiresIdentification;
+        document.getElementById('fo_isActive').checked = a.isActive;
+        document.getElementById('fo_code').disabled = false;
+        ocOpenModal('Editar cargo');
+    }
+
+    async function ocSave() {
+        const id = document.getElementById('fo_id').value;
+        const payload = {
+            code: document.getElementById('fo_code').value.trim(),
+            description: document.getElementById('fo_description').value.trim(),
+            requiresIdentification: document.getElementById('fo_requiresId').checked,
+            sortOrder: parseInt(document.getElementById('fo_sortOrder').value, 10) || 0,
+            isActive: document.getElementById('fo_isActive').checked
+        };
+        if (!payload.code || !payload.description) {
+            alert('Código y descripción son obligatorios.');
+            return;
+        }
+        try {
+            const r = id
+                ? await ocFetch('/api/electronicdocumentothercharge/' + id, { method: 'PUT', body: JSON.stringify(payload) })
+                : await ocFetch('/api/electronicdocumentothercharge', { method: 'POST', body: JSON.stringify(payload) });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                alert(err.message || 'Error al guardar.');
+                return;
+            }
+            bootstrap.Modal.getInstance(document.getElementById('ocModal')).hide();
+            await loadCharges();
+        } catch (e) { console.error(e); alert('Error de red.'); }
+    }
+
+    async function ocDelete(id) {
+        if (!confirm('¿Eliminar este otro cargo?')) return;
+        try {
+            const r = await ocFetch('/api/electronicdocumentothercharge/' + id, { method: 'DELETE' });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                alert(err.message || 'Error al eliminar.');
+                return;
+            }
+            await loadCharges();
+        } catch (e) { console.error(e); alert('Error de red.'); }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        ['ocModal'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) document.body.appendChild(el);
+        });
+
+        document.getElementById('ocNewBtn').addEventListener('click', ocNew);
+        document.getElementById('ocSaveBtn').addEventListener('click', ocSave);
+        document.getElementById('ocSearchBtn').addEventListener('click', () => { ocPage = 1; loadCharges(); });
+        document.getElementById('ocSearch').addEventListener('keyup', e => { if (e.key === 'Enter') { ocPage = 1; loadCharges(); } });
+        document.getElementById('ocSearchClear').addEventListener('click', () => { document.getElementById('ocSearch').value = ''; ocPage = 1; loadCharges(); });
+        document.getElementById('ocOnlyActive').addEventListener('change', () => { ocPage = 1; loadCharges(); });
+        document.getElementById('ocPrev').addEventListener('click', () => { if (ocPage > 1) { ocPage--; loadCharges(); } });
+        document.getElementById('ocNext').addEventListener('click', () => { if (ocPage * ocPageSize < ocTotal) { ocPage++; loadCharges(); } });
+
+        loadCharges();
+    });
+</script>
+}

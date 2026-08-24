@@ -6,11 +6,29 @@
 //    group.classList.toggle("open");
 //});
 // ============================================================
-// FUNCIÓN PARA TOGGLE DEL SIDEBAR (responsive)
+// MENÚ OVERLAY (drawer tipo modal)
+// El menú está oculto por defecto y se despliega ENCIMA del
+// contenido. Se oculta al seleccionar una opción, al pulsar el
+// botón de cerrar, al hacer clic en el backdrop o con Escape.
 // ============================================================
 function toggleSidebar() {
-    document.querySelector('.layout-wrapper').classList.toggle('sidebar-collapsed');
+    document.querySelector('.layout-wrapper').classList.toggle('sidebar-open');
 }
+
+function openSidebar() {
+    document.querySelector('.layout-wrapper').classList.add('sidebar-open');
+}
+
+function closeSidebar() {
+    document.querySelector('.layout-wrapper').classList.remove('sidebar-open');
+}
+
+// Cerrar con la tecla Escape (igual que un modal)
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+        closeSidebar();
+    }
+});
 
 // ============================================================
 // COMPORTAMIENTO DE ACORDEÓN PARA EL MENÚ
@@ -19,6 +37,20 @@ function toggleSidebar() {
 document.addEventListener("DOMContentLoaded", function () {
 
     console.log("✅ JavaScript cargado correctamente");
+
+    // ============================================================
+    // CERRAR EL MENÚ OVERLAY AL SELECCIONAR UNA OPCIÓN NAVEGABLE
+    // Los enlaces reales tienen href a una URL y NO son toggles de
+    // grupo. Al hacer clic en uno, el menú se oculta completamente.
+    // ============================================================
+    document.querySelectorAll('.sidebar-nav a.nav-link:not(.nav-group-toggle)').forEach(link => {
+        link.addEventListener('click', function () {
+            const href = this.getAttribute('href') || '';
+            if (href && href !== 'javascript:void(0)' && !href.startsWith('#')) {
+                closeSidebar();
+            }
+        });
+    });
 
     // ============================================================
     // TOGGLE GRUPOS NIVEL 1 (menús principales con hijos)

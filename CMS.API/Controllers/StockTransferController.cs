@@ -326,7 +326,7 @@ namespace CMS.API.Controllers
                     ItemCode = l.ItemCode,
                     ItemName = l.ItemName,
                     QtyRequested = l.QtyRequested,
-                    IdUnitOfMeasure = l.IdUnitOfMeasure,
+                    IdElectronicDocumentUnitOfMeasure = l.IdUnitOfMeasure,
                     UnitOfMeasureCode = l.UnitOfMeasureCode,
                     LotNumber = l.LotNumber,
                     Notes = l.Notes

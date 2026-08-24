@@ -1,0 +1,266 @@
+@{
+    ViewData["Title"] = "Tipos de documento de referencia (Facturación Electrónica)";
+    var apiBaseUrl = ViewBag.ApiBaseUrl as string ?? "";
+    var apiToken = ViewBag.ApiToken as string ?? "";
+}
+
+<style>
+    .rt-card { background: #16213e; border: 1px solid #23305c; border-radius: .75rem; }
+    .rt-table { color: #1e293b; background-color: #ffffff; }
+    .rt-table thead th { color: #334155; border-color: #cbd5e1; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; background-color: #f1f5f9; }
+    .rt-table td, .rt-table th { border-color: #cbd5e1; vertical-align: middle; }
+    .rt-table td { color: #1e293b; }
+    .rt-code { font-family: monospace; font-weight: 700; color: #1d4ed8; }
+    .badge-flag { font-size: .68rem; }
+    small, .form-text, small.text-muted, .text-muted small { color: #cbd5e1 !important; }
+    .modal-content { background: #16213e; color: #e0e0e0; border: 1px solid #23305c; }
+    .modal-header, .modal-footer { border-color: #23305c; }
+    .form-check-label { color: #e0e0e0; }
+    .rt-table td small, .rt-table .text-muted { color: #475569 !important; }
+</style>
+
+<div class="container-fluid py-3 text-light">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-link-45deg me-2"></i>Tipos de documento de referencia</h4>
+        <div>
+            <button id="rtNewBtn" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nuevo tipo</button>
+        </div>
+    </div>
+
+    <div class="card rt-card mb-3">
+        <div class="card-body">
+            <p class="text-light mb-3">
+                Catálogo central de <strong>"Tipo documento de referencia"</strong>
+                (InformacionReferencia) para facturación electrónica CR v4.4
+                (<code>admin.electronic_document_reference_type</code>).
+                Es compartido por todas las compañías.
+            </p>
+
+            <div class="row g-2 mb-3 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label text-light">Buscar (código o descripción)</label>
+                    <div class="input-group input-group-sm">
+                        <input type="text" id="rtSearch" class="form-control" placeholder="Ej: 01 o factura..." />
+                        <button class="btn btn-outline-info" type="button" id="rtSearchBtn"><i class="bi bi-search"></i></button>
+                        <button class="btn btn-outline-secondary" type="button" id="rtSearchClear" title="Limpiar"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" id="rtOnlyActive" />
+                        <label class="form-check-label" for="rtOnlyActive">Solo activos</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table rt-table align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width: 100px;">Código</th>
+                            <th>Descripción</th>
+                            <th class="text-center" style="width: 90px;">Orden</th>
+                            <th class="text-center" style="width: 80px;">Activo</th>
+                            <th class="text-end" style="width: 130px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rtTableBody">
+                        <tr><td colspan="5" class="text-center text-muted py-4">Cargando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center">
+                <small class="text-light" id="rtInfo"></small>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-light" id="rtPrev"><i class="bi bi-chevron-left"></i></button>
+                    <button class="btn btn-outline-light" id="rtNext"><i class="bi bi-chevron-right"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal edición/creación -->
+<div class="modal fade" id="rtModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i><span id="rtModalTitle">Editar tipo</span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="fr_id" />
+                <div class="mb-3">
+                    <label class="form-label">Código</label>
+                    <input type="text" id="fr_code" class="form-control" maxlength="2" placeholder="01" />
+                    <small class="form-text">Formato 00 (01..20, 99).</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Descripción</label>
+                    <textarea id="fr_description" class="form-control" rows="2" maxlength="200"></textarea>
+                </div>
+                <div class="row g-2">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Orden</label>
+                        <input type="number" id="fr_sortOrder" class="form-control" value="0" min="0" />
+                    </div>
+                    <div class="col-md-6 mb-3 d-flex align-items-center">
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" id="fr_isActive" checked />
+                            <label class="form-check-label" for="fr_isActive">Activo</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="rtSaveBtn"><i class="bi bi-check-lg"></i> Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const RT = { api: '@Html.Raw(apiBaseUrl)', token: '@Html.Raw(apiToken)' };
+    let rtPage = 1, rtPageSize = 50, rtTotal = 0;
+
+    function escapeHtml(s) {
+        return String(s ?? '').replace(/[&<>"']/g, m =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    async function rtFetch(path, options = {}) {
+        const opts = Object.assign({ headers: {} }, options);
+        if (RT.token) opts.headers['Authorization'] = `Bearer ${RT.token}`;
+        if (options.body) opts.headers['Content-Type'] = 'application/json';
+        return fetch(RT.api + path, opts);
+    }
+
+    function boolBadge(v) {
+        return v
+            ? '<span class="badge bg-success badge-flag">Sí</span>'
+            : '<span class="badge bg-secondary badge-flag">No</span>';
+    }
+
+    async function loadTypes() {
+        const body = document.getElementById('rtTableBody');
+        body.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Cargando...</td></tr>';
+        const search = document.getElementById('rtSearch').value.trim();
+        const onlyActive = document.getElementById('rtOnlyActive').checked;
+        const qs = new URLSearchParams({ page: rtPage, pageSize: rtPageSize, onlyActive });
+        if (search) qs.set('search', search);
+        try {
+            const r = await rtFetch('/api/electronicdocumentreferencetype?' + qs.toString());
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const data = await r.json();
+            rtTotal = data.total;
+            const rows = data.items || [];
+            if (!rows.length) {
+                body.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Sin resultados.</td></tr>';
+            } else {
+                body.innerHTML = rows.map(a => `
+                    <tr>
+                        <td><span class="rt-code">${escapeHtml(a.code)}</span></td>
+                        <td>${escapeHtml(a.description)}</td>
+                        <td class="text-center">${a.sortOrder}</td>
+                        <td class="text-center">${boolBadge(a.isActive)}</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-primary" onclick='rtEdit(${JSON.stringify(a).replace(/'/g, "&#39;")})'><i class="bi bi-pencil"></i></button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="rtDelete(${a.id})"><i class="bi bi-trash"></i></button>
+                        </td>
+                    </tr>`).join('');
+            }
+            const from = rtTotal === 0 ? 0 : (rtPage - 1) * rtPageSize + 1;
+            const to = Math.min(rtPage * rtPageSize, rtTotal);
+            document.getElementById('rtInfo').textContent = `Mostrando ${from}-${to} de ${rtTotal}`;
+        } catch (e) {
+            console.error(e);
+            body.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">Error al cargar.</td></tr>';
+        }
+    }
+
+    function rtOpenModal(title) {
+        document.getElementById('rtModalTitle').textContent = title;
+        new bootstrap.Modal(document.getElementById('rtModal')).show();
+    }
+
+    function rtNew() {
+        document.getElementById('fr_id').value = '';
+        document.getElementById('fr_code').value = '';
+        document.getElementById('fr_description').value = '';
+        document.getElementById('fr_sortOrder').value = '0';
+        document.getElementById('fr_isActive').checked = true;
+        document.getElementById('fr_code').disabled = false;
+        rtOpenModal('Nuevo tipo');
+    }
+
+    function rtEdit(a) {
+        document.getElementById('fr_id').value = a.id;
+        document.getElementById('fr_code').value = a.code;
+        document.getElementById('fr_description').value = a.description ?? '';
+        document.getElementById('fr_sortOrder').value = a.sortOrder ?? 0;
+        document.getElementById('fr_isActive').checked = a.isActive;
+        document.getElementById('fr_code').disabled = false;
+        rtOpenModal('Editar tipo');
+    }
+
+    async function rtSave() {
+        const id = document.getElementById('fr_id').value;
+        const payload = {
+            code: document.getElementById('fr_code').value.trim(),
+            description: document.getElementById('fr_description').value.trim(),
+            sortOrder: parseInt(document.getElementById('fr_sortOrder').value, 10) || 0,
+            isActive: document.getElementById('fr_isActive').checked
+        };
+        if (!payload.code || !payload.description) {
+            alert('Código y descripción son obligatorios.');
+            return;
+        }
+        try {
+            const r = id
+                ? await rtFetch('/api/electronicdocumentreferencetype/' + id, { method: 'PUT', body: JSON.stringify(payload) })
+                : await rtFetch('/api/electronicdocumentreferencetype', { method: 'POST', body: JSON.stringify(payload) });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                alert(err.message || 'Error al guardar.');
+                return;
+            }
+            bootstrap.Modal.getInstance(document.getElementById('rtModal')).hide();
+            await loadTypes();
+        } catch (e) { console.error(e); alert('Error de red.'); }
+    }
+
+    async function rtDelete(id) {
+        if (!confirm('¿Eliminar este tipo de referencia?')) return;
+        try {
+            const r = await rtFetch('/api/electronicdocumentreferencetype/' + id, { method: 'DELETE' });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                alert(err.message || 'Error al eliminar.');
+                return;
+            }
+            await loadTypes();
+        } catch (e) { console.error(e); alert('Error de red.'); }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        ['rtModal'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) document.body.appendChild(el);
+        });
+
+        document.getElementById('rtNewBtn').addEventListener('click', rtNew);
+        document.getElementById('rtSaveBtn').addEventListener('click', rtSave);
+        document.getElementById('rtSearchBtn').addEventListener('click', () => { rtPage = 1; loadTypes(); });
+        document.getElementById('rtSearch').addEventListener('keyup', e => { if (e.key === 'Enter') { rtPage = 1; loadTypes(); } });
+        document.getElementById('rtSearchClear').addEventListener('click', () => { document.getElementById('rtSearch').value = ''; rtPage = 1; loadTypes(); });
+        document.getElementById('rtOnlyActive').addEventListener('change', () => { rtPage = 1; loadTypes(); });
+        document.getElementById('rtPrev').addEventListener('click', () => { if (rtPage > 1) { rtPage--; loadTypes(); } });
+        document.getElementById('rtNext').addEventListener('click', () => { if (rtPage * rtPageSize < rtTotal) { rtPage++; loadTypes(); } });
+
+        loadTypes();
+    });
+</script>
+}

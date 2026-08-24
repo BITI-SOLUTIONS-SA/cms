@@ -62,6 +62,7 @@ namespace CMS.Data.Services
                     i.Code.ToLower().Contains(search) ||
                     i.Name.ToLower().Contains(search) ||
                     (i.Barcode != null && i.Barcode.ToLower().Contains(search)) ||
+                    (i.CabysCode != null && i.CabysCode.ToLower().Contains(search)) ||
                     (i.Description != null && i.Description.ToLower().Contains(search)));
             }
 
@@ -137,6 +138,35 @@ namespace CMS.Data.Services
         }
 
         /// <summary>
+        /// Normaliza los valores por defecto de un artículo para las columnas NOT NULL
+        /// de sinai.item. Si el usuario deja campos vacíos, el sistema los autocompleta:
+        ///  - description  = name
+        ///  - label_item   = name
+        ///  - brand        = 'Marca A'
+        ///  - id_classification1..6 = 1..6
+        /// Nota: barcode y label_item_barcode dependen del Id autogenerado y se
+        /// completan después del primer SaveChanges (ver CreateItemAsync).
+        /// </summary>
+        private static void NormalizeItemDefaults(Item item)
+        {
+            if (string.IsNullOrWhiteSpace(item.Description))
+                item.Description = item.Name ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(item.LabelItem))
+                item.LabelItem = item.Name ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(item.Brand))
+                item.Brand = "Marca A";
+
+            if (item.IdClassification1 <= 0) item.IdClassification1 = 1;
+            if (item.IdClassification2 <= 0) item.IdClassification2 = 2;
+            if (item.IdClassification3 <= 0) item.IdClassification3 = 3;
+            if (item.IdClassification4 <= 0) item.IdClassification4 = 4;
+            if (item.IdClassification5 <= 0) item.IdClassification5 = 5;
+            if (item.IdClassification6 <= 0) item.IdClassification6 = 6;
+        }
+
+        /// <summary>
         /// Crea un nuevo artículo.
         /// </summary>
         public async Task<Item> CreateItemAsync(int companyId, Item item, string? createdBy = null)
@@ -149,8 +179,24 @@ namespace CMS.Data.Services
             item.UpdatedBy = createdBy ?? "SYSTEM";
             item.RowPointer = Guid.NewGuid();
 
+            // ===== NORMALIZACIÓN DE DEFAULTS (columnas NOT NULL de sinai.item) =====
+            NormalizeItemDefaults(item);
+
             dbContext.Items.Add(item);
             await dbContext.SaveChangesAsync();
+
+            // Defaults dinámicos que dependen del Id autogenerado.
+            // Si el usuario no digitó barcode / label_item_barcode, se rellenan con
+            // el id_item a 14 caracteres (ceros a la izquierda). Ej: id 48 -> 00000000000048
+            var needsBarcode = string.IsNullOrWhiteSpace(item.Barcode);
+            var needsLabelBarcode = string.IsNullOrWhiteSpace(item.LabelItemBarcode);
+            if (needsBarcode || needsLabelBarcode)
+            {
+                var defaultCode = item.Id.ToString().PadLeft(14, '0');
+                if (needsBarcode) item.Barcode = defaultCode;
+                if (needsLabelBarcode) item.LabelItemBarcode = defaultCode;
+                await dbContext.SaveChangesAsync();
+            }
 
             _logger.LogInformation("Artículo {Code} creado en compañía {CompanyId}", item.Code, companyId);
 
@@ -192,7 +238,7 @@ namespace CMS.Data.Services
             existing.IdClassification5 = item.IdClassification5;
             existing.IdClassification6 = item.IdClassification6;
             existing.Brand = item.Brand;
-            existing.IdUnitOfMeasure = item.IdUnitOfMeasure;
+            existing.IdElectronicDocumentUnitOfMeasure = item.IdElectronicDocumentUnitOfMeasure;
             existing.CostPrice = item.CostPrice;
             existing.SalePrice = item.SalePrice;
             existing.TaxRate = item.TaxRate;
@@ -208,12 +254,22 @@ namespace CMS.Data.Services
 
             // Facturación electrónica (Fase B)
             existing.IdCustomer = item.IdCustomer;
-            existing.TaxRateCode = item.TaxRateCode;
+            existing.IdElectronicDocumentTaxRate = item.IdElectronicDocumentTaxRate;
             existing.CabysCode = item.CabysCode;
+            existing.IdElectronicDocumentTaxType = item.IdElectronicDocumentTaxType;
 
             // Auditoría - El trigger de la BD actualiza record_date y updated_by
             existing.RecordDate = DateTime.UtcNow;
             existing.UpdatedBy = updatedBy ?? "SYSTEM";
+
+            // ===== NORMALIZACIÓN DE DEFAULTS (columnas NOT NULL) =====
+            NormalizeItemDefaults(existing);
+
+            // Defaults dinámicos basados en el Id (ya existe en update)
+            if (string.IsNullOrWhiteSpace(existing.Barcode))
+                existing.Barcode = existing.Id.ToString().PadLeft(14, '0');
+            if (string.IsNullOrWhiteSpace(existing.LabelItemBarcode))
+                existing.LabelItemBarcode = existing.Id.ToString().PadLeft(14, '0');
 
             await dbContext.SaveChangesAsync();
 
@@ -584,12 +640,13 @@ namespace CMS.Data.Services
         }
 
         /// <summary>
-        /// Obtiene todas las unidades de medida desde la BD CENTRAL (admin.unit_of_measure).
+        /// Obtiene todas las unidades de medida (MH v4.4) desde la BD CENTRAL
+        /// (admin.electronic_document_unit_of_measure).
         /// </summary>
         public async Task<List<UnitOfMeasureDto>> GetUnitsOfMeasureAsync(int companyId)
         {
-            // UnitOfMeasure está en la BD central (admin.unit_of_measure)
-            return await _centralDbContext.UnitsOfMeasure
+            // Catálogo MH en la BD central (admin.electronic_document_unit_of_measure)
+            return await _centralDbContext.ElectronicDocumentUnitsOfMeasure
                 .Where(u => u.IsActive)
                 .OrderBy(u => u.DisplayOrder)
                 .ThenBy(u => u.Name)

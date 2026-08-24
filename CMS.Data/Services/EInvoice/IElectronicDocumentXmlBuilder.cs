@@ -6,6 +6,7 @@
 // ================================================================================
 
 using CMS.Entities.Operational;
+using CMS.Entities.EInvoice;
 
 namespace CMS.Data.Services.EInvoice
 {
@@ -16,12 +17,17 @@ namespace CMS.Data.Services.EInvoice
     public interface IElectronicDocumentXmlBuilder
     {
         /// <summary>Genera el XML v4.4 del documento (con líneas, impuestos y referencias).</summary>
+        /// <param name="typeMeta">
+        /// Metadato/banderas parametrizables del tipo de documento (admin.electronic_document_type).
+        /// Si es null, el builder usa el comportamiento por constante como fallback.
+        /// </param>
         string BuildXml(
             ElectronicDocument document,
             CustomerBillingCredential issuerCredential,
             CustomerBillingCredential? receptorCredential,
             IReadOnlyList<ElectronicDocumentLine> lines,
             IReadOnlyDictionary<int, List<ElectronicDocumentTax>> taxesByLine,
-            IReadOnlyList<ElectronicDocumentReference> references);
+            IReadOnlyList<ElectronicDocumentReference> references,
+            ElectronicDocumentTypeCatalog? typeMeta = null);
     }
 }

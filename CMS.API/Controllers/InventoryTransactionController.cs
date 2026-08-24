@@ -603,7 +603,7 @@ namespace CMS.API.Controllers
             l.QtyDispatched,
             l.QtyReceived,
             l.QtyReturned,
-            l.IdUnitOfMeasure,
+            IdUnitOfMeasure = l.IdElectronicDocumentUnitOfMeasure,
             l.UnitOfMeasureCode,
             l.UnitCost,
             l.TotalCost,
@@ -656,7 +656,7 @@ namespace CMS.API.Controllers
             QtyReturned       = dto.QtyReturned,
             IdWarehouseDestLine   = dto.IdWarehouseDestLine,   // [NotMapped] transitorio para agrupar
             IdWarehouseOriginLine = dto.IdWarehouseOriginLine, // [NotMapped] transitorio
-            IdUnitOfMeasure   = dto.IdUnitOfMeasure,
+            IdElectronicDocumentUnitOfMeasure = dto.IdUnitOfMeasure,
             UnitOfMeasureCode = dto.UnitOfMeasureCode,
             UnitCost          = dto.UnitCost,
             LotNumber         = dto.LotNumber,

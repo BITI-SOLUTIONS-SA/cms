@@ -1,0 +1,557 @@
+@{
+    ViewData["Title"] = "Consecutivos de Documento Electrónico";
+    var apiBaseUrl = ViewBag.ApiBaseUrl as string ?? "";
+    var apiToken = ViewBag.ApiToken as string ?? "";
+}
+
+<style>
+    .edc-card { background: #16213e; border: 1px solid #23305c; border-radius: .75rem; }
+    /* La tabla usa fondo claro; el texto debe ser OSCURO para contrastar */
+    .edc-table { color: #1e293b; background-color: #ffffff; }
+    .edc-table thead th { color: #334155; border-color: #cbd5e1; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; background-color: #f1f5f9; }
+    .edc-table td, .edc-table th { border-color: #cbd5e1; vertical-align: middle; }
+    .edc-table td { color: #1e293b; }
+    .edc-table td small, .edc-table td .text-muted, .edc-table .text-muted { color: #475569 !important; }
+    .edc-code { font-family: monospace; font-weight: 700; color: #1d4ed8; }
+    .edc-full { font-family: monospace; font-weight: 700; color: #047857; letter-spacing: .02em; }
+    .badge-flag { font-size: .68rem; }
+    small, .form-text, small.text-muted, .text-muted small { color: #cbd5e1 !important; }
+    .modal-content { background: #16213e; color: #e0e0e0; border: 1px solid #23305c; }
+    .modal-header, .modal-footer { border-color: #23305c; }
+    .form-check-label { color: #e0e0e0; }
+    /* Modal de búsqueda de emisor: tabla clara */
+    #edcIssuerModal .table { color: #1e293b; background-color: #ffffff; }
+    #edcIssuerModal thead th { color: #334155; background-color: #f1f5f9; }
+    #edcIssuerModal td, #edcIssuerModal th { border-color: #cbd5e1; vertical-align: middle; }
+    #edcIssuerModal td small, #edcIssuerModal .text-muted { color: #475569 !important; }
+</style>
+
+<div class="container-fluid py-3 text-light">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-123 me-2"></i>Consecutivos de Documento Electrónico</h4>
+        <div>
+            <a asp-action="DocumentTypes" class="btn btn-outline-light btn-sm"><i class="bi bi-file-earmark-ruled"></i> Tipos</a>
+            <a asp-action="DocumentVersions" class="btn btn-outline-light btn-sm"><i class="bi bi-layers"></i> Versiones</a>
+            <button id="edcNewBtn" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nuevo consecutivo</button>
+        </div>
+    </div>
+
+    <div class="card edc-card mb-3">
+        <div class="card-body">
+            <p class="text-light mb-3">
+                Consecutivos fiscales por <strong>emisor / sucursal / terminal / tipo de documento</strong>.
+                El consecutivo final de 20 díg. es:
+                <code>[3] Sucursal + [5] Terminal + [2] Tipo + [10] Secuencia</code>.
+                <strong>Un solo registro por tipo puede estar marcado como predeterminado</strong> (aparece primero al emitir);
+                los demás pueden usarse mientras estén activos.
+            </p>
+
+            <div class="row g-2 mb-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label text-light">Versión del esquema</label>
+                    <select id="edcVersionSelect" class="form-select form-select-sm"></select>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label text-light">Filtrar por emisor</label>
+                    <div class="input-group input-group-sm">
+                        <input type="hidden" id="edcFilterIssuerId" />
+                        <input type="text" id="edcFilterIssuerDisplay" class="form-control" readonly placeholder="Todos los emisores" />
+                        <button class="btn btn-outline-info" type="button" id="edcFilterIssuerBtn"><i class="bi bi-search"></i></button>
+                        <button class="btn btn-outline-secondary" type="button" id="edcFilterIssuerClear" title="Limpiar filtro"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table edc-table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Emisor</th>
+                            <th>Tipo</th>
+                            <th>Sucursal</th>
+                            <th>Terminal</th>
+                            <th class="text-end">Secuencia</th>
+                            <th>Próximo consecutivo</th>
+                            <th class="text-center">Predet.</th>
+                            <th class="text-center">Activo</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="edcTableBody">
+                        <tr><td colspan="9" class="text-center text-muted py-4"><i class="bi bi-arrow-up-circle me-1"></i>Seleccione un emisor para ver sus consecutivos.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal edición/creación -->
+<div class="modal fade" id="edcModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i><span id="edcModalTitle">Editar consecutivo</span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="f_id" />
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Emisor</label>
+                        <div class="input-group">
+                            <input type="hidden" id="f_issuer" />
+                            <input type="text" id="f_issuerDisplay" class="form-control" readonly placeholder="Seleccione un emisor..." />
+                            <button class="btn btn-outline-info" type="button" id="f_issuerBtn"><i class="bi bi-search"></i></button>
+                        </div>
+                        <small class="form-text">Busque el emisor por nombre, cédula o código.</small>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Tipo de documento</label>
+                        <select id="f_type" class="form-select"></select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Sucursal</label>
+                        <input type="text" id="f_branch" class="form-control" maxlength="3" placeholder="001" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Terminal</label>
+                        <input type="text" id="f_terminal" class="form-control" maxlength="5" placeholder="00001" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Última secuencia</label>
+                        <input type="number" id="f_consecutive" class="form-control" min="0" />
+                        <small class="form-text">El próximo documento usará este valor + 1.</small>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Descripción</label>
+                        <input type="text" id="f_description" class="form-control" maxlength="200" placeholder="Casa Matriz - Caja 1" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Notas</label>
+                        <textarea id="f_notes" class="form-control" rows="2" maxlength="2000"></textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="f_isDefault" />
+                            <label class="form-check-label" for="f_isDefault">Predeterminado</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="f_isActive" />
+                            <label class="form-check-label" for="f_isActive">Activo</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="edcSaveBtn">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal búsqueda de emisor -->
+<div class="modal fade" id="edcIssuerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-building me-2"></i>Buscar Emisor</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-2 mb-3">
+                    <div class="col-md-7">
+                        <input id="edcIssuerSearchTerm" type="text" class="form-control" placeholder="Buscar por nombre, código o cédula..." />
+                    </div>
+                    <div class="col-md-3">
+                        <select id="edcIssuerIdType" class="form-select">
+                            <option value="">Todos los tipos</option>
+                            <option value="01">Física</option>
+                            <option value="02">Jurídica</option>
+                            <option value="03">DIMEX</option>
+                            <option value="04">NITE</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-primary w-100" type="button" id="edcIssuerSearchBtn"><i class="bi bi-search"></i></button>
+                    </div>
+                </div>
+                <div id="edcIssuerError" class="alert alert-danger d-none"></div>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Identificación</th>
+                                <th>Código</th>
+                                <th>Ambiente</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="edcIssuerResults">
+                            <tr><td colspan="5" class="text-center text-muted py-3">Escriba un término y busque...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    window.EDC_API   = '@Html.Raw(apiBaseUrl)';
+    window.EDC_TOKEN = '@Html.Raw(apiToken)';
+</script>
+<script>
+(function () {
+    const EDC = { api: window.EDC_API || '', token: window.EDC_TOKEN || '' };
+    let modal;
+    let cache = [];        // consecutivos de la versión seleccionada
+    let types = [];        // tipos de la versión seleccionada
+    let versions = [];     // versiones disponibles
+    let currentVersionId = null;
+    let issuerModal;       // modal de búsqueda de emisor
+    let issuerTarget = 'modal';   // 'modal' (form) o 'filter'
+    let filterIssuerId = null;    // emisor seleccionado en el filtro
+    let issuerNameCache = {};     // idBillingIssuer -> "Nombre (Identificación)"
+
+    function escapeHtml(s) {
+        return String(s ?? '').replace(/[&<>"']/g, m =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    async function edcFetch(path, options = {}) {
+        const opts = Object.assign({ headers: {} }, options);
+        if (EDC.token) opts.headers['Authorization'] = `Bearer ${EDC.token}`;
+        if (options.body) opts.headers['Content-Type'] = 'application/json';
+        return fetch(EDC.api + path, opts);
+    }
+
+    function boolBadge(v, yes, no) {
+        return v
+            ? `<span class="badge bg-success badge-flag">${yes || 'Sí'}</span>`
+            : `<span class="badge bg-secondary badge-flag">${no || 'No'}</span>`;
+    }
+
+    const pad = (v, n) => String(v ?? '').padStart(n, '0').slice(0, n);
+
+    function buildFull(c) {
+        // [3] sucursal + [5] terminal + [2] tipo + [10] próxima secuencia
+        const next = (Number(c.consecutive) || 0) + 1;
+        return pad(c.branch, 3) + pad(c.terminal, 5) + pad(c.documentType, 2) + pad(next, 10);
+    }
+
+    function typeLabel(idType) {
+        const t = types.find(x => x.id === idType);
+        return t ? `${t.code} — ${t.name}` : ('#' + idType);
+    }
+
+    async function loadVersions() {
+        const sel = document.getElementById('edcVersionSelect');
+        try {
+            const r = await edcFetch('/api/electronicdocumentversion');
+            versions = r.ok ? await r.json() : [];
+            sel.innerHTML = versions.map(v =>
+                `<option value="${v.id}" ${v.isCurrent ? 'selected' : ''}>${v.code} — ${v.name}${v.isCurrent ? ' (vigente)' : ''}</option>`).join('');
+            currentVersionId = versions.find(v => v.isCurrent)?.id ?? (versions[0]?.id ?? null);
+            if (currentVersionId) sel.value = currentVersionId;
+        } catch (e) {
+            console.error(e);
+            sel.innerHTML = '<option value="">(error)</option>';
+        }
+    }
+
+    async function loadTypes(versionId) {
+        try {
+            const r = await edcFetch('/api/electronicdocumenttype/byversion/' + versionId);
+            types = r.ok ? await r.json() : [];
+        } catch (e) {
+            console.error(e);
+            types = [];
+        }
+    }
+
+    async function loadConsecutives() {
+        const body = document.getElementById('edcTableBody');
+        if (!filterIssuerId) {
+            body.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4"><i class="bi bi-arrow-up-circle me-1"></i>Seleccione un emisor para ver sus consecutivos.</td></tr>';
+            return;
+        }
+        if (!currentVersionId) {
+            body.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">Sin versión seleccionada.</td></tr>';
+            return;
+        }
+        body.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">Cargando...</td></tr>';
+        try {
+            await loadTypes(currentVersionId);
+            const r = await edcFetch('/api/electronicdocumentconsecutive?versionId=' + currentVersionId);
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            cache = await r.json();
+            let rows = cache;
+            if (filterIssuerId) rows = rows.filter(c => c.idBillingIssuer === filterIssuerId);
+            if (!rows.length) {
+                body.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">Sin consecutivos configurados para esta versión.</td></tr>';
+                return;
+            }
+            body.innerHTML = rows.map(c => `
+                <tr>
+                    <td>${issuerNameCache[c.idBillingIssuer] ? escapeHtml(issuerNameCache[c.idBillingIssuer]) : ('<span class="text-muted">#' + c.idBillingIssuer + '</span>')}</td>
+                    <td><span class="edc-code">${c.documentType}</span> <small class="text-muted">${typeLabel(c.idElectronicDocumentType)}</small></td>
+                    <td>${c.branch}</td>
+                    <td>${c.terminal}</td>
+                    <td class="text-end">${c.consecutive}</td>
+                    <td><span class="edc-full">${buildFull(c)}</span></td>
+                    <td class="text-center">${boolBadge(c.isDefault, 'Predet.')}</td>
+                    <td class="text-center">${boolBadge(c.isActive)}</td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-outline-info" data-edit="${c.id}"><i class="bi bi-pencil"></i></button>
+                        ${c.isDefault ? '' : `<button class="btn btn-sm btn-outline-success" data-default="${c.id}" title="Marcar como predeterminado"><i class="bi bi-star"></i></button>`}
+                        <button class="btn btn-sm btn-outline-danger" data-del="${c.id}"><i class="bi bi-trash"></i></button>
+                    </td>
+                </tr>`).join('');
+            body.querySelectorAll('[data-edit]').forEach(btn =>
+                btn.addEventListener('click', () => openEdit(parseInt(btn.dataset.edit, 10))));
+            body.querySelectorAll('[data-default]').forEach(btn =>
+                btn.addEventListener('click', () => setDefault(parseInt(btn.dataset.default, 10))));
+            body.querySelectorAll('[data-del]').forEach(btn =>
+                btn.addEventListener('click', () => del(parseInt(btn.dataset.del, 10))));
+        } catch (e) {
+            console.error(e);
+            body.innerHTML = '<tr><td colspan="9" class="text-center text-danger py-4">Error al cargar.</td></tr>';
+        }
+    }
+
+    function fillTypeSelect(selectedId) {
+        const sel = document.getElementById('f_type');
+        sel.innerHTML = types.map(t =>
+            `<option value="${t.id}" data-code="${t.code}">${t.code} — ${t.name}</option>`).join('');
+        if (selectedId) sel.value = selectedId;
+    }
+
+    const setV = (id, val) => { document.getElementById(id).value = val ?? ''; };
+    const setC = (id, val) => { document.getElementById(id).checked = !!val; };
+    const getV = (id) => document.getElementById(id).value;
+    const getC = (id) => document.getElementById(id).checked;
+
+    function openNew() {
+        document.getElementById('edcModalTitle').textContent = 'Nuevo consecutivo';
+        setV('f_id', '');
+        // Prellenar con el emisor filtrado actualmente (si existe)
+        setV('f_issuer', filterIssuerId || '');
+        setV('f_issuerDisplay', filterIssuerId ? (issuerNameCache[filterIssuerId] || ('#' + filterIssuerId)) : '');
+        fillTypeSelect(null);
+        setV('f_branch', '001');
+        setV('f_terminal', '00001');
+        setV('f_consecutive', '0');
+        setV('f_description', '');
+        setV('f_notes', '');
+        setC('f_isDefault', false);
+        setC('f_isActive', true);
+        modal.show();
+    }
+
+    function openEdit(id) {
+        const c = cache.find(x => x.id === id);
+        if (!c) return;
+        document.getElementById('edcModalTitle').textContent = 'Editar consecutivo';
+        setV('f_id', c.id);
+        setV('f_issuer', c.idBillingIssuer);
+        setV('f_issuerDisplay', issuerNameCache[c.idBillingIssuer] || ('#' + c.idBillingIssuer));
+        fillTypeSelect(c.idElectronicDocumentType);
+        setV('f_branch', c.branch);
+        setV('f_terminal', c.terminal);
+        setV('f_consecutive', c.consecutive);
+        setV('f_description', c.description);
+        setV('f_notes', c.notes);
+        setC('f_isDefault', c.isDefault);
+        setC('f_isActive', c.isActive);
+        modal.show();
+    }
+
+    // ---- Búsqueda de emisor ----
+    async function loadIssuerNames() {
+        try {
+            const r = await edcFetch('/api/CustomerBillingCredential/issuers?includeInactive=true');
+            if (!r.ok) return;
+            const list = await r.json();
+            list.forEach(i => {
+                issuerNameCache[i.id] = `${i.name} (${i.identification})`;
+            });
+        } catch (e) { console.error(e); }
+    }
+
+    function openIssuerSearch(target) {
+        issuerTarget = target;
+        document.getElementById('edcIssuerError').classList.add('d-none');
+        document.getElementById('edcIssuerResults').innerHTML =
+            '<tr><td colspan="5" class="text-center text-muted py-3">Escriba un término y busque...</td></tr>';
+        issuerModal.show();
+        setTimeout(() => document.getElementById('edcIssuerSearchTerm').focus(), 200);
+    }
+
+    async function searchIssuers() {
+        const term = document.getElementById('edcIssuerSearchTerm').value;
+        const idType = document.getElementById('edcIssuerIdType').value;
+        const err = document.getElementById('edcIssuerError');
+        const tbody = document.getElementById('edcIssuerResults');
+        err.classList.add('d-none');
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> Buscando...</td></tr>';
+        try {
+            const params = new URLSearchParams();
+            if (term) params.append('searchTerm', term);
+            if (idType) params.append('identificationType', idType);
+            params.append('includeInactive', 'true');
+            const r = await edcFetch('/api/CustomerBillingCredential/search-issuers?' + params);
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const issuers = await r.json();
+            if (!issuers.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No se encontraron emisores.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = issuers.map(i => `
+                <tr>
+                    <td>${escapeHtml(i.name)}${i.isCompanyOwner ? ' <span class="badge bg-primary">Owner</span>' : ''}
+                        ${i.commercialName ? `<br/><small class="text-muted">${escapeHtml(i.commercialName)}</small>` : ''}</td>
+                    <td>${escapeHtml(i.identification)}<br/><small class="text-muted">Tipo: ${i.identificationType}</small></td>
+                    <td>${i.customerCode ? escapeHtml(i.customerCode) : '<span class="text-muted">—</span>'}</td>
+                    <td><span class="badge ${i.environment === 'prod' ? 'bg-success' : 'bg-warning'}">${i.environment}</span></td>
+                    <td><button class="btn btn-sm btn-primary" data-pick="${i.idCredential}"
+                            data-name="${escapeHtml(i.name)}" data-ident="${escapeHtml(i.identification)}">
+                            <i class="bi bi-check-lg"></i></button></td>
+                </tr>`).join('');
+            tbody.querySelectorAll('[data-pick]').forEach(btn =>
+                btn.addEventListener('click', () => pickIssuer(
+                    parseInt(btn.dataset.pick, 10), btn.dataset.name, btn.dataset.ident)));
+        } catch (e) {
+            console.error(e);
+            err.textContent = 'Error al buscar emisores: ' + e.message;
+            err.classList.remove('d-none');
+            tbody.innerHTML = '';
+        }
+    }
+
+    function pickIssuer(id, name, ident) {
+        const display = `${name} (${ident})`;
+        issuerNameCache[id] = display;
+        if (issuerTarget === 'filter') {
+            filterIssuerId = id;
+            setV('edcFilterIssuerId', id);
+            setV('edcFilterIssuerDisplay', display);
+            loadConsecutives();
+        } else {
+            setV('f_issuer', id);
+            setV('f_issuerDisplay', display);
+        }
+        issuerModal.hide();
+    }
+
+    async function save() {
+        const idStr = getV('f_id');
+        const id = idStr ? parseInt(idStr, 10) : 0;
+        const idIssuer = parseInt(getV('f_issuer'), 10) || 0;
+        if (!idIssuer) {
+            alert('Debe seleccionar un emisor.');
+            return;
+        }
+        const typeSel = document.getElementById('f_type');
+        const idType = parseInt(typeSel.value, 10);
+        const docCode = typeSel.options[typeSel.selectedIndex]?.dataset.code || '01';
+
+        const payload = {
+            id: id,
+            idBillingIssuer: idIssuer,
+            idElectronicDocumentType: idType,
+            idElectronicDocumentVersion: currentVersionId,
+            documentType: docCode,
+            branch: getV('f_branch') || '001',
+            terminal: getV('f_terminal') || '00001',
+            consecutive: parseInt(getV('f_consecutive'), 10) || 0,
+            isDefault: getC('f_isDefault'),
+            isActive: getC('f_isActive'),
+            description: getV('f_description') || null,
+            notes: getV('f_notes') || null
+        };
+
+        const btn = document.getElementById('edcSaveBtn');
+        btn.disabled = true;
+        try {
+            const r = id
+                ? await edcFetch(`/api/electronicdocumentconsecutive/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
+                : await edcFetch(`/api/electronicdocumentconsecutive`, { method: 'POST', body: JSON.stringify(payload) });
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            modal.hide();
+            await loadConsecutives();
+        } catch (e) {
+            console.error(e);
+            alert('No se pudo guardar el consecutivo.');
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    async function setDefault(id) {
+        if (!confirm('¿Marcar este consecutivo como predeterminado para su tipo de documento?')) return;
+        try {
+            const r = await edcFetch(`/api/electronicdocumentconsecutive/${id}/setdefault`, { method: 'POST' });
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            await loadConsecutives();
+        } catch (e) {
+            console.error(e);
+            alert('No se pudo marcar como predeterminado.');
+        }
+    }
+
+    async function del(id) {
+        if (!confirm('¿Eliminar este consecutivo? Esta acción no se puede deshacer.')) return;
+        try {
+            const r = await edcFetch(`/api/electronicdocumentconsecutive/${id}`, { method: 'DELETE' });
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            await loadConsecutives();
+        } catch (e) {
+            console.error(e);
+            alert('No se pudo eliminar el consecutivo.');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', async function () {
+        ['edcModal', 'edcIssuerModal'].forEach(function (mid) {
+            var el = document.getElementById(mid);
+            if (el) document.body.appendChild(el);
+        });
+        modal = new bootstrap.Modal(document.getElementById('edcModal'));
+        issuerModal = new bootstrap.Modal(document.getElementById('edcIssuerModal'));
+
+        document.getElementById('edcSaveBtn').addEventListener('click', save);
+        document.getElementById('edcNewBtn').addEventListener('click', openNew);
+        document.getElementById('edcVersionSelect').addEventListener('change', function () {
+            currentVersionId = parseInt(this.value, 10) || null;
+            loadConsecutives();
+        });
+
+        // Búsqueda de emisor (form del modal)
+        document.getElementById('f_issuerBtn').addEventListener('click', () => openIssuerSearch('modal'));
+        // Filtro de emisor
+        document.getElementById('edcFilterIssuerBtn').addEventListener('click', () => openIssuerSearch('filter'));
+        document.getElementById('edcFilterIssuerClear').addEventListener('click', function () {
+            filterIssuerId = null;
+            setV('edcFilterIssuerId', '');
+            setV('edcFilterIssuerDisplay', '');
+            loadConsecutives();
+        });
+        // Controles del modal de búsqueda
+        document.getElementById('edcIssuerSearchBtn').addEventListener('click', searchIssuers);
+        document.getElementById('edcIssuerSearchTerm').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); searchIssuers(); }
+        });
+
+        await loadIssuerNames();
+        await loadVersions();
+        await loadConsecutives();
+    });
+})();
+</script>
+}

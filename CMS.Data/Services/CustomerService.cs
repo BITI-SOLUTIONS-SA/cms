@@ -8,6 +8,7 @@
 // ================================================================================
 
 using CMS.Entities.Operational;
+using CMS.Shared.Validation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -28,14 +29,37 @@ namespace CMS.Data.Services
     public class CustomerService : ICustomerService
     {
         private readonly ICompanyDbContextFactory _factory;
+        private readonly AppDbContext _centralDb;
         private readonly ILogger<CustomerService> _logger;
 
         public CustomerService(
             ICompanyDbContextFactory factory,
+            AppDbContext centralDb,
             ILogger<CustomerService> logger)
         {
             _factory = factory;
+            _centralDb = centralDb;
             _logger = logger;
+        }
+
+        /// <summary>
+        /// Valida el número de identificación del customer contra el tipo del catálogo central.
+        /// Lanza InvalidOperationException si es inválido.
+        /// </summary>
+        private async Task ValidateIdentificationAsync(Customer customer)
+        {
+            if (!customer.IdElectronicDocumentIdentificationType.HasValue
+                || string.IsNullOrWhiteSpace(customer.Identification))
+                return;
+
+            var code = await _centralDb.ElectronicDocumentIdentificationTypes
+                .AsNoTracking()
+                .Where(t => t.Id == customer.IdElectronicDocumentIdentificationType.Value)
+                .Select(t => t.Code)
+                .FirstOrDefaultAsync();
+
+            if (!IdentificationNumberValidator.TryValidate(code, customer.Identification, out var error))
+                throw new InvalidOperationException(error);
         }
 
         /// <summary>Obtiene todos los customers de una compañía.</summary>
@@ -100,6 +124,9 @@ namespace CMS.Data.Services
                     throw new InvalidOperationException($"Ya existe un customer con identification '{customer.Identification}'");
             }
 
+            // Validar formato del número de identificación según su tipo (Hacienda CR).
+            await ValidateIdentificationAsync(customer);
+
             // Auditoría
             customer.CreateDate = DateTime.UtcNow;
             customer.RecordDate = DateTime.UtcNow;
@@ -108,6 +135,44 @@ namespace CMS.Data.Services
             customer.RowPointer = Guid.NewGuid();
 
             db.Customers.Add(customer);
+            await db.SaveChangesAsync();
+
+            // Garantizar que TODO cliente tenga al menos una actividad económica (registro
+            // predeterminado). Se toma el código por defecto del parámetro global
+            // 'default_economic_activity' (id 6). Si no existe, se usa el fallback '0000.1'.
+            var defaultActivityCode = await db.GlobalParameters
+                .Where(p => p.Code == "default_economic_activity")
+                .Select(p => p.ValueString)
+                .FirstOrDefaultAsync();
+            if (string.IsNullOrWhiteSpace(defaultActivityCode))
+                defaultActivityCode = "0000.1";
+            defaultActivityCode = defaultActivityCode.Trim();
+
+            // Resolver el id del catálogo central (cross-DB) a partir del código.
+            var defaultActivityId = await _centralDb.ElectronicDocumentEconomicActivities
+                .Where(a => a.Code == defaultActivityCode)
+                .Select(a => a.Id)
+                .FirstOrDefaultAsync();
+            // Fallback: si el código configurado no existe, tomar la primera actividad activa.
+            if (defaultActivityId == 0)
+            {
+                defaultActivityId = await _centralDb.ElectronicDocumentEconomicActivities
+                    .Where(a => a.IsActive)
+                    .OrderBy(a => a.Id)
+                    .Select(a => a.Id)
+                    .FirstOrDefaultAsync();
+            }
+
+            db.CustomerEconomicActivities.Add(new CustomerEconomicActivity
+            {
+                IdCustomer = customer.Id,
+                IdElectronicDocumentEconomicActivity = defaultActivityId,
+                IsDefault = true,
+                IsActive = true,
+                CreatedBy = username,
+                UpdatedBy = username,
+                RowPointer = Guid.NewGuid()
+            });
             await db.SaveChangesAsync();
 
             _logger.LogInformation("Customer creado: {Code} - {Name} (ID: {Id})", 
@@ -136,12 +201,15 @@ namespace CMS.Data.Services
                     throw new InvalidOperationException($"Ya existe otro customer con identification '{customer.Identification}'");
             }
 
+            // Validar formato del número de identificación según su tipo (Hacienda CR).
+            await ValidateIdentificationAsync(customer);
+
             // Copiar propiedades (excepto auditoría de creación)
             existing.Code = customer.Code;
             existing.Name = customer.Name;
             existing.CommercialName = customer.CommercialName;
-            existing.CustomerType = customer.CustomerType;
-            existing.IdentificationType = customer.IdentificationType;
+            existing.IdCustomerType = customer.IdCustomerType;
+            existing.IdElectronicDocumentIdentificationType = customer.IdElectronicDocumentIdentificationType;
             existing.Identification = customer.Identification;
             existing.ForeignIdentification = customer.ForeignIdentification;
             existing.CreditLimit = customer.CreditLimit;

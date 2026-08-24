@@ -14,6 +14,7 @@
 
 using CMS.Entities.EInvoice;
 using CMS.Entities.Operational;
+using CMS.Shared.Validation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -26,31 +27,37 @@ namespace CMS.Data.Services.EInvoice
         private static readonly TimeSpan RetryCap = TimeSpan.FromHours(1);
 
         private readonly ICompanyDbContextFactory _companyDbContextFactory;
+        private readonly AppDbContext _centralDb;
         private readonly IClaveNumericaGenerator _claveGenerator;
         private readonly IElectronicDocumentXmlBuilder _xmlBuilder;
         private readonly IXadesSignatureService _signatureService;
         private readonly IHaciendaAuthService _authService;
         private readonly IHaciendaApiClient _apiClient;
         private readonly IEInvoicePdfService _pdfService;
+        private readonly IElectronicDocumentTypeCatalogService _typeCatalog;
         private readonly ILogger<ElectronicDocumentService> _logger;
 
         public ElectronicDocumentService(
             ICompanyDbContextFactory companyDbContextFactory,
+            AppDbContext centralDb,
             IClaveNumericaGenerator claveGenerator,
             IElectronicDocumentXmlBuilder xmlBuilder,
             IXadesSignatureService signatureService,
             IHaciendaAuthService authService,
             IHaciendaApiClient apiClient,
             IEInvoicePdfService pdfService,
+            IElectronicDocumentTypeCatalogService typeCatalog,
             ILogger<ElectronicDocumentService> logger)
         {
             _companyDbContextFactory = companyDbContextFactory;
+            _centralDb = centralDb;
             _claveGenerator = claveGenerator;
             _xmlBuilder = xmlBuilder;
             _signatureService = signatureService;
             _authService = authService;
             _apiClient = apiClient;
             _pdfService = pdfService;
+            _typeCatalog = typeCatalog;
             _logger = logger;
         }
 
@@ -91,8 +98,47 @@ namespace CMS.Data.Services.EInvoice
             else
                 Log("RECEPTOR", "Comprobante sin receptor (tiquete/consumidor final).");
 
+            // Actividad económica del comprobante. La fuente de verdad es la tabla
+            // {schema}.customer_economic_activity (ya NO se guarda en la credencial).
+            //  - Si el usuario seleccionó una actividad en la pantalla de emisión, prevalece.
+            //  - Si no, se toma la actividad predeterminada (is_default) activa del cliente.
+            // El valor se coloca en la propiedad NO mapeada EconomicActivity únicamente como
+            // portador en memoria para el generador de XML (no se persiste en la credencial).
+            issuerCredential.EconomicActivity = !string.IsNullOrWhiteSpace(input.IssuerEconomicActivity)
+                ? input.IssuerEconomicActivity.Trim()
+                : await ResolveDefaultActivityCodeAsync(db, issuerCredential.IdCustomer, cancellationToken);
+            Log("EMISOR", $"Actividad económica del emisor: {issuerCredential.EconomicActivity ?? "(ninguna)"}.");
+
+            if (receptorCredential != null)
+            {
+                receptorCredential.EconomicActivity = !string.IsNullOrWhiteSpace(input.ReceptorEconomicActivity)
+                    ? input.ReceptorEconomicActivity.Trim()
+                    : await ResolveDefaultActivityCodeAsync(db, receptorCredential.IdCustomer, cancellationToken);
+                Log("RECEPTOR", $"Actividad económica del receptor: {receptorCredential.EconomicActivity ?? "(ninguna)"}.");
+            }
+
+            // Metadatos/banderas del tipo de documento desde el catálogo central
+            // (admin.electronic_document_type). Gobierna la generación del XML y las
+            // validaciones parametrizables (p.ej. referencia obligatoria de FEC/FEE).
+            var typeMeta = await _typeCatalog.GetByCodeAsync(input.DocumentType, cancellationToken);
+
+            // Validación del número de identificación del emisor y receptor según su
+            // tipo (Hacienda CR v4.4). Evita emitir comprobantes con identificaciones mal formadas.
+            if (!IdentificationNumberValidator.TryValidate(
+                    issuerCredential.IdentificationType, issuerCredential.Identification, out var issuerIdError))
+                throw new InvalidOperationException($"Identificación del emisor inválida. {issuerIdError}");
+
+            if (receptorCredential != null
+                && !string.IsNullOrWhiteSpace(receptorCredential.Identification)
+                && !IdentificationNumberValidator.TryValidate(
+                    receptorCredential.IdentificationType, receptorCredential.Identification, out var receptorIdError))
+                throw new InvalidOperationException($"Identificación del receptor inválida. {receptorIdError}");
+
+            Log("VALIDACION", "Números de identificación de emisor/receptor validados.", "SUCCESS");
+
             // Validaciones fiscales.
-            ValidateBusinessRules(input);
+            var cabysDiscountRules = await GetCabysDiscountRulesAsync(input, cancellationToken);
+            ValidateBusinessRules(input, typeMeta, cabysDiscountRules);
             Log("VALIDACION", "Reglas de negocio validadas correctamente.", "SUCCESS");
 
             // Validación específica de Nota de Crédito: las líneas deben corresponder
@@ -126,7 +172,7 @@ namespace CMS.Data.Services.EInvoice
             // 1. Generar Clave Numérica de 50 díg. (atómico).
             var clave = await _claveGenerator.GenerateAsync(
                 input.CompanyId, issuerCredential.IdCustomer ?? 0, issuerCredential.Identification, input.DocumentType,
-                input.Branch, input.Terminal, EInvoiceSituation.Normal, crLocalDate, input.UserId);
+                input.Branch, input.Terminal, EInvoiceSituation.Normal, crLocalDate, input.UserId, input.ConsecutiveId);
             Log("CLAVE", $"Clave numérica generada: {clave.Clave}");
 
             // 2. Construir cabecera + líneas + impuestos.
@@ -143,6 +189,7 @@ namespace CMS.Data.Services.EInvoice
                 SaleCondition = input.SaleCondition,
                 CreditTerm = input.CreditTerm,
                 PaymentMethod = input.PaymentMethod,
+                PaymentMethods = string.IsNullOrWhiteSpace(input.PaymentMethods) ? input.PaymentMethod : input.PaymentMethods,
                 Currency = input.Currency,
                 ExchangeRate = input.ExchangeRate,
                 CreateDate = DateTime.UtcNow,
@@ -155,13 +202,17 @@ namespace CMS.Data.Services.EInvoice
                 EmisorNombreComercial       = issuerCredential.CommercialName,
                 EmisorIdentificacionTipo    = issuerCredential.IdentificationType,
                 EmisorIdentificacionNumero  = issuerCredential.Identification,
-                EmisorCorreo                = issuerCredential.Email,
+                EmisorCorreo                = !string.IsNullOrWhiteSpace(input.IssuerEmailOverride)
+                                                ? input.IssuerEmailOverride.Trim()
+                                                : issuerCredential.Email,
                 EmisorUbicacionProvincia    = issuerCredential.Province,
                 EmisorUbicacionCanton       = issuerCredential.Canton,
                 EmisorUbicacionDistrito     = issuerCredential.District,
                 EmisorUbicacionOtrasSenas   = issuerCredential.OtherSigns,
                 EmisorTelefonoCodigoPais    = issuerCredential.PhoneCode,
-                EmisorTelefonoNumero        = issuerCredential.Phone,
+                EmisorTelefonoNumero        = !string.IsNullOrWhiteSpace(input.IssuerPhoneOverride)
+                                                ? input.IssuerPhoneOverride.Trim()
+                                                : issuerCredential.Phone,
                 CodigoActividadEmisor       = issuerCredential.EconomicActivity,
                 ProveedorSistemas           = "2100042005", // Proveedor BSFLOW registrado en Hacienda
 
@@ -171,13 +222,17 @@ namespace CMS.Data.Services.EInvoice
                 ReceptorIdentificacionTipo        = receptorCredential?.IdentificationType,
                 ReceptorIdentificacionNumero      = receptorCredential?.Identification,
                 ReceptorIdentificacionExtranjero  = receptorCredential?.ForeignIdentification,
-                ReceptorCorreo                    = receptorCredential?.Email,
+                ReceptorCorreo                    = !string.IsNullOrWhiteSpace(input.ReceptorEmailOverride)
+                                                        ? input.ReceptorEmailOverride.Trim()
+                                                        : receptorCredential?.Email,
                 ReceptorUbicacionProvincia        = receptorCredential?.Province,
                 ReceptorUbicacionCanton           = receptorCredential?.Canton,
                 ReceptorUbicacionDistrito         = receptorCredential?.District,
                 ReceptorUbicacionOtrasSenas       = receptorCredential?.OtherSigns,
                 ReceptorTelefonoCodigoPais        = receptorCredential?.PhoneCode,
-                ReceptorTelefonoNumero            = receptorCredential?.Phone,
+                ReceptorTelefonoNumero            = !string.IsNullOrWhiteSpace(input.ReceptorPhoneOverride)
+                                                        ? input.ReceptorPhoneOverride.Trim()
+                                                        : receptorCredential?.Phone,
             };
 
             var taxesByLine = new Dictionary<int, List<ElectronicDocumentTax>>();
@@ -185,29 +240,181 @@ namespace CMS.Data.Services.EInvoice
             foreach (var li in input.Lines)
             {
                 lineNumber++;
-                var bd = EInvoiceCalculator.BreakdownLine(
-                    li.UnitPrice, li.Quantity, li.TaxRatePercent, li.DiscountAmount, li.PriceIncludesTax);
 
-                // ── Exoneración (documento completo o línea a línea) ─────────────
-                // Regla: si el documento es exonerado, TODAS las líneas se exoneran.
-                // Si no, se respeta la exoneración indicada por línea.
-                bool lineExonerated = input.IsExonerated || li.IsExonerated;
-                decimal exonPercent = lineExonerated
-                    ? (li.ExonPercent > 0 ? Math.Min(li.ExonPercent, 100m) : 100m)
-                    : 0m;
-                // Hacienda v4.4 (error -190): MontoExoneracion = %exoneración × BaseImponible
-                // (el subtotal NETO tras descuento), es decir la BASE que se exonera, NO el
-                // impuesto. El impuesto efectivamente exonerado se deriva multiplicando esa
-                // base por la tarifa de IVA de la línea.
-                // Hacienda v4.4 (rechazos -190 y -290): MontoExoneracion es el IMPUESTO
-                // exonerado (NO la base). Hacienda valida dos fórmulas simultáneas:
-                //   -190: MontoExoneracion = (TarifaExonerada/100) × SubTotal
-                //   -290: ImpuestoNeto     = Monto(IVA) − MontoExoneracion
-                // Ambas se cumplen solo si: MontoExoneracion = IVA × %exon  y
-                // TarifaExonerada = IVA% × %exon (tarifa efectiva, p.ej. 13 para exon. total).
-                decimal exonTax  = Math.Round(bd.TaxAmount * exonPercent / 100m, 5);   // IVA exonerado = MontoExoneracion
-                decimal impuestoNeto = bd.TaxAmount - exonTax;   // IVA efectivamente cobrado
-                decimal totalLineNet = bd.TotalLine - exonTax;   // el cliente no paga la parte exonerada
+                // ── Descuentos múltiples (Hacienda v4.4 admite hasta 5) ──────────
+                // Se normaliza la lista: solo entradas con monto > 0 y naturaleza.
+                // Los escalares DiscountAmount/DiscountNature se derivan de la lista
+                // (suma total y naturaleza principal) para mantener compatibilidad
+                // con el cálculo, totales, PDF y la ruta REP.
+                var normalizedDiscounts = (li.Discounts ?? new())
+                    .Where(d => d.Amount > 0)
+                    .Select(d => new EmitLineDiscountInput
+                    {
+                        Nature = string.IsNullOrWhiteSpace(d.Nature) ? EInvoiceDiscountNature.Promocion : d.Nature!.Trim(),
+                        Amount = d.Amount
+                    })
+                    .Take(5)
+                    .ToList();
+                if (normalizedDiscounts.Count > 0)
+                {
+                    li.DiscountAmount = normalizedDiscounts.Sum(d => d.Amount);
+                    li.DiscountNature = normalizedDiscounts[0].Nature;
+                }
+
+                // ── Impuestos de la línea (Hacienda v4.4 admite varios) ──────────
+                // Si el UI envía la colección Taxes, cada elemento es un impuesto
+                // independiente (IVA, selectivo de consumo, etc.) con su propia
+                // exoneración. Si viene vacía, se reconstruye un único impuesto a
+                // partir de los campos planos de la línea (retrocompatibilidad).
+                bool docExon = input.IsExonerated;
+                var normalizedTaxes = (li.Taxes != null && li.Taxes.Count > 0)
+                    ? li.Taxes.Select(t => new EmitLineTaxInput
+                    {
+                        IdElectronicDocumentTaxType = t.IdElectronicDocumentTaxType > 0 ? t.IdElectronicDocumentTaxType : 1,
+                        TaxCode = string.IsNullOrWhiteSpace(t.TaxCode) ? "01" : t.TaxCode.Trim(),
+                        TaxRatePercent = t.TaxRatePercent,
+                        TaxRateCode = t.TaxRateCode,
+                        UnitMeasureQty = t.UnitMeasureQty,
+                        VolumeUnit = t.VolumeUnit,
+                        SpecPercent = t.SpecPercent,
+                        Proportion = t.Proportion,
+                        PerUnitTax = t.PerUnitTax,
+                        SpecialTaxableBase = t.SpecialTaxableBase,
+                        IsFactoryTax = t.IsFactoryTax,
+                        TaxAmount = t.TaxAmount,
+                        TaxDescription = t.TaxDescription,
+                        IsExonerated = docExon || t.IsExonerated,
+                        ExonDocumentType = t.ExonDocumentType,
+                        ExonDocumentNumber = t.ExonDocumentNumber,
+                        ExonInstitution = t.ExonInstitution,
+                        ExonDate = t.ExonDate,
+                        ExonArticle = t.ExonArticle,
+                        ExonSubsection = t.ExonSubsection,
+                        ExonPercent = t.ExonPercent
+                    }).ToList()
+                    : new List<EmitLineTaxInput>
+                    {
+                        new EmitLineTaxInput
+                        {
+                            IdElectronicDocumentTaxType = li.IdElectronicDocumentTaxType > 0 ? li.IdElectronicDocumentTaxType : 1,
+                            TaxCode = "01",
+                            TaxRatePercent = li.TaxRatePercent,
+                            TaxRateCode = li.TaxRateCode,
+                            IsExonerated = docExon || li.IsExonerated,
+                            ExonDocumentType = li.ExonDocumentType,
+                            ExonDocumentNumber = li.ExonDocumentNumber,
+                            ExonInstitution = li.ExonInstitution,
+                            ExonDate = li.ExonDate,
+                            ExonArticle = li.ExonArticle,
+                            ExonSubsection = li.ExonSubsection,
+                            ExonPercent = li.ExonPercent
+                        }
+                    };
+
+                // Base imponible compartida: el descuento y el I.V.I. se calculan con
+                // la tarifa combinada de todos los impuestos de la línea.
+                decimal combinedRate = normalizedTaxes.Sum(t => t.TaxRatePercent);
+                var bd = EInvoiceCalculator.BreakdownLine(
+                    li.UnitPrice, li.Quantity, combinedRate, li.DiscountAmount, li.PriceIncludesTax);
+
+                // Impuesto principal (primer IVA o, en su defecto, el primer impuesto)
+                // usado para los campos escalares de desglose de la línea.
+                var primaryTax = normalizedTaxes.FirstOrDefault(t => t.TaxCode == "01") ?? normalizedTaxes[0];
+
+                // Cálculo por impuesto: cada impuesto grava la misma BaseImponible
+                // con su propia tarifa y aplica su exoneración de forma independiente.
+                var taxEntities = new List<ElectronicDocumentTax>();
+                decimal lineTaxTotal = 0m;
+                decimal lineExonTotal = 0m;
+                foreach (var t in normalizedTaxes)
+                {
+                    // ── Cálculo del monto del impuesto según el código de Hacienda ──
+                    // Por defecto (01, 02, 07 y otros ad valorem): BaseImponible × Tarifa%.
+                    // Los códigos específicos (03, 04, 05, 06) se calculan por unidad
+                    // física digitada por el usuario y NO por tarifa porcentual.
+                    decimal taxAmount;
+                    switch (t.TaxCode)
+                    {
+                        case "06": // Productos de tabaco: Cantidad × CantidadUnidadMedida × ImpuestoPorUnidad
+                            taxAmount = Math.Round(
+                                li.Quantity * (t.UnitMeasureQty ?? 0m) * (t.PerUnitTax ?? 0m),
+                                5, MidpointRounding.AwayFromZero);
+                            break;
+                        case "03": // Combustibles: CantidadUnidadMedida × ImpuestoPorUnidad
+                            taxAmount = Math.Round(
+                                (t.UnitMeasureQty ?? 0m) * (t.PerUnitTax ?? 0m),
+                                5, MidpointRounding.AwayFromZero);
+                            break;
+                        case "04": // Bebidas alcohólicas: Proporción × ImpuestoPorUnidad
+                            taxAmount = Math.Round(
+                                (t.Proportion ?? ((t.UnitMeasureQty ?? 0m) * (t.SpecPercent ?? 0m) / 100m)) * (t.PerUnitTax ?? 0m),
+                                5, MidpointRounding.AwayFromZero);
+                            break;
+                        case "05": // Bebidas envasadas sin alcohol: Volumen × ImpuestoPorUnidad
+                            taxAmount = Math.Round(
+                                (t.VolumeUnit ?? 0m) * (t.PerUnitTax ?? 0m),
+                                5, MidpointRounding.AwayFromZero);
+                            break;
+                        case "02": // IVA (selectivo por monto): monto ya calculado por la UI si viene
+                            taxAmount = t.TaxAmount.HasValue && t.TaxAmount.Value > 0
+                                ? Math.Round(t.TaxAmount.Value, 5, MidpointRounding.AwayFromZero)
+                                : Math.Round(bd.TaxableBase * t.TaxRatePercent / 100m, 5, MidpointRounding.AwayFromZero);
+                            break;
+                        default:   // 01, 07 y demás ad valorem: BaseImponible × Tarifa%
+                            taxAmount = Math.Round(bd.TaxableBase * t.TaxRatePercent / 100m, 5, MidpointRounding.AwayFromZero);
+                            break;
+                    }
+                    // Proporción persistida del código 04 (si no vino calculada).
+                    decimal? proportion = t.Proportion
+                        ?? (t.TaxCode == "04" ? (decimal?)((t.UnitMeasureQty ?? 0m) * (t.SpecPercent ?? 0m) / 100m) : null);
+                    // Hacienda v4.4 (rechazos -190/-290): MontoExoneracion es el IMPUESTO
+                    // exonerado. Debe cumplir simultáneamente:
+                    //   -190: MontoExoneracion = (TarifaExonerada/100) × SubTotal
+                    //   -290: ImpuestoNeto     = Monto − MontoExoneracion
+                    decimal tExonPercent = t.IsExonerated
+                        ? (t.ExonPercent > 0 ? Math.Min(t.ExonPercent, 100m) : 100m)
+                        : 0m;
+                    decimal tExonAmount = Math.Round(taxAmount * tExonPercent / 100m, 5, MidpointRounding.AwayFromZero);
+
+                    lineTaxTotal += taxAmount;
+                    lineExonTotal += tExonAmount;
+
+                    taxEntities.Add(new ElectronicDocumentTax
+                    {
+                        TaxCode = t.TaxCode,
+                        TaxRateCode = t.TaxRateCode,
+                        TaxRate = t.TaxRatePercent,
+                        TaxAmount = taxAmount,
+                        // ── Datos físicos de impuestos específicos / cálculo especial ─
+                        UnitMeasureQty     = t.UnitMeasureQty,
+                        VolumeUnit         = t.VolumeUnit,
+                        SpecPercent        = t.SpecPercent,
+                        Proportion         = proportion,
+                        PerUnitTax         = t.PerUnitTax,
+                        SpecialTaxableBase = t.SpecialTaxableBase,
+                        IsFactoryTax       = t.IsFactoryTax,
+                        // ── Exoneración por impuesto ─────────────────
+                        IsExonerated       = t.IsExonerated,
+                        ExonPercent        = tExonPercent,
+                        ExonAmount         = tExonAmount,
+                        ExonDocumentType   = t.IsExonerated ? (t.ExonDocumentType ?? "99") : null,
+                        ExonDocumentNumber = t.IsExonerated ? t.ExonDocumentNumber : null,
+                        ExonInstitution    = t.IsExonerated ? t.ExonInstitution : null,
+                        ExonDate           = t.IsExonerated ? (t.ExonDate ?? DateTime.UtcNow) : null,
+                        ExonArticle        = t.IsExonerated ? t.ExonArticle : null,
+                        ExonSubsection     = t.IsExonerated ? t.ExonSubsection : null,
+                        CreateDate = DateTime.UtcNow,
+                        RecordDate = DateTime.UtcNow,
+                        CreatedBy = input.UserId.ToString(),
+                        UpdatedBy = input.UserId.ToString()
+                    });
+                }
+
+                bool lineExonerated = taxEntities.Any(t => t.IsExonerated && t.ExonAmount > 0);
+                // Exoneración representativa de la línea = suma de exoneraciones.
+                var repExonTax = taxEntities.FirstOrDefault(t => t.IsExonerated && t.ExonAmount > 0);
+                decimal impuestoNeto = lineTaxTotal - lineExonTotal;   // impuesto efectivamente cobrado
+                decimal totalLineNet = bd.TaxableBase + lineTaxTotal - lineExonTotal;
 
                 var line = new ElectronicDocumentLine
                 {
@@ -215,6 +422,7 @@ namespace CMS.Data.Services.EInvoice
                     IdItem = li.ItemId,
                     CabysCode = li.CabysCode,
                     ItemCode = li.ItemCode,
+                    IdElectronicDocumentTaxType = primaryTax.IdElectronicDocumentTaxType,
                     Detail = li.Detail,
                     // La naturaleza bien/servicio la determina el CAByS (estándar CAByS-CR),
                     // NO el cliente. El primer dígito del código define la categoría: los
@@ -230,46 +438,65 @@ namespace CMS.Data.Services.EInvoice
                     TotalAmount = bd.UnitPriceBase * li.Quantity,
                     DiscountAmount = li.DiscountAmount,
                     DiscountNature = li.DiscountAmount > 0 ? (li.DiscountNature ?? EInvoiceDiscountNature.Promocion) : null,
+                    Discounts = normalizedDiscounts.Count > 0
+                        ? System.Text.Json.JsonSerializer.Serialize(
+                            normalizedDiscounts.Select(d => new { nature = d.Nature, amount = d.Amount }))
+                        : null,
                     // Hacienda v4.4: SubTotal = MontoTotal − MontoDescuento (neto tras descuento).
                     // Poner el bruto aquí provoca los rechazos -44/-454/-46. Como no hay
                     // impuesto selectivo de consumo, SubTotal == BaseImponible (bd.TaxableBase).
                     SubTotal = bd.UnitPriceBase * li.Quantity - li.DiscountAmount,
                     TaxableBase = bd.TaxableBase,
-                    TotalTax = bd.TaxAmount,
+                    TotalTax = lineTaxTotal,
                     TotalLine = totalLineNet,
                     // ── Campos fiscales adicionales ──────────────────
                     ImpuestoAsumidoEmisor = 0,                        // Se actualiza si aplica emisor/fábrica
-                    ImpuestoNeto          = impuestoNeto,            // IVA - exoneración
+                    ImpuestoNeto          = impuestoNeto,            // impuestos - exoneración
                     MontoTotalLinea       = totalLineNet,           // total con impuesto neto
-                    TaxRateCodeIva        = li.TaxRateCode,
-                    TaxRateIva            = li.TaxRatePercent / 100m, // porcentaje → decimal (0.13)
-                    MontoTaxIva           = bd.TaxAmount,
-                    // ── Exoneración ──────────────────────────────────
+                    TaxRateCodeIva        = primaryTax.TaxRateCode,
+                    TaxRateIva            = primaryTax.TaxRatePercent / 100m, // porcentaje → decimal (0.13)
+                    MontoTaxIva           = primaryTax.TaxRatePercent > 0
+                                             ? Math.Round(bd.TaxableBase * primaryTax.TaxRatePercent / 100m, 5, MidpointRounding.AwayFromZero)
+                                             : 0m,
+                    // ── Exoneración representativa de la línea ────────
                     IsExonerated       = lineExonerated,
-                    ExonPercent        = exonPercent,
-                    ExonAmount         = exonTax,   // MontoExoneracion = IVA exonerado (v4.4 -290/-46)
-                    ExonDocumentType   = lineExonerated ? (li.ExonDocumentType ?? "99") : null,
-                    ExonDocumentNumber = lineExonerated ? li.ExonDocumentNumber : null,
-                    ExonInstitution    = lineExonerated ? li.ExonInstitution : null,
-                    ExonDate           = lineExonerated ? (li.ExonDate ?? DateTime.UtcNow) : null,
+                    ExonPercent        = repExonTax?.ExonPercent ?? 0m,
+                    ExonAmount         = lineExonTotal,   // MontoExoneracion total de la línea
+                    ExonDocumentType   = repExonTax?.ExonDocumentType,
+                    ExonDocumentNumber = repExonTax?.ExonDocumentNumber,
+                    ExonInstitution    = repExonTax?.ExonInstitution,
+                    ExonDate           = repExonTax?.ExonDate,
+                    ExonArticle        = repExonTax?.ExonArticle,
+                    ExonSubsection     = repExonTax?.ExonSubsection,
                     CreateDate = DateTime.UtcNow,
                     RecordDate = DateTime.UtcNow,
                     CreatedBy = input.UserId.ToString(),
                     UpdatedBy = input.UserId.ToString()
                 };
 
-                var tax = new ElectronicDocumentTax
+                foreach (var te in taxEntities)
+                    line.Taxes.Add(te);
+
+                // ── Descuentos individuales de la línea (una fila por descuento) ──
+                // Persistimos cada descuento en electronic_document_discount_line para
+                // trazabilidad/auditoría; el JSON y el escalar se conservan como resumen.
+                int discSeq = 1;
+                foreach (var d in normalizedDiscounts)
                 {
-                    TaxCode = "01",
-                    TaxRateCode = li.TaxRateCode,
-                    TaxRate = li.TaxRatePercent,
-                    TaxAmount = bd.TaxAmount,
-                    CreateDate = DateTime.UtcNow,
-                    RecordDate = DateTime.UtcNow,
-                    CreatedBy = input.UserId.ToString(),
-                    UpdatedBy = input.UserId.ToString()
-                };
-                line.Taxes.Add(tax);
+                    if (d.Amount <= 0) continue;
+                    line.DiscountLines.Add(new ElectronicDocumentDiscountLine
+                    {
+                        Sequence = discSeq++,
+                        DiscountAmount = Math.Round(d.Amount, 5, MidpointRounding.AwayFromZero),
+                        DiscountNatureCode = d.Nature,
+                        DiscountNature = ResolveDiscountNatureName(d.Nature),
+                        CreateDate = DateTime.UtcNow,
+                        RecordDate = DateTime.UtcNow,
+                        CreatedBy = input.UserId.ToString(),
+                        UpdatedBy = input.UserId.ToString()
+                    });
+                }
+
                 document.Lines.Add(line);
             }
 
@@ -337,6 +564,42 @@ namespace CMS.Data.Services.EInvoice
                 });
             }
 
+            // Otros cargos (OtrosCargos v4.4): se persisten como JSON en el documento
+            // para reconstruir el nodo <OtrosCargos> del XML, y ademas se guardan como
+            // filas en la tabla operacional electronic_document_other_charges_line.
+            if (input.OtherCharges.Count > 0)
+            {
+                document.OtherCharges = System.Text.Json.JsonSerializer.Serialize(
+                    input.OtherCharges.Select(o => new
+                    {
+                        typeCode = o.TypeCode,
+                        otherTypeDescription = o.OtherTypeDescription,
+                        detail = o.Detail,
+                        amount = o.Amount,
+                        thirdIdentType = o.ThirdIdentType,
+                        thirdIdentNumber = o.ThirdIdentNumber,
+                        thirdName = o.ThirdName
+                    }));
+
+                var ocSeq = 0;
+                foreach (var o in input.OtherCharges)
+                {
+                    ocSeq++;
+                    document.OtherChargeLines.Add(new ElectronicDocumentOtherChargeLine
+                    {
+                        Sequence = ocSeq,
+                        TypeCode = o.TypeCode,
+                        OtherTypeDescription = o.OtherTypeDescription,
+                        Detail = o.Detail,
+                        Amount = o.Amount,
+                        Percent = o.Percent,
+                        ThirdIdentType = o.ThirdIdentType,
+                        ThirdIdentNumber = o.ThirdIdentNumber,
+                        ThirdName = o.ThirdName
+                    });
+                }
+            }
+
             db.ElectronicDocuments.Add(document);
             await db.SaveChangesAsync(cancellationToken);
             Log("PERSISTENCIA", $"Documento persistido (ID {document.Id}, consecutivo {document.Consecutive}).", "SUCCESS");
@@ -345,9 +608,9 @@ namespace CMS.Data.Services.EInvoice
             foreach (var line in document.Lines)
                 taxesByLine[line.Id] = line.Taxes.ToList();
 
-            // 3. Construir y firmar el XML.
+            // 3. Construir y firmar el XML. (typeMeta ya resuelto arriba desde el catálogo)
             var unsignedXml = _xmlBuilder.BuildXml(
-                document, issuerCredential, receptorCredential, document.Lines.ToList(), taxesByLine, document.References.ToList());
+                document, issuerCredential, receptorCredential, document.Lines.ToList(), taxesByLine, document.References.ToList(), typeMeta);
             Log("XML", "XML v4.4 construido.");
             var signedXml = _signatureService.SignXml(unsignedXml, issuerCredential);
             Log("FIRMA", "XML firmado con XAdES-EPES.", "SUCCESS");
@@ -613,6 +876,35 @@ namespace CMS.Data.Services.EInvoice
             foreach (var q in pending) q.IsDone = true;
         }
 
+        /// <summary>
+        /// Resuelve el código de actividad económica predeterminado (is_default) y activo de un
+        /// cliente desde {schema}.customer_economic_activity. Si el cliente no tiene una marcada
+        /// como predeterminada, toma la primera activa. Devuelve null si no hay ninguna.
+        /// Esta es la ÚNICA fuente de la actividad económica (ya no se guarda en la credencial).
+        /// </summary>
+        private async Task<string?> ResolveDefaultActivityCodeAsync(
+            CompanyDbContext db, int? customerId, CancellationToken ct)
+        {
+            if (customerId == null || customerId == 0)
+                return null;
+
+            var activityId = await db.CustomerEconomicActivities.AsNoTracking()
+                .Where(a => a.IdCustomer == customerId.Value && a.IsActive)
+                .OrderByDescending(a => a.IsDefault)
+                .ThenBy(a => a.IdElectronicDocumentEconomicActivity)
+                .Select(a => a.IdElectronicDocumentEconomicActivity)
+                .FirstOrDefaultAsync(ct);
+
+            if (activityId == 0)
+                return null;
+
+            // Resolver el CodigoActividad desde el catálogo central (cross-DB) por id.
+            return await _centralDb.ElectronicDocumentEconomicActivities.AsNoTracking()
+                .Where(x => x.Id == activityId)
+                .Select(x => x.Code)
+                .FirstOrDefaultAsync(ct);
+        }
+
         /// <summary>Envía el comprobante y actualiza el estado, manejando 401/429/duplicado.</summary>
         private async Task SendAndTrackAsync(
             CompanyDbContext db, ElectronicDocument document, CustomerBillingCredential issuerCredential,
@@ -791,6 +1083,16 @@ namespace CMS.Data.Services.EInvoice
             // Primer dígito: 7, 8 o 9 = servicio; 1-6 = mercancía.
             return code[0] is '7' or '8' or '9';
         }
+
+        /// <summary>Devuelve el nombre legible de la naturaleza de descuento a partir de su código.</summary>
+        private static string ResolveDiscountNatureName(string? code) => (code ?? string.Empty).Trim() switch
+        {
+            EInvoiceDiscountNature.Regalia => "Regalía",
+            EInvoiceDiscountNature.Volumen => "Descuento por volumen",
+            EInvoiceDiscountNature.Temporada => "Descuento por temporada",
+            EInvoiceDiscountNature.Promocion => "Promoción",
+            _ => "Promoción"
+        };
 
         private static string ToCrDateString(DateTime dt)
         {
@@ -1038,36 +1340,130 @@ namespace CMS.Data.Services.EInvoice
                 "SUCCESS");
         }
 
-        private static void ValidateBusinessRules(EmitDocumentInput input)
+        // Obtiene las naturalezas de descuento permitidas por CAByS desde la BD central
+        // (admin.electronic_document_cabys_discount). Devuelve un diccionario
+        // CAByS(13 díg) -> conjunto de códigos de naturaleza permitidos. Si un CAByS no
+        // tiene reglas configuradas, NO aparece en el diccionario y se aplican las reglas
+        // por defecto (rechazo de 01/03).
+        private async Task<Dictionary<string, HashSet<string>>> GetCabysDiscountRulesAsync(
+            EmitDocumentInput input, CancellationToken cancellationToken)
+        {
+            var codes = (input.Lines ?? new())
+                .Select(l => l.CabysCode?.Trim())
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Distinct()
+                .ToList();
+
+            var result = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+            if (codes.Count == 0)
+                return result;
+
+            var rows = await _centralDb.ElectronicDocumentCabysDiscounts.AsNoTracking()
+                .Where(r => r.IsActive && r.Cabys != null && r.Discount != null
+                            && codes.Contains(r.Cabys.Code))
+                .Select(r => new { Cabys = r.Cabys!.Code, Nature = r.Discount!.Code })
+                .ToListAsync(cancellationToken);
+
+            foreach (var row in rows)
+            {
+                if (!result.TryGetValue(row.Cabys, out var set))
+                {
+                    set = new HashSet<string>(StringComparer.Ordinal);
+                    result[row.Cabys] = set;
+                }
+                set.Add(row.Nature);
+            }
+            return result;
+        }
+
+        private static void ValidateBusinessRules(EmitDocumentInput input,
+            ElectronicDocumentTypeCatalog? typeMeta = null,
+            Dictionary<string, HashSet<string>>? cabysDiscountRules = null)
         {
             foreach (var line in input.Lines)
             {
                 if (string.IsNullOrWhiteSpace(line.CabysCode) || line.CabysCode.Length != 13)
                     throw new InvalidOperationException(
                         $"La línea '{line.Detail}' requiere un código CAByS válido de 13 dígitos.");
+
+                // ── Validación de descuentos múltiples ──────────────────────────
+                HashSet<string>? allowedNatures = null;
+                cabysDiscountRules?.TryGetValue(line.CabysCode.Trim(), out allowedNatures);
+
+                var discountEntries = (line.Discounts ?? new())
+                    .Where(d => d.Amount != 0 || !string.IsNullOrWhiteSpace(d.Nature))
+                    .ToList();
+                if (discountEntries.Count > 0)
+                {
+                    if (discountEntries.Count > 5)
+                        throw new InvalidOperationException(
+                            $"La línea '{line.Detail}' excede el máximo de 5 descuentos permitidos (v4.4).");
+                    foreach (var d in discountEntries)
+                    {
+                        if (d.Amount <= 0)
+                            throw new InvalidOperationException(
+                                $"La línea '{line.Detail}' tiene un descuento con monto menor o igual a 0. El monto debe ser mayor a 0.");
+                        if (string.IsNullOrWhiteSpace(d.Nature))
+                            throw new InvalidOperationException(
+                                $"La línea '{line.Detail}' tiene un descuento sin código/naturaleza seleccionado (obligatorio).");
+                        if (allowedNatures != null)
+                        {
+                            if (!allowedNatures.Contains(d.Nature!.Trim()))
+                                throw new InvalidOperationException(
+                                    $"La línea '{line.Detail}' usa un código de descuento ({d.Nature}) no permitido " +
+                                    $"para el CAByS {line.CabysCode}. Seleccione un descuento válido para ese código.");
+                        }
+                        else if (d.Nature is "01" or "03")
+                            throw new InvalidOperationException(
+                                $"La línea '{line.Detail}' usa un código de descuento de Regalía/Bonificación (01/03), " +
+                                "no soportado. Use un descuento comercial (04 Volumen, 05 Temporada o 06 Promoción).");
+                    }
+                    // El total de descuentos no puede superar el monto bruto de la línea.
+                    decimal gross = line.UnitPrice * line.Quantity;
+                    decimal totalDisc = discountEntries.Sum(d => d.Amount);
+                    if (totalDisc > gross)
+                        throw new InvalidOperationException(
+                            $"La línea '{line.Detail}' tiene descuentos ({totalDisc:0.00}) que superan el monto total de la línea ({gross:0.00}).");
+                }
+
                 if (line.DiscountAmount > 0 && string.IsNullOrWhiteSpace(line.DiscountNature))
                     throw new InvalidOperationException(
                         $"La línea '{line.Detail}' tiene descuento pero falta la naturaleza del descuento (v4.4).");
 
-                // Hacienda v4.4: los códigos de descuento 01 (Regalía) y 03 (Bonificación)
-                // exigen que el MontoDescuento sea el 100% del MontoTotal y un tratamiento
-                // especial de ImpuestoAsumidoEmisorFabrica (errores -518/-476). No se
-                // soportan como descuento parcial: se rechaza aquí.
-                if (line.DiscountNature is "01" or "03")
-                    throw new InvalidOperationException(
-                        $"La línea '{line.Detail}' usa un código de descuento de Regalía/Bonificación (01/03), " +
-                        "no soportado. Use un descuento comercial (04 Volumen, 05 Temporada o 06 Promoción).");
+                // Naturaleza escalar (compatibilidad): validar contra reglas CAByS si existen,
+                // de lo contrario aplicar el rechazo por defecto de 01/03.
+                if (!string.IsNullOrWhiteSpace(line.DiscountNature))
+                {
+                    if (allowedNatures != null)
+                    {
+                        if (!allowedNatures.Contains(line.DiscountNature!.Trim()))
+                            throw new InvalidOperationException(
+                                $"La línea '{line.Detail}' usa un código de descuento ({line.DiscountNature}) no permitido " +
+                                $"para el CAByS {line.CabysCode}. Seleccione un descuento válido para ese código.");
+                    }
+                    // Hacienda v4.4: los códigos de descuento 01 (Regalía) y 03 (Bonificación)
+                    // exigen que el MontoDescuento sea el 100% del MontoTotal y un tratamiento
+                    // especial de ImpuestoAsumidoEmisorFabrica (errores -518/-476). No se
+                    // soportan como descuento parcial: se rechaza cuando el CAByS no tiene reglas.
+                    else if (line.DiscountNature is "01" or "03")
+                        throw new InvalidOperationException(
+                            $"La línea '{line.Detail}' usa un código de descuento de Regalía/Bonificación (01/03), " +
+                            "no soportado. Use un descuento comercial (04 Volumen, 05 Temporada o 06 Promoción).");
+                }
             }
 
-            // NC/ND/REP requieren referencia obligatoria.
-            var requiresReference = input.DocumentType is
-                EInvoiceDocumentType.NotaCredito or
-                EInvoiceDocumentType.NotaDebito or
-                EInvoiceDocumentType.ReciboElectronicoPago;
+            // Referencia obligatoria: se resuelve desde el catálogo cuando está disponible
+            // (requires_reference). Fallback histórico: NC/ND/REP y FEC/FEE.
+            var requiresReference = typeMeta?.RequiresReference
+                ?? input.DocumentType is
+                    EInvoiceDocumentType.NotaCredito or
+                    EInvoiceDocumentType.NotaDebito or
+                    EInvoiceDocumentType.ReciboElectronicoPago or
+                    EInvoiceDocumentType.FacturaCompra;
 
             if (requiresReference && input.References.Count == 0)
                 throw new InvalidOperationException(
-                    "Nota de Crédito/Débito y REP requieren referencia (InformacionReferencia) al documento previo.");
+                    "Este tipo de comprobante requiere al menos una referencia (InformacionReferencia) al documento relacionado.");
 
             // Venta a crédito ("02") exige PlazoCredito; sin él Hacienda rechaza con
             // error -58 ("El campo 'Plazo del crédito' no posee la estructura establecida").

@@ -330,7 +330,7 @@ namespace CMS.Entities.Operational
     public static class BusinessPartnerType
     {
         public const string Customer = "Customer";          // Cliente
-        public const string Supplier = "Supplier";          // Proveedor
+        public const string Vendor = "Vendor";              // Proveedor
         public const string Employee = "Employee";          // Empleado
         public const string Other = "Other";                // Otro
     }

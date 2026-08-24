@@ -1,0 +1,305 @@
+@{
+    ViewData["Title"] = "Códigos CAByS (Facturación Electrónica)";
+    var apiBaseUrl = ViewBag.ApiBaseUrl as string ?? "";
+    var apiToken = ViewBag.ApiToken as string ?? "";
+}
+
+<style>
+    .dc-card { background: #16213e; border: 1px solid #23305c; border-radius: .75rem; }
+    .dc-table { color: #1e293b; background-color: #ffffff; }
+    .dc-table thead th { color: #334155; border-color: #cbd5e1; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; background-color: #f1f5f9; }
+    .dc-table td, .dc-table th { border-color: #cbd5e1; vertical-align: middle; }
+    .dc-table td { color: #1e293b; }
+    .dc-code { font-family: monospace; font-weight: 700; color: #1d4ed8; }
+    .badge-flag { font-size: .68rem; }
+    small, .form-text, small.text-muted, .text-muted small { color: #cbd5e1 !important; }
+    .modal-content { background: #16213e; color: #e0e0e0; border: 1px solid #23305c; }
+    .modal-header, .modal-footer { border-color: #23305c; }
+    .form-check-label { color: #e0e0e0; }
+    .dc-table td small, .dc-table .text-muted { color: #475569 !important; }
+</style>
+
+<div class="container-fluid py-3 text-light">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-upc-scan me-2"></i>Códigos CAByS</h4>
+        <div>
+            <a asp-action="UnitsOfMeasure" class="btn btn-outline-light btn-sm"><i class="bi bi-rulers"></i> Unidades de Medida</a>
+            <a asp-action="TaxRates" class="btn btn-outline-light btn-sm"><i class="bi bi-percent"></i> Códigos de Tarifa</a>
+            <button id="dcNewBtn" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nuevo CAByS</button>
+        </div>
+    </div>
+
+    <div class="card dc-card mb-3">
+        <div class="card-body">
+            <p class="text-light mb-3">
+                Catálogo central de <strong>códigos CAByS para facturación electrónica</strong>
+                (13 dígitos). Cada código está relacionado con una <strong>tarifa de IVA</strong>
+                (<code>admin.electronic_document_tax_rate</code>) y un <strong>tipo de impuesto</strong>
+                (<code>admin.electronic_document_tax_type</code>). Es compartido por todas las compañías.
+            </p>
+
+            <div class="row g-2 mb-3 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label text-light">Buscar (código o descripción)</label>
+                    <div class="input-group input-group-sm">
+                        <input type="text" id="dcSearch" class="form-control" placeholder="Ej: 9799000000000 o arroz..." />
+                        <button class="btn btn-outline-info" type="button" id="dcSearchBtn"><i class="bi bi-search"></i></button>
+                        <button class="btn btn-outline-secondary" type="button" id="dcSearchClear" title="Limpiar"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" id="dcOnlyActive" />
+                        <label class="form-check-label" for="dcOnlyActive">Solo activos</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table dc-table align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width: 150px;">Código</th>
+                            <th>Descripción</th>
+                            <th style="width: 140px;">Tarifa IVA</th>
+                            <th style="width: 160px;">Tipo Impuesto</th>
+                            <th class="text-center" style="width: 80px;">Activo</th>
+                            <th class="text-end" style="width: 130px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dcTableBody">
+                        <tr><td colspan="6" class="text-center text-muted py-4">Cargando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center">
+                <small class="text-light" id="dcInfo"></small>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-light" id="dcPrev"><i class="bi bi-chevron-left"></i></button>
+                    <button class="btn btn-outline-light" id="dcNext"><i class="bi bi-chevron-right"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal edición/creación -->
+<div class="modal fade" id="dcModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i><span id="dcModalTitle">Editar CAByS</span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="fc_id" />
+                <div class="mb-3">
+                    <label class="form-label">Código CAByS</label>
+                    <input type="text" id="fc_code" class="form-control" maxlength="13" placeholder="9799000000000" />
+                    <small class="form-text">13 dígitos (CAByS Hacienda).</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Descripción</label>
+                    <textarea id="fc_description" class="form-control" rows="2" maxlength="1000"></textarea>
+                </div>
+                <div class="row g-2">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Tarifa de IVA</label>
+                        <select id="fc_taxRate" class="form-select"></select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Tipo de Impuesto</label>
+                        <select id="fc_taxType" class="form-select"></select>
+                    </div>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="fc_isActive" checked />
+                    <label class="form-check-label" for="fc_isActive">Activo</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="dcSaveBtn"><i class="bi bi-check-lg"></i> Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const DC = { api: '@Html.Raw(apiBaseUrl)', token: '@Html.Raw(apiToken)' };
+    let dcPage = 1, dcPageSize = 50, dcTotal = 0;
+    let dcTaxRates = [], dcTaxTypes = [];
+
+    function escapeHtml(s) {
+        return String(s ?? '').replace(/[&<>"']/g, m =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    async function dcFetch(path, options = {}) {
+        const opts = Object.assign({ headers: {} }, options);
+        if (DC.token) opts.headers['Authorization'] = `Bearer ${DC.token}`;
+        if (options.body) opts.headers['Content-Type'] = 'application/json';
+        return fetch(DC.api + path, opts);
+    }
+
+    function boolBadge(v) {
+        return v
+            ? '<span class="badge bg-success badge-flag">Sí</span>'
+            : '<span class="badge bg-secondary badge-flag">No</span>';
+    }
+
+    // Cargar catálogos para los selectores del modal.
+    async function dcLoadCatalogs() {
+        try {
+            const [rRates, rTypes] = await Promise.all([
+                dcFetch('/api/electronicdocumenttaxrate/active'),
+                dcFetch('/api/electronicdocumenttaxtype/active')
+            ]);
+            if (rRates.ok) dcTaxRates = await rRates.json();
+            if (rTypes.ok) dcTaxTypes = await rTypes.json();
+        } catch (e) { console.error('Error cargando catálogos', e); }
+
+        const rateSel = document.getElementById('fc_taxRate');
+        rateSel.innerHTML = dcTaxRates.map(r =>
+            `<option value="${r.id}">${escapeHtml(r.code)} - ${escapeHtml(r.name)}</option>`).join('');
+        const typeSel = document.getElementById('fc_taxType');
+        typeSel.innerHTML = dcTaxTypes.map(t =>
+            `<option value="${t.id}">${escapeHtml(t.code)} - ${escapeHtml(t.description)}</option>`).join('');
+    }
+
+    function rateLabel(id) {
+        const r = dcTaxRates.find(x => x.id === id);
+        return r ? `${r.code} - ${r.name}` : (id ?? '');
+    }
+    function typeLabel(id) {
+        const t = dcTaxTypes.find(x => x.id === id);
+        return t ? `${t.code} - ${t.description}` : (id ?? '');
+    }
+
+    async function loadCabys() {
+        const body = document.getElementById('dcTableBody');
+        body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Cargando...</td></tr>';
+        const search = document.getElementById('dcSearch').value.trim();
+        const onlyActive = document.getElementById('dcOnlyActive').checked;
+        const qs = new URLSearchParams({ page: dcPage, pageSize: dcPageSize, onlyActive });
+        if (search) qs.set('search', search);
+        try {
+            const r = await dcFetch('/api/electronicdocumentcabys?' + qs.toString());
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const data = await r.json();
+            dcTotal = data.total;
+            const rows = data.items || [];
+            if (!rows.length) {
+                body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Sin resultados.</td></tr>';
+            } else {
+                body.innerHTML = rows.map(a => `
+                    <tr>
+                        <td><span class="dc-code">${escapeHtml(a.code)}</span></td>
+                        <td>${escapeHtml(a.description)}</td>
+                        <td>${escapeHtml(a.taxRateCode ? (a.taxRateCode + ' - ' + (a.taxRateName ?? '')) : rateLabel(a.idElectronicDocumentTaxRate))}</td>
+                        <td>${escapeHtml(a.taxTypeCode ? (a.taxTypeCode + ' - ' + (a.taxTypeDescription ?? '')) : typeLabel(a.idElectronicDocumentTaxType))}</td>
+                        <td class="text-center">${boolBadge(a.isActive)}</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-primary" onclick='dcEdit(${JSON.stringify(a).replace(/'/g, "&#39;")})'><i class="bi bi-pencil"></i></button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="dcDelete(${a.id})"><i class="bi bi-trash"></i></button>
+                        </td>
+                    </tr>`).join('');
+            }
+            const from = dcTotal === 0 ? 0 : (dcPage - 1) * dcPageSize + 1;
+            const to = Math.min(dcPage * dcPageSize, dcTotal);
+            document.getElementById('dcInfo').textContent = `Mostrando ${from}-${to} de ${dcTotal}`;
+        } catch (e) {
+            console.error(e);
+            body.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">Error al cargar.</td></tr>';
+        }
+    }
+
+    function dcOpenModal(title) {
+        document.getElementById('dcModalTitle').textContent = title;
+        new bootstrap.Modal(document.getElementById('dcModal')).show();
+    }
+
+    function dcNew() {
+        document.getElementById('fc_id').value = '';
+        document.getElementById('fc_code').value = '';
+        document.getElementById('fc_description').value = '';
+        document.getElementById('fc_taxRate').value = '8';
+        document.getElementById('fc_taxType').value = '1';
+        document.getElementById('fc_isActive').checked = true;
+        document.getElementById('fc_code').disabled = false;
+        dcOpenModal('Nuevo CAByS');
+    }
+
+    function dcEdit(a) {
+        document.getElementById('fc_id').value = a.id;
+        document.getElementById('fc_code').value = a.code;
+        document.getElementById('fc_description').value = a.description ?? '';
+        document.getElementById('fc_taxRate').value = a.idElectronicDocumentTaxRate ?? 8;
+        document.getElementById('fc_taxType').value = a.idElectronicDocumentTaxType ?? 1;
+        document.getElementById('fc_isActive').checked = a.isActive;
+        document.getElementById('fc_code').disabled = false;
+        dcOpenModal('Editar CAByS');
+    }
+
+    async function dcSave() {
+        const id = document.getElementById('fc_id').value;
+        const payload = {
+            code: document.getElementById('fc_code').value.trim(),
+            description: document.getElementById('fc_description').value.trim(),
+            idElectronicDocumentTaxRate: parseInt(document.getElementById('fc_taxRate').value, 10) || 8,
+            idElectronicDocumentTaxType: parseInt(document.getElementById('fc_taxType').value, 10) || 1,
+            isActive: document.getElementById('fc_isActive').checked
+        };
+        if (!payload.code || !payload.description) {
+            alert('Código y descripción son obligatorios.');
+            return;
+        }
+        try {
+            const r = id
+                ? await dcFetch('/api/electronicdocumentcabys/' + id, { method: 'PUT', body: JSON.stringify(payload) })
+                : await dcFetch('/api/electronicdocumentcabys', { method: 'POST', body: JSON.stringify(payload) });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                alert(err.message || 'Error al guardar.');
+                return;
+            }
+            bootstrap.Modal.getInstance(document.getElementById('dcModal')).hide();
+            await loadCabys();
+        } catch (e) { console.error(e); alert('Error de red.'); }
+    }
+
+    async function dcDelete(id) {
+        if (!confirm('¿Eliminar este código CAByS?')) return;
+        try {
+            const r = await dcFetch('/api/electronicdocumentcabys/' + id, { method: 'DELETE' });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                alert(err.message || 'Error al eliminar.');
+                return;
+            }
+            await loadCabys();
+        } catch (e) { console.error(e); alert('Error de red.'); }
+    }
+
+    document.addEventListener('DOMContentLoaded', async function () {
+        ['dcModal'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) document.body.appendChild(el);
+        });
+
+        document.getElementById('dcNewBtn').addEventListener('click', dcNew);
+        document.getElementById('dcSaveBtn').addEventListener('click', dcSave);
+        document.getElementById('dcSearchBtn').addEventListener('click', () => { dcPage = 1; loadCabys(); });
+        document.getElementById('dcSearch').addEventListener('keyup', e => { if (e.key === 'Enter') { dcPage = 1; loadCabys(); } });
+        document.getElementById('dcSearchClear').addEventListener('click', () => { document.getElementById('dcSearch').value = ''; dcPage = 1; loadCabys(); });
+        document.getElementById('dcOnlyActive').addEventListener('change', () => { dcPage = 1; loadCabys(); });
+        document.getElementById('dcPrev').addEventListener('click', () => { if (dcPage > 1) { dcPage--; loadCabys(); } });
+        document.getElementById('dcNext').addEventListener('click', () => { if (dcPage * dcPageSize < dcTotal) { dcPage++; loadCabys(); } });
+
+        await dcLoadCatalogs();
+        loadCabys();
+    });
+</script>
+}

@@ -810,7 +810,7 @@ namespace CMS.UI.Controllers
                             salePrice = item.SalePrice,
                             costPrice = item.CostPrice,
                             taxRate = item.TaxRate,
-                            idUnitOfMeasure = item.IdUnitOfMeasure,
+                            idElectronicDocumentUnitOfMeasure = item.IdElectronicDocumentUnitOfMeasure,
                             idClassification1 = item.IdClassification1,
                             idClassification2 = item.IdClassification2,
                             idClassification3 = item.IdClassification3,
@@ -860,7 +860,7 @@ namespace CMS.UI.Controllers
                                 SalePrice = item.SalePrice,
                                 CostPrice = item.CostPrice,
                                 TaxRate = item.TaxRate,
-                                IdUnitOfMeasure = item.IdUnitOfMeasure,
+                                IdElectronicDocumentUnitOfMeasure = item.IdElectronicDocumentUnitOfMeasure,
                                 IdClassification1 = item.IdClassification1,
                                 IdClassification2 = item.IdClassification2,
                                 IdClassification3 = item.IdClassification3,
@@ -965,7 +965,7 @@ namespace CMS.UI.Controllers
         public int? IdClassification5 { get; set; }
         public int? IdClassification6 { get; set; }
         public string? Brand { get; set; }
-        public int? IdUnitOfMeasure { get; set; }
+        public int? IdElectronicDocumentUnitOfMeasure { get; set; }
         public decimal CostPrice { get; set; }
         public decimal SalePrice { get; set; }
         public decimal TaxRate { get; set; }
@@ -1020,16 +1020,16 @@ namespace CMS.UI.Controllers
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public string? Barcode { get; set; }
-        public int? IdClassification1 { get; set; }
-        public int? IdClassification2 { get; set; }
-        public int? IdClassification3 { get; set; }
-        public int? IdClassification4 { get; set; }
-        public int? IdClassification5 { get; set; }
-        public int? IdClassification6 { get; set; }
-        public string? Brand { get; set; }
-        public int? IdUnitOfMeasure { get; set; }
-        public decimal CostPrice { get; set; }
-        public decimal SalePrice { get; set; }
+        public int? IdClassification1 { get; set; } = 1;
+        public int? IdClassification2 { get; set; } = 2;
+        public int? IdClassification3 { get; set; } = 3;
+        public int? IdClassification4 { get; set; } = 4;
+        public int? IdClassification5 { get; set; } = 5;
+        public int? IdClassification6 { get; set; } = 6;
+        public string? Brand { get; set; } = "Marca A";
+        public int? IdElectronicDocumentUnitOfMeasure { get; set; }
+        public decimal CostPrice { get; set; } = 1;
+        public decimal SalePrice { get; set; } = 1;
         public decimal TaxRate { get; set; }
         public decimal MinStock { get; set; }
         public decimal MaxStock { get; set; }
@@ -1048,7 +1048,7 @@ namespace CMS.UI.Controllers
 
         // Label Item fields
         public string? LabelItem { get; set; }
-        public decimal LabelPrice { get; set; }
+        public decimal LabelPrice { get; set; } = 0;
         public string? LabelItemBarcode { get; set; }
         public bool IsLabelItem { get; set; }
         public bool PrintLabelName { get; set; } = true;
@@ -1215,7 +1215,7 @@ namespace CMS.UI.Controllers
         public decimal SalePrice { get; set; }
         public decimal CostPrice { get; set; }
         public decimal TaxRate { get; set; }
-        public int? IdUnitOfMeasure { get; set; }
+        public int? IdElectronicDocumentUnitOfMeasure { get; set; }
         public int? IdClassification1 { get; set; }
         public int? IdClassification2 { get; set; }
         public int? IdClassification3 { get; set; }
@@ -1247,7 +1247,7 @@ namespace CMS.UI.Controllers
         public decimal SalePrice { get; set; }
         public decimal CostPrice { get; set; }
         public decimal TaxRate { get; set; }
-        public int? IdUnitOfMeasure { get; set; }
+        public int? IdElectronicDocumentUnitOfMeasure { get; set; }
         public int? IdClassification1 { get; set; }
         public int? IdClassification2 { get; set; }
         public int? IdClassification3 { get; set; }

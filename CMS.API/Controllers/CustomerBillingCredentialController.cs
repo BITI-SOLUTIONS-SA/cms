@@ -6,6 +6,8 @@
 // CREADO: 2026-01-24
 // ================================================================================
 
+using CMS.API.Helpers;
+using CMS.Data;
 using CMS.Data.Services;
 using CMS.Entities.Operational;
 using CMS.Shared.DTOs;
@@ -22,33 +24,17 @@ namespace CMS.API.Controllers
     public class CustomerBillingCredentialController : ControllerBase
     {
         private readonly ICompanyDbContextFactory _factory;
-        private readonly GlobalParameterService _globalParameters;
+        private readonly AppDbContext _centralDb;
         private readonly ILogger<CustomerBillingCredentialController> _logger;
-
-        // Menú /Settings/GlobalParameters (cms.admin.menu id_menu=204) y código del parámetro global
-        private const int GlobalParametersMenuId = 204;
-        private const string DefaultEconomicActivityCode = "default_economic_activity";
-        private const string FallbackEconomicActivity = "0000.1";
 
         public CustomerBillingCredentialController(
             ICompanyDbContextFactory factory,
-            GlobalParameterService globalParameters,
+            AppDbContext centralDb,
             ILogger<CustomerBillingCredentialController> logger)
         {
             _factory = factory;
-            _globalParameters = globalParameters;
+            _centralDb = centralDb;
             _logger = logger;
-        }
-
-        /// <summary>
-        /// Devuelve el código de actividad económica por defecto leído del parámetro
-        /// global 'default_economic_activity'. Si no existe, usa el fallback 0000.1.
-        /// </summary>
-        private async Task<string> GetDefaultEconomicActivityAsync(int companyId)
-        {
-            var value = await _globalParameters.GetStringValueAsync(
-                companyId, GlobalParametersMenuId, DefaultEconomicActivityCode, FallbackEconomicActivity);
-            return string.IsNullOrWhiteSpace(value) ? FallbackEconomicActivity : value;
         }
 
         private int GetCompanyId()
@@ -144,12 +130,13 @@ namespace CMS.API.Controllers
                         Identification = x.cred.Identification,
                         IdentificationType = x.cred.IdentificationType,
                         CommercialName = x.cred.CommercialName,
-                        EconomicActivity = x.cred.EconomicActivity,
+                        // EconomicActivity ya NO se guarda en la credencial: se resuelve más abajo
+                        // desde customer_economic_activity (actividad predeterminada del cliente).
                         Email = x.cred.Email,
                         Phone = x.cred.Phone,
                         PhoneCode = x.cred.PhoneCode,
                         CustomerCode = x.cust != null ? x.cust.Code : null,
-                        CustomerType = x.cust != null ? x.cust.CustomerType : null,
+                        IdCustomerType = x.cust != null ? x.cust.IdCustomerType : null,
                         Environment = x.cred.Environment,
                         IsCompanyOwner = x.cred.IsCompanyOwner,
                         IsActive = x.cred.IsActive
@@ -158,6 +145,38 @@ namespace CMS.API.Controllers
                     .ThenBy(x => x.Name)
                     .Take(50)
                     .ToListAsync();
+
+                // Resolver la actividad económica predeterminada de cada emisor desde
+                // {schema}.customer_economic_activity (fuente única tras eliminar la columna).
+                var customerIds = results
+                    .Where(r => r.IdCustomer.HasValue && r.IdCustomer.Value != 0)
+                    .Select(r => r.IdCustomer!.Value)
+                    .Distinct()
+                    .ToList();
+                if (customerIds.Count > 0)
+                {
+                    var defaultActivities = await db.CustomerEconomicActivities.AsNoTracking()
+                        .Where(a => customerIds.Contains(a.IdCustomer) && a.IsActive)
+                        .OrderByDescending(a => a.IsDefault)
+                        .ThenBy(a => a.IdElectronicDocumentEconomicActivity)
+                        .Select(a => new { a.IdCustomer, a.IdElectronicDocumentEconomicActivity })
+                        .ToListAsync();
+                    var byCustomer = defaultActivities
+                        .GroupBy(a => a.IdCustomer)
+                        .ToDictionary(g => g.Key, g => g.First().IdElectronicDocumentEconomicActivity);
+
+                    // Resolver los codes desde el catálogo central (cross-DB) por id.
+                    var activityIds = byCustomer.Values.Where(v => v > 0).Distinct().ToList();
+                    var codeById = await _centralDb.ElectronicDocumentEconomicActivities.AsNoTracking()
+                        .Where(x => activityIds.Contains(x.Id))
+                        .ToDictionaryAsync(x => x.Id, x => x.Code);
+
+                    foreach (var r in results)
+                        if (r.IdCustomer.HasValue
+                            && byCustomer.TryGetValue(r.IdCustomer.Value, out var actId)
+                            && codeById.TryGetValue(actId, out var code))
+                            r.EconomicActivity = code;
+                }
 
                 _logger.LogInformation("SearchIssuers - found {Count} issuers", results.Count);
                 return Ok(results);
@@ -278,6 +297,55 @@ namespace CMS.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Detalle del emisor para la tarjeta resumen de la pantalla de emisión.
+        /// Devuelve nombre, cédula, correo, teléfono y la dirección fiscal ya
+        /// resuelta a texto legible desde el catálogo geográfico central.
+        /// </summary>
+        [HttpGet("{id:int}/emit-detail")]
+        public async Task<ActionResult<PartyEmitDetailDto>> GetEmitDetail(int id)
+        {
+            try
+            {
+                var companyId = GetCompanyId();
+                await using var db = await _factory.CreateDbContextAsync(companyId);
+
+                var credential = await db.CustomerBillingCredentials
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.Id == id);
+
+                if (credential == null)
+                    return NotFound(new { message = $"Credencial {id} no encontrada" });
+
+                var addressText = await HaciendaAddressResolver.BuildAddressTextAsync(
+                    _centralDb,
+                    credential.Province,
+                    credential.Canton,
+                    credential.District,
+                    credential.OtherSigns);
+
+                var dto = new PartyEmitDetailDto
+                {
+                    Id = credential.Id,
+                    Name = credential.Name,
+                    CommercialName = credential.CommercialName,
+                    IdentificationType = credential.IdentificationType,
+                    Identification = credential.Identification,
+                    AddressText = addressText,
+                    Email = credential.Email,
+                    PhoneCode = credential.PhoneCode,
+                    Phone = credential.Phone
+                };
+
+                return Ok(dto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener detalle de emisor {Id}", id);
+                return StatusCode(500, new { message = "Error al obtener detalle de emisor", error = ex.Message });
+            }
+        }
+
         /// <summary>Crea una nueva credencial de facturación.</summary>
         [HttpPost]
         public async Task<ActionResult<CustomerBillingCredential>> Create([FromBody] CustomerBillingCredential credential)
@@ -305,10 +373,6 @@ namespace CMS.API.Controllers
                     if (hasOwner)
                         return BadRequest(new { message = "Ya existe otra credencial marcada como company owner activa" });
                 }
-
-                // Actividad económica obligatoria: si no se indica, aplicar default global (0000.1)
-                if (string.IsNullOrWhiteSpace(credential.EconomicActivity))
-                    credential.EconomicActivity = await GetDefaultEconomicActivityAsync(companyId);
 
                 // Régimen especial: si está marcado, el código de régimen es obligatorio
                 if (credential.IsSpecialRegime && string.IsNullOrWhiteSpace(credential.SpecialRegimeCode))
@@ -389,9 +453,8 @@ namespace CMS.API.Controllers
                 existing.IdentificationType = credential.IdentificationType;
                 existing.Identification = credential.Identification;
                 existing.ForeignIdentification = credential.ForeignIdentification;
-                existing.EconomicActivity = string.IsNullOrWhiteSpace(credential.EconomicActivity)
-                    ? await GetDefaultEconomicActivityAsync(companyId)
-                    : credential.EconomicActivity;
+                // EconomicActivity ya NO se persiste en la credencial (columna eliminada):
+                // la actividad económica se administra en customer_economic_activity.
                 existing.Province = credential.Province;
                 existing.Canton = credential.Canton;
                 existing.District = credential.District;

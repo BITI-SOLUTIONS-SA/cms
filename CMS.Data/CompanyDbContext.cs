@@ -255,10 +255,25 @@ namespace CMS.Data
         public DbSet<Customer> Customers { get; set; } = null!;
 
         /// <summary>
-        /// Maestro de proveedores (Purchasing/AP).
-        /// Datos operacionales y comerciales de proveedores.
+        /// Actividades económicas por cliente (facturación electrónica).
+        /// Fuente de la actividad económica al emitir factura. Cada cliente debe
+        /// tener al menos un registro (uno predeterminado).
         /// </summary>
-        public DbSet<Supplier> Suppliers { get; set; } = null!;
+        public DbSet<CustomerEconomicActivity> CustomerEconomicActivities { get; set; } = null!;
+
+        // ===== PURCHASING / ACCOUNTS PAYABLE =====
+
+        /// <summary>
+        /// Maestro de proveedores (Purchasing/AP).
+        /// Proveedores a los que compramos bienes/servicios.
+        /// </summary>
+        public DbSet<Vendor> Vendors { get; set; } = null!;
+
+        /// <summary>
+        /// Actividades económicas por proveedor (vendor).
+        /// Relación con el catálogo central de actividades económicas.
+        /// </summary>
+        public DbSet<VendorEconomicActivity> VendorEconomicActivities { get; set; } = null!;
 
         // ===== FACTURACIÓN ELECTRÓNICA CR v4.4 (HACIENDA-CORE) =====
 
@@ -268,8 +283,8 @@ namespace CMS.Data
         /// </summary>
         public DbSet<CustomerBillingCredential> CustomerBillingCredentials { get; set; } = null!;
 
-        /// <summary>Consecutivos fiscales por emisor/sucursal/terminal/tipo.</summary>
-        public DbSet<FiscalConsecutive> FiscalConsecutives { get; set; } = null!;
+        /// <summary>Consecutivos fiscales por emisor/sucursal/terminal/tipo/versión.</summary>
+        public DbSet<ElectronicDocumentConsecutive> ElectronicDocumentConsecutives { get; set; } = null!;
 
         /// <summary>Comprobantes electrónicos (cabecera).</summary>
         public DbSet<ElectronicDocument> ElectronicDocuments { get; set; } = null!;
@@ -280,8 +295,14 @@ namespace CMS.Data
         /// <summary>Impuestos por línea de comprobante.</summary>
         public DbSet<ElectronicDocumentTax> ElectronicDocumentTaxes { get; set; } = null!;
 
+        /// <summary>Descuentos individuales por línea de comprobante.</summary>
+        public DbSet<ElectronicDocumentDiscountLine> ElectronicDocumentDiscountLines { get; set; } = null!;
+
         /// <summary>Referencias a documentos previos (NC/ND/REP).</summary>
         public DbSet<ElectronicDocumentReference> ElectronicDocumentReferences { get; set; } = null!;
+
+        /// <summary>Otros cargos por documento (nodo &lt;OtrosCargos&gt; v4.4).</summary>
+        public DbSet<ElectronicDocumentOtherChargeLine> ElectronicDocumentOtherChargeLines { get; set; } = null!;
 
         /// <summary>Cola de reintentos para resiliencia ante Hacienda.</summary>
         public DbSet<EInvoiceRetryQueue> EInvoiceRetryQueue { get; set; } = null!;
@@ -306,7 +327,7 @@ namespace CMS.Data
                 entity.HasIndex(e => e.Barcode);
                 entity.HasIndex(e => e.IdClassification1);
                 entity.HasIndex(e => e.IdClassification2);
-                entity.HasIndex(e => e.IdUnitOfMeasure);
+                entity.HasIndex(e => e.IdElectronicDocumentUnitOfMeasure);
                 entity.HasIndex(e => e.IsActive);
             });
 
@@ -767,7 +788,7 @@ namespace CMS.Data
                 entity.HasIndex(e => e.Email).HasDatabaseName($"ix_{_schema}_customer_email");
                 entity.HasIndex(e => e.IsActive).HasDatabaseName($"ix_{_schema}_customer_active");
                 entity.HasIndex(e => e.IdParentCustomer).HasDatabaseName($"ix_{_schema}_customer_parent");
-                entity.HasIndex(e => e.CustomerType).HasDatabaseName($"ix_{_schema}_customer_type");
+                entity.HasIndex(e => e.IdCustomerType).HasDatabaseName($"ix_{_schema}_customer_type");
 
                 // Self-referencing relationship (parent/child customers)
                 entity.HasOne(e => e.ParentCustomer)
@@ -777,24 +798,45 @@ namespace CMS.Data
                       .IsRequired(false);
             });
 
-            modelBuilder.Entity<Supplier>(entity =>
+            modelBuilder.Entity<Vendor>(entity =>
             {
-                entity.ToTable("supplier", _schema);
+                entity.ToTable("vendor", _schema);
                 entity.HasKey(e => e.Id);
-                entity.Property(e => e.Id).HasColumnName("id_supplier");
-                entity.HasIndex(e => e.Code).IsUnique().HasDatabaseName($"uix_{_schema}_supplier_code");
-                entity.HasIndex(e => e.Identification).HasDatabaseName($"ix_{_schema}_supplier_identification");
-                entity.HasIndex(e => e.Email).HasDatabaseName($"ix_{_schema}_supplier_email");
-                entity.HasIndex(e => e.IsActive).HasDatabaseName($"ix_{_schema}_supplier_active");
-                entity.HasIndex(e => e.IdParentSupplier).HasDatabaseName($"ix_{_schema}_supplier_parent");
-                entity.HasIndex(e => e.SupplierType).HasDatabaseName($"ix_{_schema}_supplier_type");
+                entity.Property(e => e.Id).HasColumnName("id_vendor");
+                entity.HasIndex(e => e.Code).IsUnique().HasDatabaseName($"uix_{_schema}_vendor_code");
+                entity.HasIndex(e => e.Identification).HasDatabaseName($"ix_{_schema}_vendor_identification");
+                entity.HasIndex(e => e.Email).HasDatabaseName($"ix_{_schema}_vendor_email");
+                entity.HasIndex(e => e.IsActive).HasDatabaseName($"ix_{_schema}_vendor_active");
+                entity.HasIndex(e => e.IdParentVendor).HasDatabaseName($"ix_{_schema}_vendor_parent");
+                entity.HasIndex(e => e.VendorType).HasDatabaseName($"ix_{_schema}_vendor_type");
 
-                // Self-referencing relationship (parent/child suppliers)
-                entity.HasOne(e => e.ParentSupplier)
-                      .WithMany(e => e.ChildSuppliers)
-                      .HasForeignKey(e => e.IdParentSupplier)
+                // Self-referencing relationship (parent/child vendors)
+                entity.HasOne(e => e.ParentVendor)
+                      .WithMany(e => e.ChildVendors)
+                      .HasForeignKey(e => e.IdParentVendor)
                       .OnDelete(DeleteBehavior.Restrict)
                       .IsRequired(false);
+            });
+
+            modelBuilder.Entity<VendorEconomicActivity>(entity =>
+            {
+                entity.ToTable("vendor_economic_activity", _schema);
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).HasColumnName("id_vendor_economic_activity");
+
+                entity.HasIndex(e => e.IdVendor).HasDatabaseName($"ix_{_schema}_vend_econ_act_vendor");
+                entity.HasIndex(e => e.IdElectronicDocumentEconomicActivity).HasDatabaseName($"ix_{_schema}_vend_econ_act_edea");
+
+                // Un único registro predeterminado por vendor
+                entity.HasIndex(e => e.IdVendor)
+                      .IsUnique()
+                      .HasFilter("is_default = true")
+                      .HasDatabaseName($"uix_{_schema}_vend_econ_act_default");
+
+                entity.HasOne(e => e.Vendor)
+                      .WithMany()
+                      .HasForeignKey(e => e.IdVendor)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<CustomerBillingCredential>(entity =>

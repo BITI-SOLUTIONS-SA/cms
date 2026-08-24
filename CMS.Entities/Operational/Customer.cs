@@ -41,22 +41,21 @@ namespace CMS.Entities.Operational
         public string? CommercialName { get; set; }
 
         /// <summary>
-        /// Tipo de cliente.
-        /// Valores: 'Retail' (minorista), 'Wholesale' (mayorista), 'Corporate' (corporativo)
+        /// Tipo de cliente (referencia lógica cross-DB).
+        /// FK lógica a cms.admin.customer_type.id_customer_type.
+        /// Valores del catálogo: Issuer, Receptor, Issuer-Receptor, Corporate, Retail, Wholesale, Government.
         /// </summary>
-        [MaxLength(20)]
-        [Column("customer_type")]
-        public string? CustomerType { get; set; } = "Retail";
+        [Column("id_customer_type")]
+        public int? IdCustomerType { get; set; }
 
         // ===== IDENTIFICACIÓN FISCAL =====
 
         /// <summary>
-        /// Tipo de identificación Hacienda CR.
-        /// 01=Física, 02=Jurídica, 03=DIMEX, 04=NITE, 05=Extranjero
+        /// Tipo de identificación Hacienda CR (referencia lógica cross-DB).
+        /// FK lógica a cms.admin.electronic_document_identification_type.
         /// </summary>
-        [MaxLength(2)]
-        [Column("identification_type")]
-        public string? IdentificationType { get; set; }
+        [Column("id_electronic_document_identification_type")]
+        public int? IdElectronicDocumentIdentificationType { get; set; }
 
         /// <summary>Número de identificación/cédula.</summary>
         [MaxLength(20)]
@@ -195,6 +194,55 @@ namespace CMS.Entities.Operational
         [MaxLength(500)]
         [Column("blocked_reason")]
         public string? BlockedReason { get; set; }
+
+        // ===== EXONERACIÓN (mapeo directo al nodo <Exoneracion> de la FE v4.4) =====
+
+        /// <summary>Indica si el cliente tiene exoneración de IVA vigente (usa los campos Exon*).</summary>
+        [Column("is_exonerated")]
+        public bool IsExonerated { get; set; }
+
+        /// <summary>XML &lt;TipoDocumentoEX1&gt;: código del tipo de documento de exoneración.</summary>
+        [MaxLength(2)]
+        [Column("exon_document_type")]
+        public string? ExonDocumentType { get; set; }
+
+        /// <summary>XML &lt;TipoDocumentoOTRO&gt;: descripción cuando ExonDocumentType = 99.</summary>
+        [MaxLength(100)]
+        [Column("exon_document_type_other")]
+        public string? ExonDocumentTypeOther { get; set; }
+
+        /// <summary>XML &lt;NumeroDocumento&gt;: número/autorización de la exoneración (minLength 3).</summary>
+        [MaxLength(40)]
+        [Column("exon_document_number")]
+        public string? ExonDocumentNumber { get; set; }
+
+        /// <summary>XML &lt;Articulo&gt;: número de artículo que establece la exoneración.</summary>
+        [MaxLength(10)]
+        [Column("exon_article")]
+        public string? ExonArticle { get; set; }
+
+        /// <summary>XML &lt;Inciso&gt;: número de inciso que establece la exoneración.</summary>
+        [MaxLength(10)]
+        [Column("exon_subsection")]
+        public string? ExonSubsection { get; set; }
+
+        /// <summary>XML &lt;NombreInstitucion&gt;: código de la institución que emitió la exoneración.</summary>
+        [MaxLength(2)]
+        [Column("exon_institution_code")]
+        public string? ExonInstitutionCode { get; set; }
+
+        /// <summary>XML &lt;NombreInstitucionOtros&gt;: descripción cuando ExonInstitutionCode = 99.</summary>
+        [MaxLength(160)]
+        [Column("exon_institution_other")]
+        public string? ExonInstitutionOther { get; set; }
+
+        /// <summary>XML &lt;FechaEmisionEX&gt;: fecha de emisión del documento de exoneración.</summary>
+        [Column("exon_issue_date")]
+        public DateTime? ExonIssueDate { get; set; }
+
+        /// <summary>XML &lt;TarifaExonerada&gt;: porcentaje de tarifa exonerada (ej: 13.00).</summary>
+        [Column("exon_tariff_percent")]
+        public decimal? ExonTariffPercent { get; set; }
 
         // ===== AUDITORÍA =====
 

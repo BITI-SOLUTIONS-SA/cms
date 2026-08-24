@@ -5,7 +5,7 @@
 //              en la BD de cada compañía ({schema}.employee).
 //              Departamento y JobPosition son catálogos por compañía.
 //              Vínculo opcional a usuario del sistema (FK lógica cross-DB).
-//              Gender, TypeId y Currency son catálogos centrales (admin.*).
+//              Gender, tipo de identificación y Currency son catálogos centrales (admin.*).
 // AUTOR: EAMR, BITI SOLUTIONS S.A
 // CREADO: 2026-07-04
 // ================================================================================
@@ -122,7 +122,7 @@ namespace CMS.API.Controllers
                     e.SecondLastName,
                     e.FullName,
                     e.IdNumber,
-                    e.IdTypeId,
+                    e.IdElectronicDocumentIdentificationType,
                     e.BirthDate,
                     e.Gender,
                     e.Phone,
@@ -186,7 +186,7 @@ namespace CMS.API.Controllers
                 return Ok(new
                 {
                     emp.Id, emp.Code, emp.FirstName, emp.SecondName, emp.LastName, emp.SecondLastName,
-                    emp.FullName, emp.IdNumber, emp.IdTypeId, emp.BirthDate, emp.Gender,
+                    emp.FullName, emp.IdNumber, emp.IdElectronicDocumentIdentificationType, emp.BirthDate, emp.Gender,
                     emp.Phone, emp.Mobile, emp.Email, emp.IdLocation,
                     emp.IdJobPosition,
                     emp.EmploymentType, emp.HireDate, emp.TerminationDate,
@@ -294,7 +294,7 @@ namespace CMS.API.Controllers
                 emp.SecondLastName          = dto.SecondLastName.Trim();
                 emp.FullName                = $"{emp.FirstName}{(string.IsNullOrWhiteSpace(emp.SecondName) ? "" : " " + emp.SecondName)} {emp.LastName}{(string.IsNullOrWhiteSpace(emp.SecondLastName) ? "" : " " + emp.SecondLastName)}".Trim();
                 emp.IdNumber                = dto.IdNumber.Trim();
-                emp.IdTypeId                = dto.IdTypeId;
+                emp.IdElectronicDocumentIdentificationType = dto.IdElectronicDocumentIdentificationType;
                 emp.BirthDate               = dto.BirthDate;
                 emp.Gender                  = dto.Gender;
                 emp.Phone                   = dto.Phone?.Trim();
@@ -624,23 +624,24 @@ namespace CMS.API.Controllers
         }
 
         // ============================================================
-        // GET /api/employees/type-ids — Catálogo de tipos de ID (admin.type_id)
+        // GET /api/employees/type-ids — Catálogo de tipos de identificación
+        //   (admin.electronic_document_identification_type)
         // ============================================================
         [HttpGet("type-ids")]
         public async Task<IActionResult> GetTypeIds()
         {
             try
             {
-                var typeIds = await _adminDb.TypeIds
-                    .Where(t => t.IS_ACTIVE)
-                    .OrderBy(t => t.SORT_ORDER)
+                var typeIds = await _adminDb.ElectronicDocumentIdentificationTypes
+                    .Where(t => t.IsActive)
+                    .OrderBy(t => t.SortOrder)
                     .Select(t => new
                     {
-                        Id              = t.ID_TYPE_ID,
-                        Description     = t.DESCRIPTION,
-                        NumberChars     = t.NUMBER_CHARACTERS,
-                        AllowLetters    = t.ALLOW_LETTERS,
-                        FormatValidation = t.FORMAT_VALIDATION
+                        Id               = t.Id,
+                        Code             = t.Code,
+                        Description      = t.Description,
+                        NumberChars      = t.Length,
+                        FormatValidation = t.RegexPattern
                     })
                     .ToListAsync();
 

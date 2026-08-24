@@ -42,7 +42,6 @@ namespace CMS.Data
         public DbSet<GeographicDivision3> GeographicDivisions3 { get; set; }
         public DbSet<GeographicDivision4> GeographicDivisions4 { get; set; }
         public DbSet<Gender> Genders { get; set; }
-        public DbSet<TypeId> TypeIds { get; set; }
 
         // ===== TABLAS NUEVAS: LICENCIAMIENTO =====
         public DbSet<LicensePlan> LicensePlans { get; set; }
@@ -84,6 +83,109 @@ namespace CMS.Data
         /// Tipos de bodega - Tabla CENTRAL compartida por todas las compañías
         /// </summary>
         public DbSet<WarehouseType> WarehouseTypes { get; set; }
+
+        /// <summary>
+        /// Catálogo parametrizable de tipos de documento electrónico (Hacienda CR v4.4).
+        /// Tabla CENTRAL admin.electronic_document_type compartida por todas las compañías.
+        /// </summary>
+        public DbSet<CMS.Entities.EInvoice.ElectronicDocumentTypeCatalog> ElectronicDocumentTypes { get; set; }
+
+        /// <summary>
+        /// Catálogo central de actividades económicas de Hacienda CR (CodigoActividad).
+        /// Tabla CENTRAL admin.electronic_document_economic_activity compartida por todas las compañías.
+        /// </summary>
+        public DbSet<CMS.Entities.EInvoice.ElectronicDocumentEconomicActivity> ElectronicDocumentEconomicActivities { get; set; }
+
+        /// <summary>
+        /// Tabla CENTRAL admin.electronic_document_sales_conditions compartida por todas las compañías.
+        /// Catálogo de condiciones de venta (CondicionVenta Hacienda CR v4.4).
+        /// </summary>
+        public DbSet<CMS.Entities.EInvoice.ElectronicDocumentSalesCondition> ElectronicDocumentSalesConditions { get; set; }
+
+        /// <summary>
+        /// Tabla CENTRAL admin.electronic_document_identification_type compartida por todas las compañías.
+        /// Catálogo de tipos de identificación (TipoIdentificacion Hacienda CR v4.4).
+        /// </summary>
+        public DbSet<CMS.Entities.EInvoice.ElectronicDocumentIdentificationType> ElectronicDocumentIdentificationTypes { get; set; }
+
+        /// <summary>
+        /// Tabla CENTRAL admin.customer_type compartida por todas las compañías.
+        /// Catálogo de tipos de cliente (reemplaza el string customer_type de sinai.customer).
+        /// </summary>
+        public DbSet<CMS.Entities.EInvoice.CustomerType> CustomerTypes { get; set; }
+
+        /// <summary>
+        /// Tabla CENTRAL admin.electronic_document_payment_methods compartida por todas las compañías.
+        /// Catálogo de medios de pago (MedioPago Hacienda CR v4.4).
+        /// </summary>
+        public DbSet<CMS.Entities.EInvoice.ElectronicDocumentPaymentMethod> ElectronicDocumentPaymentMethods { get; set; }
+        public DbSet<CMS.Entities.EInvoice.ElectronicDocumentDiscount> ElectronicDocumentDiscounts { get; set; }
+
+        /// <summary>
+        /// Catálogo de tipos de impuesto (CodigoImpuesto Hacienda CR v4.4).
+        /// </summary>
+        public DbSet<CMS.Entities.EInvoice.ElectronicDocumentTaxType> ElectronicDocumentTaxTypes { get; set; }
+
+        /// <summary>
+        /// Catálogo de códigos de tarifa del IVA (CodigoTarifa Hacienda CR v4.4).
+        /// Tabla CENTRAL admin.electronic_document_tax_rate.
+        /// </summary>
+        public DbSet<CMS.Entities.EInvoice.ElectronicDocumentTaxRate> ElectronicDocumentTaxRates { get; set; }
+
+        /// <summary>
+        /// Catálogo CAByS para facturación electrónica con relaciones a tarifa y tipo de impuesto.
+        /// Tabla CENTRAL admin.electronic_document_cabys.
+        /// </summary>
+        public DbSet<CMS.Entities.EInvoice.ElectronicDocumentCabys> ElectronicDocumentCabys { get; set; }
+
+        /// <summary>
+        /// Catálogo de códigos de unidad de medida (CodigoUnidadMedida Hacienda CR v4.4).
+        /// Tabla CENTRAL admin.electronic_document_unit_of_measure.
+        /// </summary>
+        public DbSet<CMS.Entities.EInvoice.ElectronicDocumentUnitOfMeasure> ElectronicDocumentUnitsOfMeasure { get; set; }
+
+        /// <summary>
+        /// Catálogo de tipos de documento de exoneración o de autorización
+        /// (TipoDocumentoEX Hacienda CR v4.4).
+        /// Tabla CENTRAL admin.electronic_document_exemption_authorization_type.
+        /// </summary>
+        public DbSet<CMS.Entities.EInvoice.ElectronicDocumentExemptionAuthorizationType> ElectronicDocumentExemptionAuthorizationTypes { get; set; }
+
+        /// <summary>
+        /// Catálogo central de "Nombre de institución o dependencia que emitió la exoneración".
+        /// Tabla CENTRAL admin.electronic_document_institution_department.
+        /// </summary>
+        public DbSet<CMS.Entities.EInvoice.ElectronicDocumentInstitutionDepartment> ElectronicDocumentInstitutionDepartments { get; set; }
+
+        /// <summary>
+        /// Catálogo de versiones del esquema de documentos electrónicos (Hacienda CR).
+        /// Tabla CENTRAL admin.electronic_document_version. Solo un registro es la versión vigente.
+        /// </summary>
+        public DbSet<CMS.Entities.EInvoice.ElectronicDocumentVersion> ElectronicDocumentVersions { get; set; }
+
+        /// <summary>
+        /// Catálogo central de "Otros cargos" (OtroCargo Hacienda CR v4.4).
+        /// Tabla CENTRAL admin.electronic_document_other_charges.
+        /// </summary>
+        public DbSet<CMS.Entities.EInvoice.ElectronicDocumentOtherCharge> ElectronicDocumentOtherCharges { get; set; }
+
+        /// <summary>
+        /// Catálogo central de "Tipo documento de referencia" (InformacionReferencia Hacienda CR v4.4).
+        /// Tabla CENTRAL admin.electronic_document_reference_type.
+        /// </summary>
+        public DbSet<CMS.Entities.EInvoice.ElectronicDocumentReferenceType> ElectronicDocumentReferenceTypes { get; set; }
+
+        /// <summary>
+        /// Relación CAByS ↔ Tipo de impuesto permitido.
+        /// Tabla CENTRAL admin.electronic_document_cabys_tax.
+        /// </summary>
+        public DbSet<CMS.Entities.EInvoice.ElectronicDocumentCabysTax> ElectronicDocumentCabysTaxes { get; set; }
+
+        /// <summary>
+        /// Relación CAByS ↔ Naturaleza de descuento permitida.
+        /// Tabla CENTRAL admin.electronic_document_cabys_discount.
+        /// </summary>
+        public DbSet<CMS.Entities.EInvoice.ElectronicDocumentCabysDiscount> ElectronicDocumentCabysDiscounts { get; set; }
 
         /// <summary>
         /// Tipos de localización - Tabla CENTRAL compartida por todas las compañías (admin.location_type)
@@ -263,13 +365,6 @@ namespace CMS.Data
                 entity.HasIndex(e => e.GENDER_CODE).IsUnique().HasDatabaseName("uix_admin_gender_code");
             });
 
-            modelBuilder.Entity<TypeId>(entity =>
-            {
-                entity.HasKey(e => e.ID_TYPE_ID);
-                entity.Property(e => e.IS_ACTIVE).HasDefaultValue(true);
-                entity.Property(e => e.SORT_ORDER).HasDefaultValue(0);
-            });
-
             modelBuilder.Entity<DataTranslation>(entity =>
             {
                 entity.HasKey(e => e.ID_TRANSLATION);
@@ -426,7 +521,7 @@ namespace CMS.Data
                 entity.Property(e => e.ID).HasColumnName("id_company");
                 entity.Property(e => e.ParentCompanyId).HasColumnName("id_company_parent");
                 entity.Property(e => e.IsTenant).HasColumnName("is_tenant");
-                entity.Property(e => e.TypeIdId).HasColumnName("id_type_id");
+                entity.Property(e => e.IdElectronicDocumentIdentificationType).HasColumnName("id_electronic_document_identification_type");
                 entity.Property(e => e.IdCountry).HasColumnName("id_country");
                 entity.Property(e => e.IdSubscriptionStatus).HasColumnName("id_subscription_status");
                 entity.Property(e => e.COMPANY_SCHEMA).HasColumnName("company_schema");
@@ -501,9 +596,9 @@ namespace CMS.Data
                     .OnDelete(DeleteBehavior.Restrict)
                     .IsRequired(false);
 
-                entity.HasOne(e => e.TypeId)
-                    .WithMany(t => t.Companies)
-                    .HasForeignKey(e => e.TypeIdId)
+                entity.HasOne(e => e.IdentificationType)
+                    .WithMany()
+                    .HasForeignKey(e => e.IdElectronicDocumentIdentificationType)
                     .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasOne(e => e.Country)

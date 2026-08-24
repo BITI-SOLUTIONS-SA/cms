@@ -495,7 +495,7 @@ function renderMaintenanceTable(records) {
                 ${!m.nextServiceDate && !m.nextServiceKm ? '—' : ''}
             </td>
             <td class="text-end">${m.cost != null ? `${m.currency || 'USD'} ${flFmt(m.cost, 2)}` : '—'}</td>
-            <td style="font-size:.8rem;color:var(--fl-muted);">${m.supplierName || '—'}</td>
+            <td style="font-size:.8rem;color:var(--fl-muted);">${m.vendorName || '—'}</td>
             <td class="text-center" style="white-space:nowrap;">
                 <button class="btn btn-sm btn-outline-primary" style="padding:.15rem .4rem;font-size:.72rem;" onclick="openMaintModal(${m.idTransportUnit}, ${m.id})" title="Editar">
                     <i class="bi bi-pencil"></i>
@@ -525,7 +525,7 @@ function openMaintModal(unitId, maintId = null) {
             document.getElementById('fldMaintNextKm').value       = m.nextServiceKm ?? '';
             document.getElementById('fldMaintCost').value         = m.cost ?? '';
             document.getElementById('fldMaintCurrency').value     = m.currency || 'USD';
-            document.getElementById('fldMaintSupplier').value     = m.supplierName || '';
+            document.getElementById('fldMaintVendor').value     = m.vendorName || '';
             document.getElementById('fldMaintInvoice').value      = m.invoiceNumber || '';
             document.getElementById('fldMaintOutOfService').checked = !!m.vehicleOutOfService;
             document.getElementById('fldMaintNotes').value        = m.notes || '';
@@ -542,7 +542,7 @@ function openMaintModal(unitId, maintId = null) {
 
 function resetMaintForm() {
     ['fldMaintId','fldMaintKm','fldMaintDesc','fldMaintNextDate','fldMaintNextKm',
-     'fldMaintCost','fldMaintSupplier','fldMaintInvoice','fldMaintNotes'].forEach(id => {
+     'fldMaintCost','fldMaintVendor','fldMaintInvoice','fldMaintNotes'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
@@ -568,7 +568,7 @@ async function saveMaintenance() {
         nextServiceKm:       gn('fldMaintNextKm'),
         cost:                gn('fldMaintCost'),
         currency:            document.getElementById('fldMaintCurrency').value,
-        supplierName:        gv('fldMaintSupplier'),
+        vendorName:          gv('fldMaintVendor'),
         invoiceNumber:       gv('fldMaintInvoice'),
         vehicleOutOfService: document.getElementById('fldMaintOutOfService').checked,
         notes:               gv('fldMaintNotes'),

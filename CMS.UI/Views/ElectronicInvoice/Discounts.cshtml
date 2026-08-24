@@ -1,0 +1,267 @@
+@{
+    ViewData["Title"] = "Naturaleza de Descuentos";
+    var apiBaseUrl = ViewBag.ApiBaseUrl as string ?? "";
+    var apiToken = ViewBag.ApiToken as string ?? "";
+}
+
+<style>
+    .dcc-card { background: #16213e; border: 1px solid #23305c; border-radius: .75rem; }
+    .dcc-table { color: #1e293b; background-color: #ffffff; }
+    .dcc-table thead th { color: #334155; border-color: #cbd5e1; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; background-color: #f1f5f9; }
+    .dcc-table td, .dcc-table th { border-color: #cbd5e1; vertical-align: middle; }
+    .dcc-table td { color: #1e293b; }
+    .dcc-code { font-family: monospace; font-weight: 700; color: #1d4ed8; }
+    .badge-flag { font-size: .68rem; }
+    small, .form-text, small.text-muted, .text-muted small { color: #cbd5e1 !important; }
+    .modal-content { background: #16213e; color: #e0e0e0; border: 1px solid #23305c; }
+    .modal-header, .modal-footer { border-color: #23305c; }
+    .form-check-label { color: #e0e0e0; }
+    .dcc-table td small, .dcc-table .text-muted { color: #475569 !important; }
+</style>
+
+<div class="container-fluid py-3 text-light">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-percent me-2"></i>Naturaleza de Descuentos</h4>
+        <div>
+            <a asp-action="PaymentMethods" class="btn btn-outline-light btn-sm"><i class="bi bi-credit-card"></i> Medios de Pago</a>
+            <a asp-action="SalesConditions" class="btn btn-outline-light btn-sm"><i class="bi bi-cash-coin"></i> Condiciones de Venta</a>
+            <button id="dccNewBtn" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nueva naturaleza</button>
+        </div>
+    </div>
+
+    <div class="card dcc-card mb-3">
+        <div class="card-body">
+            <p class="text-light mb-3">
+                Catálogo central de <strong>naturalezas de descuento del Ministerio de Hacienda</strong>
+                (<code>NaturalezaDescuento</code> / <code>CodigoDescuento</code>, formato <code>00</code>). Es compartido por todas las compañías.
+                Los códigos marcados como <strong>activos</strong> aparecen en el selector de descuento de las líneas
+                en la pantalla de emisión <em>"/ElectronicInvoice/Emit"</em>.
+            </p>
+
+            <div class="row g-2 mb-3 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label text-light">Buscar (código o descripción)</label>
+                    <div class="input-group input-group-sm">
+                        <input type="text" id="dccSearch" class="form-control" placeholder="Ej: Volumen..." />
+                        <button class="btn btn-outline-info" type="button" id="dccSearchBtn"><i class="bi bi-search"></i></button>
+                        <button class="btn btn-outline-secondary" type="button" id="dccSearchClear" title="Limpiar"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" id="dccOnlyActive" />
+                        <label class="form-check-label" for="dccOnlyActive">Solo activos</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table dcc-table align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width: 90px;">Código</th>
+                            <th>Descripción</th>
+                            <th class="text-center" style="width: 110px;">Orden</th>
+                            <th class="text-center" style="width: 90px;">Activo</th>
+                            <th class="text-end" style="width: 130px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dccTableBody">
+                        <tr><td colspan="5" class="text-center text-muted py-4">Cargando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center">
+                <small class="text-light" id="dccInfo"></small>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-light" id="dccPrev"><i class="bi bi-chevron-left"></i></button>
+                    <button class="btn btn-outline-light" id="dccNext"><i class="bi bi-chevron-right"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal edición/creación -->
+<div class="modal fade" id="dccModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i><span id="dccModalTitle">Editar naturaleza</span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="f_id" />
+                <div class="row g-2">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Código</label>
+                        <input type="text" id="f_code" class="form-control" maxlength="2" placeholder="00" />
+                        <small class="form-text">Formato Hacienda: 00</small>
+                    </div>
+                    <div class="col-md-8 mb-3">
+                        <label class="form-label">Orden</label>
+                        <input type="number" id="f_sortOrder" class="form-control" min="0" max="999" value="0" />
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Descripción</label>
+                    <textarea id="f_description" class="form-control" rows="2" maxlength="200"></textarea>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="f_isActive" checked />
+                    <label class="form-check-label" for="f_isActive">Activo</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="dccSaveBtn"><i class="bi bi-check-lg"></i> Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const DCC = { api: '@Html.Raw(apiBaseUrl)', token: '@Html.Raw(apiToken)' };
+    let dccPage = 1, dccPageSize = 50, dccTotal = 0;
+
+    function escapeHtml(s) {
+        return String(s ?? '').replace(/[&<>"']/g, m =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    async function dccFetch(path, options = {}) {
+        const opts = Object.assign({ headers: {} }, options);
+        if (DCC.token) opts.headers['Authorization'] = `Bearer ${DCC.token}`;
+        if (options.body) opts.headers['Content-Type'] = 'application/json';
+        return fetch(DCC.api + path, opts);
+    }
+
+    function boolBadge(v) {
+        return v
+            ? '<span class="badge bg-success badge-flag">Sí</span>'
+            : '<span class="badge bg-secondary badge-flag">No</span>';
+    }
+
+    async function loadDiscounts() {
+        const body = document.getElementById('dccTableBody');
+        body.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Cargando...</td></tr>';
+        const search = document.getElementById('dccSearch').value.trim();
+        const onlyActive = document.getElementById('dccOnlyActive').checked;
+        const qs = new URLSearchParams({ page: dccPage, pageSize: dccPageSize, onlyActive });
+        if (search) qs.set('search', search);
+        try {
+            const r = await dccFetch('/api/electronicdocumentdiscount?' + qs.toString());
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const data = await r.json();
+            dccTotal = data.total;
+            const rows = data.items || [];
+            if (!rows.length) {
+                body.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Sin resultados.</td></tr>';
+            } else {
+                body.innerHTML = rows.map(a => `
+                    <tr>
+                        <td><span class="dcc-code">${escapeHtml(a.code)}</span></td>
+                        <td>${escapeHtml(a.description)}</td>
+                        <td class="text-center">${a.sortOrder ?? 0}</td>
+                        <td class="text-center">${boolBadge(a.isActive)}</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-primary" onclick='dccEdit(${JSON.stringify(a).replace(/'/g, "&#39;")})'><i class="bi bi-pencil"></i></button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="dccDelete(${a.id})"><i class="bi bi-trash"></i></button>
+                        </td>
+                    </tr>`).join('');
+            }
+            const from = dccTotal === 0 ? 0 : (dccPage - 1) * dccPageSize + 1;
+            const to = Math.min(dccPage * dccPageSize, dccTotal);
+            document.getElementById('dccInfo').textContent = `Mostrando ${from}-${to} de ${dccTotal}`;
+        } catch (e) {
+            console.error(e);
+            body.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">Error al cargar.</td></tr>';
+        }
+    }
+
+    function dccOpenModal(title) {
+        document.getElementById('dccModalTitle').textContent = title;
+        new bootstrap.Modal(document.getElementById('dccModal')).show();
+    }
+
+    function dccNew() {
+        document.getElementById('f_id').value = '';
+        document.getElementById('f_code').value = '';
+        document.getElementById('f_description').value = '';
+        document.getElementById('f_sortOrder').value = '0';
+        document.getElementById('f_isActive').checked = true;
+        document.getElementById('f_code').disabled = false;
+        dccOpenModal('Nueva naturaleza de descuento');
+    }
+
+    function dccEdit(a) {
+        document.getElementById('f_id').value = a.id;
+        document.getElementById('f_code').value = a.code;
+        document.getElementById('f_description').value = a.description;
+        document.getElementById('f_sortOrder').value = a.sortOrder ?? 0;
+        document.getElementById('f_isActive').checked = a.isActive;
+        document.getElementById('f_code').disabled = false;
+        dccOpenModal('Editar naturaleza de descuento');
+    }
+
+    async function dccSave() {
+        const id = document.getElementById('f_id').value;
+        const payload = {
+            code: document.getElementById('f_code').value.trim(),
+            description: document.getElementById('f_description').value.trim(),
+            sortOrder: parseInt(document.getElementById('f_sortOrder').value, 10) || 0,
+            isActive: document.getElementById('f_isActive').checked
+        };
+        if (!payload.code || !payload.description) {
+            alert('Código y descripción son obligatorios.');
+            return;
+        }
+        try {
+            const r = id
+                ? await dccFetch('/api/electronicdocumentdiscount/' + id, { method: 'PUT', body: JSON.stringify(payload) })
+                : await dccFetch('/api/electronicdocumentdiscount', { method: 'POST', body: JSON.stringify(payload) });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                alert(err.message || 'Error al guardar.');
+                return;
+            }
+            bootstrap.Modal.getInstance(document.getElementById('dccModal')).hide();
+            await loadDiscounts();
+        } catch (e) { console.error(e); alert('Error de red.'); }
+    }
+
+    async function dccDelete(id) {
+        if (!confirm('¿Eliminar esta naturaleza de descuento?')) return;
+        try {
+            const r = await dccFetch('/api/electronicdocumentdiscount/' + id, { method: 'DELETE' });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                alert(err.message || 'Error al eliminar.');
+                return;
+            }
+            await loadDiscounts();
+        } catch (e) { console.error(e); alert('Error de red.'); }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Mover modal al body para evitar problemas de z-index con el sidebar
+        ['dccModal'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) document.body.appendChild(el);
+        });
+
+        document.getElementById('dccNewBtn').addEventListener('click', dccNew);
+        document.getElementById('dccSaveBtn').addEventListener('click', dccSave);
+        document.getElementById('dccSearchBtn').addEventListener('click', () => { dccPage = 1; loadDiscounts(); });
+        document.getElementById('dccSearch').addEventListener('keyup', e => { if (e.key === 'Enter') { dccPage = 1; loadDiscounts(); } });
+        document.getElementById('dccSearchClear').addEventListener('click', () => { document.getElementById('dccSearch').value = ''; dccPage = 1; loadDiscounts(); });
+        document.getElementById('dccOnlyActive').addEventListener('change', () => { dccPage = 1; loadDiscounts(); });
+        document.getElementById('dccPrev').addEventListener('click', () => { if (dccPage > 1) { dccPage--; loadDiscounts(); } });
+        document.getElementById('dccNext').addEventListener('click', () => { if (dccPage * dccPageSize < dccTotal) { dccPage++; loadDiscounts(); } });
+
+        loadDiscounts();
+    });
+</script>
+}

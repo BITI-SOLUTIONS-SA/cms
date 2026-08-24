@@ -1,0 +1,395 @@
+@{
+    ViewData["Title"] = "Actividades Económicas";
+    var apiBaseUrl = ViewBag.ApiBaseUrl as string ?? "";
+    var apiToken = ViewBag.ApiToken as string ?? "";
+}
+
+<style>
+    .eca-card { background: #16213e; border: 1px solid #23305c; border-radius: .75rem; }
+    .eca-table { color: #1e293b; background-color: #ffffff; }
+    .eca-table thead th { color: #334155; border-color: #cbd5e1; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; background-color: #f1f5f9; }
+    .eca-table td, .eca-table th { border-color: #cbd5e1; vertical-align: middle; }
+    .eca-table td { color: #1e293b; }
+    .eca-code { font-family: monospace; font-weight: 700; color: #1d4ed8; }
+    .badge-flag { font-size: .68rem; }
+    small, .form-text, small.text-muted, .text-muted small { color: #cbd5e1 !important; }
+    .modal-content { background: #16213e; color: #e0e0e0; border: 1px solid #23305c; }
+    .modal-header, .modal-footer { border-color: #23305c; }
+    .form-check-label { color: #e0e0e0; }
+    .eca-table td small, .eca-table .text-muted { color: #475569 !important; }
+</style>
+
+<div class="container-fluid py-3 text-light">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-briefcase me-2"></i>Actividades Económicas</h4>
+        <div>
+            <a asp-action="DocumentConsecutives" class="btn btn-outline-light btn-sm"><i class="bi bi-123"></i> Consecutivos</a>
+            <button id="ecaImportBtn" class="btn btn-outline-warning btn-sm"><i class="bi bi-upload"></i> Importar catálogo</button>
+            <button id="ecaNewBtn" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nueva actividad</button>
+        </div>
+    </div>
+
+    <div class="card eca-card mb-3">
+        <div class="card-body">
+            <p class="text-light mb-3">
+                Catálogo central de <strong>actividades económicas del Ministerio de Hacienda</strong>
+                (<code>CodigoActividad</code>, formato <code>0000.0</code>). Es compartido por todas las compañías.
+                Use <strong>Importar catálogo</strong> para cargar el archivo oficial completo (CSV/JSON).
+            </p>
+
+            <div class="row g-2 mb-3 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label text-light">Buscar (código o descripción)</label>
+                    <div class="input-group input-group-sm">
+                        <input type="text" id="ecaSearch" class="form-control" placeholder="Ej: 6202 o Programación..." />
+                        <button class="btn btn-outline-info" type="button" id="ecaSearchBtn"><i class="bi bi-search"></i></button>
+                        <button class="btn btn-outline-secondary" type="button" id="ecaSearchClear" title="Limpiar"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" id="ecaOnlyActive" />
+                        <label class="form-check-label" for="ecaOnlyActive">Solo activas</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table eca-table align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width: 140px;">Código</th>
+                            <th>Descripción</th>
+                            <th class="text-center" style="width: 90px;">Activa</th>
+                            <th class="text-end" style="width: 130px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ecaTableBody">
+                        <tr><td colspan="4" class="text-center text-muted py-4">Cargando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center">
+                <small class="text-light" id="ecaInfo"></small>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-light" id="ecaPrev"><i class="bi bi-chevron-left"></i></button>
+                    <button class="btn btn-outline-light" id="ecaNext"><i class="bi bi-chevron-right"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal edición/creación -->
+<div class="modal fade" id="ecaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i><span id="ecaModalTitle">Editar actividad</span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="f_id" />
+                <div class="mb-3">
+                    <label class="form-label">Código de actividad</label>
+                    <input type="text" id="f_code" class="form-control" maxlength="6" placeholder="0000.0" />
+                    <small class="form-text">Formato Hacienda: 0000.0</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Descripción</label>
+                    <textarea id="f_description" class="form-control" rows="3" maxlength="500"></textarea>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="f_isActive" checked />
+                    <label class="form-check-label" for="f_isActive">Activa</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="ecaSaveBtn"><i class="bi bi-check-lg"></i> Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal importación -->
+<div class="modal fade" id="ecaImportModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-upload me-2"></i>Importar catálogo de actividades</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-light">
+                    Seleccione un archivo <strong>CSV</strong> o <strong>JSON</strong> con el catálogo oficial de Hacienda.
+                    Puede usar el botón <strong>Descargar plantilla</strong> para obtener un archivo de ejemplo con el formato correcto.
+                </p>
+                <ul class="small text-light">
+                    <li><strong>CSV</strong>: dos columnas <code>code,description</code> (opcional tercera <code>is_active</code>). La primera fila puede ser encabezado.</li>
+                    <li><strong>JSON</strong>: arreglo de objetos <code>[{"code":"...","description":"...","isActive":true}]</code>.</li>
+                </ul>
+                <input type="file" id="ecaImportFile" class="form-control" accept=".csv,.json,.txt" />
+                <div id="ecaImportPreview" class="mt-2 small text-light"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-info me-auto" id="ecaDownloadTemplate">
+                    <i class="bi bi-file-earmark-excel"></i> Descargar plantilla
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" id="ecaImportConfirm" disabled><i class="bi bi-upload"></i> Importar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const ECA = { api: '@Html.Raw(apiBaseUrl)', token: '@Html.Raw(apiToken)' };
+    let ecaPage = 1, ecaPageSize = 50, ecaTotal = 0;
+    let ecaImportItems = [];
+
+    function escapeHtml(s) {
+        return String(s ?? '').replace(/[&<>"']/g, m =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    async function ecaFetch(path, options = {}) {
+        const opts = Object.assign({ headers: {} }, options);
+        if (ECA.token) opts.headers['Authorization'] = `Bearer ${ECA.token}`;
+        if (options.body) opts.headers['Content-Type'] = 'application/json';
+        return fetch(ECA.api + path, opts);
+    }
+
+    function boolBadge(v) {
+        return v
+            ? '<span class="badge bg-success badge-flag">Sí</span>'
+            : '<span class="badge bg-secondary badge-flag">No</span>';
+    }
+
+    async function loadActivities() {
+        const body = document.getElementById('ecaTableBody');
+        body.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">Cargando...</td></tr>';
+        const search = document.getElementById('ecaSearch').value.trim();
+        const onlyActive = document.getElementById('ecaOnlyActive').checked;
+        const qs = new URLSearchParams({ page: ecaPage, pageSize: ecaPageSize, onlyActive });
+        if (search) qs.set('search', search);
+        try {
+            const r = await ecaFetch('/api/electronicdocumenteconomicactivity?' + qs.toString());
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const data = await r.json();
+            ecaTotal = data.total;
+            const rows = data.items || [];
+            if (!rows.length) {
+                body.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">Sin resultados.</td></tr>';
+            } else {
+                body.innerHTML = rows.map(a => `
+                    <tr>
+                        <td><span class="eca-code">${escapeHtml(a.code)}</span></td>
+                        <td>${escapeHtml(a.description)}</td>
+                        <td class="text-center">${boolBadge(a.isActive)}</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-primary" onclick='ecaEdit(${JSON.stringify(a).replace(/'/g, "&#39;")})'><i class="bi bi-pencil"></i></button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="ecaDelete(${a.id})"><i class="bi bi-trash"></i></button>
+                        </td>
+                    </tr>`).join('');
+            }
+            const from = ecaTotal === 0 ? 0 : (ecaPage - 1) * ecaPageSize + 1;
+            const to = Math.min(ecaPage * ecaPageSize, ecaTotal);
+            document.getElementById('ecaInfo').textContent = `Mostrando ${from}-${to} de ${ecaTotal}`;
+        } catch (e) {
+            console.error(e);
+            body.innerHTML = '<tr><td colspan="4" class="text-center text-danger py-4">Error al cargar.</td></tr>';
+        }
+    }
+
+    function ecaOpenModal(title) {
+        document.getElementById('ecaModalTitle').textContent = title;
+        new bootstrap.Modal(document.getElementById('ecaModal')).show();
+    }
+
+    function ecaNew() {
+        document.getElementById('f_id').value = '';
+        document.getElementById('f_code').value = '';
+        document.getElementById('f_description').value = '';
+        document.getElementById('f_isActive').checked = true;
+        document.getElementById('f_code').disabled = false;
+        ecaOpenModal('Nueva actividad');
+    }
+
+    function ecaEdit(a) {
+        document.getElementById('f_id').value = a.id;
+        document.getElementById('f_code').value = a.code;
+        document.getElementById('f_description').value = a.description;
+        document.getElementById('f_isActive').checked = a.isActive;
+        document.getElementById('f_code').disabled = false;
+        ecaOpenModal('Editar actividad');
+    }
+
+    async function ecaSave() {
+        const id = document.getElementById('f_id').value;
+        const payload = {
+            code: document.getElementById('f_code').value.trim(),
+            description: document.getElementById('f_description').value.trim(),
+            isActive: document.getElementById('f_isActive').checked
+        };
+        if (!payload.code || !payload.description) {
+            alert('Código y descripción son obligatorios.');
+            return;
+        }
+        try {
+            const r = id
+                ? await ecaFetch('/api/electronicdocumenteconomicactivity/' + id, { method: 'PUT', body: JSON.stringify(payload) })
+                : await ecaFetch('/api/electronicdocumenteconomicactivity', { method: 'POST', body: JSON.stringify(payload) });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                alert(err.message || 'Error al guardar.');
+                return;
+            }
+            bootstrap.Modal.getInstance(document.getElementById('ecaModal')).hide();
+            await loadActivities();
+        } catch (e) { console.error(e); alert('Error de red.'); }
+    }
+
+    async function ecaDelete(id) {
+        if (!confirm('¿Eliminar esta actividad económica?')) return;
+        try {
+            const r = await ecaFetch('/api/electronicdocumenteconomicactivity/' + id, { method: 'DELETE' });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                alert(err.message || 'Error al eliminar.');
+                return;
+            }
+            await loadActivities();
+        } catch (e) { console.error(e); alert('Error de red.'); }
+    }
+
+    // ===== Importación =====
+    function parseCsv(text) {
+        const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+        const out = [];
+        for (let i = 0; i < lines.length; i++) {
+            const parts = lines[i].split(/[,;]/).map(p => p.trim().replace(/^"|"$/g, ''));
+            const code = parts[0];
+            // Saltar encabezado
+            if (i === 0 && /^c[oó]digo$|^code$/i.test(code)) continue;
+            if (!code) continue;
+            const desc = parts.slice(1, parts.length).join(' ').trim() || (parts[1] || '');
+            const description = parts[1] ? parts[1] : desc;
+            let isActive = true;
+            if (parts[2] !== undefined && parts[2] !== '') {
+                isActive = /^(1|true|s[ií]|yes|activo|activa)$/i.test(parts[2]);
+            }
+            out.push({ code, description: parts[1] || '', isActive });
+        }
+        return out;
+    }
+
+    function ecaHandleFile(file) {
+        const reader = new FileReader();
+        reader.onload = function (ev) {
+            const text = ev.target.result;
+            try {
+                if (file.name.toLowerCase().endsWith('.json')) {
+                    const arr = JSON.parse(text);
+                    ecaImportItems = arr.map(x => ({
+                        code: (x.code || x.Code || '').toString().trim(),
+                        description: (x.description || x.Description || '').toString().trim(),
+                        isActive: x.isActive !== undefined ? !!x.isActive : (x.is_active !== undefined ? !!x.is_active : true)
+                    })).filter(x => x.code && x.description);
+                } else {
+                    ecaImportItems = parseCsv(text).filter(x => x.code && x.description);
+                }
+                document.getElementById('ecaImportPreview').innerHTML =
+                    `<i class="bi bi-check-circle text-success me-1"></i>${ecaImportItems.length} actividades listas para importar.`;
+                document.getElementById('ecaImportConfirm').disabled = ecaImportItems.length === 0;
+            } catch (e) {
+                console.error(e);
+                document.getElementById('ecaImportPreview').innerHTML =
+                    '<i class="bi bi-x-circle text-danger me-1"></i>No se pudo leer el archivo.';
+                document.getElementById('ecaImportConfirm').disabled = true;
+            }
+        };
+        reader.readAsText(file, 'UTF-8');
+    }
+
+    async function ecaImportConfirm() {
+        if (!ecaImportItems.length) return;
+        const btn = document.getElementById('ecaImportConfirm');
+        btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Importando...';
+        try {
+            const r = await ecaFetch('/api/electronicdocumenteconomicactivity/import', {
+                method: 'POST', body: JSON.stringify(ecaImportItems)
+            });
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const res = await r.json();
+            alert(`Importación completada.\nInsertadas: ${res.inserted}\nActualizadas: ${res.updated}\nOmitidas: ${res.skipped}\nTotal: ${res.total}`);
+            bootstrap.Modal.getInstance(document.getElementById('ecaImportModal')).hide();
+            ecaPage = 1;
+            await loadActivities();
+        } catch (e) {
+            console.error(e); alert('Error al importar el catálogo.');
+        } finally {
+            btn.innerHTML = '<i class="bi bi-upload"></i> Importar';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Mover modales al body para evitar problemas de z-index con el sidebar
+        ['ecaModal', 'ecaImportModal'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) document.body.appendChild(el);
+        });
+
+        document.getElementById('ecaNewBtn').addEventListener('click', ecaNew);
+        document.getElementById('ecaSaveBtn').addEventListener('click', ecaSave);
+        document.getElementById('ecaSearchBtn').addEventListener('click', () => { ecaPage = 1; loadActivities(); });
+        document.getElementById('ecaSearch').addEventListener('keyup', e => { if (e.key === 'Enter') { ecaPage = 1; loadActivities(); } });
+        document.getElementById('ecaSearchClear').addEventListener('click', () => { document.getElementById('ecaSearch').value = ''; ecaPage = 1; loadActivities(); });
+        document.getElementById('ecaOnlyActive').addEventListener('change', () => { ecaPage = 1; loadActivities(); });
+        document.getElementById('ecaPrev').addEventListener('click', () => { if (ecaPage > 1) { ecaPage--; loadActivities(); } });
+        document.getElementById('ecaNext').addEventListener('click', () => { if (ecaPage * ecaPageSize < ecaTotal) { ecaPage++; loadActivities(); } });
+
+        document.getElementById('ecaImportBtn').addEventListener('click', () => {
+            ecaImportItems = [];
+            document.getElementById('ecaImportFile').value = '';
+            document.getElementById('ecaImportPreview').innerHTML = '';
+            document.getElementById('ecaImportConfirm').disabled = true;
+            new bootstrap.Modal(document.getElementById('ecaImportModal')).show();
+        });
+        document.getElementById('ecaImportFile').addEventListener('change', e => {
+            if (e.target.files && e.target.files[0]) ecaHandleFile(e.target.files[0]);
+        });
+        document.getElementById('ecaImportConfirm').addEventListener('click', ecaImportConfirm);
+        document.getElementById('ecaDownloadTemplate').addEventListener('click', ecaDownloadTemplate);
+
+        loadActivities();
+    });
+
+    // Genera y descarga una plantilla CSV de ejemplo (compatible con Excel, UTF-8 con BOM)
+    function ecaDownloadTemplate() {
+        const rows = [
+            ['code', 'description', 'is_active'],
+            ['6202.0', 'Actividades de consultoría informática y gestión de instalaciones informáticas', 'true'],
+            ['0000.1', 'Preoperativa', 'true'],
+            ['4773.0', 'Otra venta al por menor de otros productos nuevos en comercios especializados', 'true']
+        ];
+        // Cada campo entre comillas dobles; las comillas internas se escapan duplicándolas
+        const csv = rows.map(r =>
+            r.map(f => '"' + String(f).replace(/"/g, '""') + '"').join(',')
+        ).join('\r\n');
+
+        // BOM para que Excel reconozca UTF-8 y muestre bien los acentos
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'plantilla_actividades_economicas.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+</script>
+}

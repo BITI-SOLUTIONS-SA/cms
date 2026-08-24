@@ -101,12 +101,12 @@
                                 <label class="form-label text-white">
                                     <i class="bi bi-rulers me-1"></i>Unidad de Medida
                                 </label>
-                                <select name="IdUnitOfMeasure" class="form-select"
+                                <select name="IdElectronicDocumentUnitOfMeasure" class="form-select"
                                         style="background-color: #1e293b; color: #f0f0f0; border-color: rgba(6, 182, 212, 0.5);">
                                     <option value="">-- Seleccione --</option>
                                     @foreach (var unit in Model.UnitsOfMeasure)
                                     {
-                                        var isSelected = Model.IdUnitOfMeasure == unit.Id;
+                                        var isSelected = Model.IdElectronicDocumentUnitOfMeasure == unit.Id;
                                         <option value="@unit.Id" selected="@isSelected">@unit.Name (@unit.Symbol)</option>
                                     }
                                 </select>

@@ -121,33 +121,316 @@ namespace CMS.UI.Controllers
         }
 
         /// <summary>
-        /// Formulario de creación de customer
-        /// GET: /Customers/Create
+        /// Obtiene un customer por id (JSON) para poblar el modal de editar/ver.
+        /// GET: /Customers/GetCustomer/{id}
         /// </summary>
-        public IActionResult Create()
+        [HttpGet]
+        public async Task<IActionResult> GetCustomer(int id)
         {
-            // Redirigir a la Razor Page
-            return RedirectToPage("/Customers/Create");
+            try
+            {
+                ConfigureAuthHeader();
+                var response = await _httpClient.GetAsync($"{GetApiBaseUrl()}/api/Customer/{id}");
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    return NotFound(new { message = "Customer no encontrado." });
+                }
+
+                var json = await response.Content.ReadAsStringAsync();
+                var customer = JsonSerializer.Deserialize<Customer>(json, JsonOptions);
+                return Json(customer);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error obteniendo customer {Id}", id);
+                return StatusCode(500, new { message = "Error al obtener el customer." });
+            }
         }
 
         /// <summary>
-        /// Formulario de edición de customer
-        /// GET: /Customers/Edit/{id}
+        /// Cataloga los tipos de cliente activos (JSON) para los selectores de los modales.
+        /// GET: /Customers/CustomerTypes
         /// </summary>
-        public IActionResult Edit(int id)
+        [HttpGet]
+        public async Task<IActionResult> CustomerTypes()
         {
-            // Redirigir a la Razor Page
-            return RedirectToPage("/Customers/Edit", new { id });
+            try
+            {
+                ConfigureAuthHeader();
+                var response = await _httpClient.GetAsync($"{GetApiBaseUrl()}/api/customertype/active");
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    return Json(new List<object>());
+                }
+
+                var json = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(json);
+                return Content(json, "application/json");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error obteniendo tipos de cliente");
+                return Json(new List<object>());
+            }
         }
 
         /// <summary>
-        /// Vista de detalle de customer (solo lectura)
-        /// GET: /Customers/Details/{id}
+        /// Crea un customer (recibe JSON del modal, reenvía a la API).
+        /// POST: /Customers/Create
         /// </summary>
-        public IActionResult Details(int id)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Create([FromBody] Customer customer)
         {
-            // Redirigir a la Razor Page
-            return RedirectToPage("/Customers/Details", new { id });
+            try
+            {
+                ConfigureAuthHeader();
+
+                var json = JsonSerializer.Serialize(customer, JsonOptions);
+                var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+                var response = await _httpClient.PostAsync($"{GetApiBaseUrl()}/api/Customer", content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    return Json(new { success = true, message = "Customer creado exitosamente." });
+                }
+
+                var error = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Error al crear customer: {StatusCode} - {Error}", response.StatusCode, error);
+                return BadRequest(new { success = false, message = $"Error al crear el customer: {error}" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Excepción al crear customer");
+                return StatusCode(500, new { success = false, message = "Error al crear el customer." });
+            }
+        }
+
+        /// <summary>
+        /// Actualiza un customer (recibe JSON del modal, reenvía a la API).
+        /// POST: /Customers/Edit/{id}
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(int id, [FromBody] Customer customer)
+        {
+            try
+            {
+                ConfigureAuthHeader();
+
+                var json = JsonSerializer.Serialize(customer, JsonOptions);
+                var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+                var response = await _httpClient.PutAsync($"{GetApiBaseUrl()}/api/Customer/{id}", content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    return Json(new { success = true, message = "Customer actualizado exitosamente." });
+                }
+
+                var error = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Error al actualizar customer {Id}: {StatusCode} - {Error}", id, response.StatusCode, error);
+                return BadRequest(new { success = false, message = $"Error al actualizar el customer: {error}" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Excepción al actualizar customer {Id}", id);
+                return StatusCode(500, new { success = false, message = "Error al actualizar el customer." });
+            }
+        }
+
+        /// <summary>
+        /// Elimina (o inactiva) un customer.
+        /// POST: /Customers/Delete/{id}
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Delete(int id)
+        {
+            try
+            {
+                ConfigureAuthHeader();
+                var response = await _httpClient.DeleteAsync($"{GetApiBaseUrl()}/api/Customer/{id}");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    return Json(new { success = true, message = "Customer eliminado exitosamente." });
+                }
+
+                var error = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Error al eliminar customer {Id}: {StatusCode} - {Error}", id, response.StatusCode, error);
+                return BadRequest(new { success = false, message = $"Error al eliminar el customer: {error}" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Excepción al eliminar customer {Id}", id);
+                return StatusCode(500, new { success = false, message = "Error al eliminar el customer." });
+            }
+        }
+
+        // =====================================================================
+        // ACTIVIDADES ECONÓMICAS DEL CUSTOMER (UI -> Controller -> API)
+        // =====================================================================
+
+        /// <summary>
+        /// Catálogo de actividades económicas activas (JSON) para el selector del modal.
+        /// GET: /Customers/EconomicActivities
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> EconomicActivities()
+        {
+            try
+            {
+                ConfigureAuthHeader();
+                var response = await _httpClient.GetAsync($"{GetApiBaseUrl()}/api/electronicdocumenteconomicactivity/active");
+                if (!response.IsSuccessStatusCode)
+                {
+                    return Json(new List<object>());
+                }
+
+                var json = await response.Content.ReadAsStringAsync();
+                return Content(json, "application/json");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error obteniendo catálogo de actividades económicas");
+                return Json(new List<object>());
+            }
+        }
+
+        /// <summary>
+        /// Lista las actividades económicas de un customer.
+        /// GET: /Customers/CustomerActivities/{customerId}
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> CustomerActivities(int customerId)
+        {
+            try
+            {
+                ConfigureAuthHeader();
+                var response = await _httpClient.GetAsync($"{GetApiBaseUrl()}/api/customereconomicactivity/customer/{customerId}");
+                if (!response.IsSuccessStatusCode)
+                {
+                    return Json(new List<object>());
+                }
+
+                var json = await response.Content.ReadAsStringAsync();
+                return Content(json, "application/json");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error obteniendo actividades del customer {Id}", customerId);
+                return Json(new List<object>());
+            }
+        }
+
+        /// <summary>
+        /// Agrega una actividad económica a un customer.
+        /// POST: /Customers/CreateCustomerActivity/{customerId}
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CreateCustomerActivity(int customerId, [FromBody] JsonElement activity)
+        {
+            return await ForwardActivityAsync(HttpMethod.Post, $"/api/customereconomicactivity/customer/{customerId}", activity, "agregar");
+        }
+
+        /// <summary>
+        /// Actualiza una actividad económica de un customer.
+        /// POST: /Customers/UpdateCustomerActivity/{id}
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateCustomerActivity(int id, [FromBody] JsonElement activity)
+        {
+            return await ForwardActivityAsync(HttpMethod.Put, $"/api/customereconomicactivity/{id}", activity, "actualizar");
+        }
+
+        /// <summary>
+        /// Marca una actividad económica como predeterminada.
+        /// POST: /Customers/SetDefaultCustomerActivity/{id}
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SetDefaultCustomerActivity(int id)
+        {
+            try
+            {
+                ConfigureAuthHeader();
+                var response = await _httpClient.PutAsync($"{GetApiBaseUrl()}/api/customereconomicactivity/{id}/set-default", null);
+                if (response.IsSuccessStatusCode)
+                {
+                    return Json(new { success = true });
+                }
+
+                var error = await response.Content.ReadAsStringAsync();
+                return BadRequest(new { success = false, message = $"Error al marcar predeterminada: {error}" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error set-default actividad {Id}", id);
+                return StatusCode(500, new { success = false, message = "Error al marcar predeterminada." });
+            }
+        }
+
+        /// <summary>
+        /// Elimina una actividad económica de un customer.
+        /// POST: /Customers/DeleteCustomerActivity/{id}
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteCustomerActivity(int id)
+        {
+            try
+            {
+                ConfigureAuthHeader();
+                var response = await _httpClient.DeleteAsync($"{GetApiBaseUrl()}/api/customereconomicactivity/{id}");
+                if (response.IsSuccessStatusCode)
+                {
+                    return Json(new { success = true });
+                }
+
+                var error = await response.Content.ReadAsStringAsync();
+                return BadRequest(new { success = false, message = $"Error al eliminar actividad: {error}" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error eliminando actividad {Id}", id);
+                return StatusCode(500, new { success = false, message = "Error al eliminar la actividad." });
+            }
+        }
+
+        /// <summary>
+        /// Reenvía el cuerpo JSON de una actividad económica a la API (POST o PUT).
+        /// </summary>
+        private async Task<IActionResult> ForwardActivityAsync(HttpMethod method, string apiPath, JsonElement activity, string action)
+        {
+            try
+            {
+                ConfigureAuthHeader();
+
+                var content = new StringContent(activity.GetRawText(), System.Text.Encoding.UTF8, "application/json");
+                using var request = new HttpRequestMessage(method, $"{GetApiBaseUrl()}{apiPath}")
+                {
+                    Content = content
+                };
+                var response = await _httpClient.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    return Json(new { success = true });
+                }
+
+                var error = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Error al {Action} actividad económica: {StatusCode} - {Error}", action, response.StatusCode, error);
+                return BadRequest(new { success = false, message = $"Error al {action} la actividad: {error}" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Excepción al {Action} actividad económica", action);
+                return StatusCode(500, new { success = false, message = $"Error al {action} la actividad." });
+            }
         }
     }
 }

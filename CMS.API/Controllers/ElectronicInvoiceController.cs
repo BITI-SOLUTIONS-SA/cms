@@ -69,10 +69,18 @@ namespace CMS.API.Controllers
                     SaleCondition = dto.SaleCondition,
                     CreditTerm = dto.CreditTerm,
                     PaymentMethod = dto.PaymentMethod,
+                    PaymentMethods = dto.PaymentMethods,
                     Currency = dto.Currency,
                     ExchangeRate = dto.ExchangeRate,
                     Branch = dto.Branch,
                     Terminal = dto.Terminal,
+                    ConsecutiveId = dto.ConsecutiveId,
+                    IssuerEconomicActivity = dto.IssuerEconomicActivity,
+                    ReceptorEconomicActivity = dto.ReceptorEconomicActivity,
+                    IssuerEmailOverride = dto.IssuerEmailOverride,
+                    IssuerPhoneOverride = dto.IssuerPhoneOverride,
+                    ReceptorEmailOverride = dto.ReceptorEmailOverride,
+                    ReceptorPhoneOverride = dto.ReceptorPhoneOverride,
                     IsExonerated = dto.IsExonerated,
                     Lines = dto.Lines.Select(l => new EmitLineInput
                     {
@@ -86,15 +94,48 @@ namespace CMS.API.Controllers
                         PriceIncludesTax = l.PriceIncludesTax,
                         TaxRatePercent = l.TaxRatePercent,
                         TaxRateCode = l.TaxRateCode,
+                        IdElectronicDocumentTaxType = l.IdElectronicDocumentTaxType > 0 ? l.IdElectronicDocumentTaxType : 1,
+                        ManualCabys = l.ManualCabys,
                         DiscountAmount = l.DiscountAmount,
                         DiscountNature = l.DiscountNature,
+                        Discounts = (l.Discounts ?? new()).Select(d => new EmitLineDiscountInput
+                        {
+                            Nature = d.Nature,
+                            Amount = d.Amount
+                        }).ToList(),
                         IsService = l.IsService,
                         IsExonerated = l.IsExonerated,
                         ExonDocumentType = l.ExonDocumentType,
                         ExonDocumentNumber = l.ExonDocumentNumber,
                         ExonInstitution = l.ExonInstitution,
                         ExonDate = l.ExonDate,
-                        ExonPercent = l.ExonPercent
+                        ExonArticle = l.ExonArticle,
+                        ExonSubsection = l.ExonSubsection,
+                        ExonPercent = l.ExonPercent,
+                        Taxes = (l.Taxes ?? new()).Select(t => new EmitLineTaxInput
+                        {
+                            IdElectronicDocumentTaxType = t.IdElectronicDocumentTaxType > 0 ? t.IdElectronicDocumentTaxType : 1,
+                            TaxCode = t.TaxCode,
+                            TaxRatePercent = t.TaxRatePercent,
+                            TaxRateCode = t.TaxRateCode,
+                            UnitMeasureQty = t.UnitMeasureQty,
+                            VolumeUnit = t.VolumeUnit,
+                            SpecPercent = t.SpecPercent,
+                            Proportion = t.Proportion,
+                            PerUnitTax = t.PerUnitTax,
+                            SpecialTaxableBase = t.SpecialTaxableBase,
+                            IsFactoryTax = t.IsFactoryTax,
+                            TaxAmount = t.TaxAmount,
+                            TaxDescription = t.TaxDescription,
+                            IsExonerated = t.IsExonerated,
+                            ExonDocumentType = t.ExonDocumentType,
+                            ExonDocumentNumber = t.ExonDocumentNumber,
+                            ExonInstitution = t.ExonInstitution,
+                            ExonDate = t.ExonDate,
+                            ExonArticle = t.ExonArticle,
+                            ExonSubsection = t.ExonSubsection,
+                            ExonPercent = t.ExonPercent
+                        }).ToList()
                     }).ToList(),
                     References = dto.References.Select(r => new EmitReferenceInput
                     {
@@ -103,6 +144,17 @@ namespace CMS.API.Controllers
                         RefDate = r.RefDate,
                         RefCode = r.RefCode,
                         RefReason = r.RefReason
+                    }).ToList(),
+                    OtherCharges = dto.OtherCharges.Select(o => new EmitOtherChargeInput
+                    {
+                        TypeCode = o.TypeCode,
+                        OtherTypeDescription = o.OtherTypeDescription,
+                        Detail = o.Detail,
+                        Amount = o.Amount,
+                        Percent = o.Percent,
+                        ThirdIdentType = o.ThirdIdentType,
+                        ThirdIdentNumber = o.ThirdIdentNumber,
+                        ThirdName = o.ThirdName
                     }).ToList()
                 };
 

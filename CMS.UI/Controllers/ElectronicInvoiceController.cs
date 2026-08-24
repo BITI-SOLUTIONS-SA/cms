@@ -66,5 +66,162 @@ namespace CMS.UI.Controllers
             ViewBag.ApiToken = GetApiToken();
             return View();
         }
+
+        /// <summary>Mantenimiento del catálogo central de tipos de documento electrónico.
+        /// GET: /ElectronicInvoice/DocumentTypes</summary>
+        public IActionResult DocumentTypes()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken = GetApiToken();
+            return View();
+        }
+
+        /// <summary>Mantenimiento del catálogo central de versiones del esquema de documentos electrónicos.
+        /// GET: /ElectronicInvoice/DocumentVersions</summary>
+        public IActionResult DocumentVersions()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken = GetApiToken();
+            return View();
+        }
+
+        /// <summary>Mantenimiento de los consecutivos fiscales por emisor/sucursal/terminal/tipo/versión.
+        /// GET: /ElectronicInvoice/DocumentConsecutives</summary>
+        public IActionResult DocumentConsecutives()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken = GetApiToken();
+            return View();
+        }
+
+        /// <summary>Mantenimiento del catálogo central de actividades económicas de Hacienda.
+        /// GET: /ElectronicInvoice/EconomicActivities</summary>
+        public IActionResult EconomicActivities()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken = GetApiToken();
+            return View();
+        }
+
+        /// <summary>Mantenimiento del catálogo central de condiciones de venta de Hacienda.
+        /// GET: /ElectronicInvoice/SalesConditions</summary>
+        public IActionResult SalesConditions()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken = GetApiToken();
+            return View();
+        }
+
+        /// <summary>Mantenimiento del catálogo central de tipos de identificación de Hacienda.
+        /// GET: /ElectronicInvoice/IdentificationTypes</summary>
+        public IActionResult IdentificationTypes()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken = GetApiToken();
+            return View();
+        }
+
+        /// <summary>Mantenimiento del catálogo central de tipos de cliente (admin.customer_type).
+        /// GET: /ElectronicInvoice/CustomerTypes</summary>
+        public IActionResult CustomerTypes()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken = GetApiToken();
+            return View();
+        }
+
+        /// <summary>Mantenimiento del catálogo central de medios de pago de Hacienda.
+        /// GET: /ElectronicInvoice/PaymentMethods</summary>
+        public IActionResult PaymentMethods()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken = GetApiToken();
+            return View();
+        }
+
+        /// <summary>Mantenimiento del catálogo central de naturalezas de descuento de Hacienda.
+        /// GET: /ElectronicInvoice/Discounts</summary>
+        public IActionResult Discounts()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken = GetApiToken();
+            return View();
+        }
+
+        /// <summary>Mantenimiento del catálogo central de tipos de impuesto de Hacienda.
+        /// GET: /ElectronicInvoice/TaxTypes</summary>
+        public IActionResult TaxTypes()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken = GetApiToken();
+            return View();
+        }
+
+        /// <summary>Mantenimiento del catálogo central de códigos de tarifa del IVA de Hacienda.
+        /// GET: /ElectronicInvoice/TaxRates</summary>
+        public IActionResult TaxRates()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken = GetApiToken();
+            return View();
+        }
+
+        /// <summary>Mantenimiento del catálogo central de códigos de unidad de medida de Hacienda (v4.4).
+        /// GET: /ElectronicInvoice/UnitsOfMeasure</summary>
+        public IActionResult UnitsOfMeasure()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken = GetApiToken();
+            return View();
+        }
+
+        /// <summary>Mantenimiento del catálogo central de códigos CAByS para facturación electrónica.
+        /// GET: /ElectronicInvoice/CabysCodes</summary>
+        public IActionResult CabysCodes()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken = GetApiToken();
+            return View();
+        }
+
+        /// <summary>Mantenimiento del catálogo central de tipos de documento de exoneración
+        /// o de autorización de Hacienda.
+        /// GET: /ElectronicInvoice/ExemptionAuthorizationTypes</summary>
+        public IActionResult ExemptionAuthorizationTypes()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken = GetApiToken();
+            return View();
+        }
+
+        /// <summary>Mantenimiento del catálogo central de nombre de institución o
+        /// dependencia que emitió la exoneración (Hacienda CR v4.4).
+        /// GET: /ElectronicInvoice/InstitutionDepartments</summary>
+        public IActionResult InstitutionDepartments()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken = GetApiToken();
+            return View();
+        }
+
+        /// <summary>Mantenimiento del catálogo central de "Otros cargos" (OtroCargo
+        /// Hacienda CR v4.4).
+        /// GET: /ElectronicInvoice/OtherCharges</summary>
+        public IActionResult OtherCharges()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken = GetApiToken();
+            return View();
+        }
+
+        /// <summary>Mantenimiento del catálogo central de "Tipo documento de referencia"
+        /// (InformacionReferencia Hacienda CR v4.4).
+        /// GET: /ElectronicInvoice/ReferenceTypes</summary>
+        public IActionResult ReferenceTypes()
+        {
+            ViewBag.ApiBaseUrl = GetApiBaseUrl();
+            ViewBag.ApiToken = GetApiToken();
+            return View();
+        }
     }
 }

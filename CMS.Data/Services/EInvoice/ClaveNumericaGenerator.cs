@@ -49,7 +49,8 @@ namespace CMS.Data.Services.EInvoice
             string terminal,
             string situation,
             DateTime issueDate,
-            int userId)
+            int userId,
+            int? consecutiveId = null)
         {
             await using var db = await _companyDbContextFactory.CreateDbContextAsync(companyId);
 
@@ -57,38 +58,61 @@ namespace CMS.Data.Services.EInvoice
             await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
             try
             {
-                var consec = await db.FiscalConsecutives.FirstOrDefaultAsync(c =>
-                    c.IdBillingIssuer == issuerId &&
-                    c.Branch == branch &&
-                    c.Terminal == terminal &&
-                    c.DocumentType == documentType);
+                ElectronicDocumentConsecutive? consec = null;
+
+                // 0) Si el usuario seleccionó un consecutivo específico en la pantalla de emisión,
+                //    usar exactamente ese registro (validando emisor, tipo y que esté activo).
+                if (consecutiveId.HasValue && consecutiveId.Value > 0)
+                {
+                    consec = await db.ElectronicDocumentConsecutives
+                        .Where(c => c.Id == consecutiveId.Value &&
+                                    c.IdBillingIssuer == issuerId &&
+                                    c.DocumentType == documentType &&
+                                    c.IsActive)
+                        .FirstOrDefaultAsync();
+
+                    if (consec == null)
+                        throw new InvalidOperationException(
+                            $"El consecutivo fiscal seleccionado (id {consecutiveId.Value}) no existe, no está activo " +
+                            $"o no corresponde al emisor {issuerId} y tipo de documento '{documentType}'.");
+                }
+
+                // 1) Buscar el consecutivo exacto por emisor+sucursal+terminal+tipo (activo).
+                consec ??= await db.ElectronicDocumentConsecutives
+                    .Where(c => c.IdBillingIssuer == issuerId &&
+                                c.Branch == branch &&
+                                c.Terminal == terminal &&
+                                c.DocumentType == documentType &&
+                                c.IsActive)
+                    .OrderByDescending(c => c.IsDefault)
+                    .FirstOrDefaultAsync();
+
+                // 2) Si no hay coincidencia exacta, usar el registro DEFAULT activo del tipo.
+                consec ??= await db.ElectronicDocumentConsecutives
+                    .Where(c => c.IdBillingIssuer == issuerId &&
+                                c.DocumentType == documentType &&
+                                c.IsActive &&
+                                c.IsDefault)
+                    .FirstOrDefaultAsync();
 
                 if (consec == null)
                 {
-                    consec = new FiscalConsecutive
-                    {
-                        IdBillingIssuer = issuerId,
-                        Branch = branch,
-                        Terminal = terminal,
-                        DocumentType = documentType,
-                        LastValue = 0,
-                        CreateDate = DateTime.UtcNow,
-                        RecordDate = DateTime.UtcNow,
-                        CreatedBy = "ClaveNumericaGenerator",
-                        UpdatedBy = "ClaveNumericaGenerator"
-                    };
-                    db.FiscalConsecutives.Add(consec);
+                    throw new InvalidOperationException(
+                        $"No existe un consecutivo fiscal activo configurado para el emisor {issuerId}, " +
+                        $"tipo de documento '{documentType}' (sucursal '{branch}', terminal '{terminal}'). " +
+                        "Configúrelo en la pantalla de mantenimiento de Consecutivos de Documento Electrónico.");
                 }
 
-                var nextSequence = consec.LastValue + 1;
-                consec.LastValue = nextSequence;
+                var nextSequence = consec.Consecutive + 1;
+                consec.Consecutive = nextSequence;
                 consec.UpdatedBy = "ClaveNumericaGenerator";
                 consec.RecordDate = DateTime.UtcNow;
 
                 await db.SaveChangesAsync();
                 await tx.CommitAsync();
 
-                var consecutive = BuildConsecutive(branch, terminal, documentType, nextSequence);
+                // El consecutivo se arma con los datos reales del registro (por si se usó el default).
+                var consecutive = BuildConsecutive(consec.Branch, consec.Terminal, documentType, nextSequence);
                 var clave = BuildClave(issuerIdentification, consecutive, situation, issueDate);
 
                 _logger.LogInformation(

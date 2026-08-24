@@ -30,7 +30,7 @@ public class IssuerSearchResultDto
 
     // Datos operacionales (de customer, si existe)
     public string? CustomerCode { get; set; }
-    public string? CustomerType { get; set; }
+    public int? IdCustomerType { get; set; }
 
     // Ambiente
     public string Environment { get; set; } = string.Empty;

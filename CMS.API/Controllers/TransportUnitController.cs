@@ -106,7 +106,7 @@ namespace CMS.API.Controllers
             nextServiceKm        = m.NextServiceKm,
             cost                 = m.Cost,
             currency             = m.Currency,
-            supplierName         = m.SupplierName,
+            vendorName           = m.VendorName,
             invoiceNumber        = m.InvoiceNumber,
             vehicleOutOfService  = m.VehicleOutOfService,
             notes                = m.Notes,
@@ -550,7 +550,7 @@ namespace CMS.API.Controllers
                     NextServiceKm       = dto.NextServiceKm,
                     Cost                = dto.Cost,
                     Currency            = dto.Currency?.Trim(),
-                    SupplierName        = dto.SupplierName?.Trim(),
+                    VendorName          = dto.VendorName?.Trim(),
                     InvoiceNumber       = dto.InvoiceNumber?.Trim(),
                     VehicleOutOfService = dto.VehicleOutOfService,
                     Notes               = dto.Notes?.Trim(),
@@ -608,7 +608,7 @@ namespace CMS.API.Controllers
                 record.NextServiceKm       = dto.NextServiceKm;
                 record.Cost                = dto.Cost;
                 record.Currency            = dto.Currency?.Trim();
-                record.SupplierName        = dto.SupplierName?.Trim();
+                record.VendorName          = dto.VendorName?.Trim();
                 record.InvoiceNumber       = dto.InvoiceNumber?.Trim();
                 record.VehicleOutOfService = dto.VehicleOutOfService;
                 record.Notes               = dto.Notes?.Trim();
@@ -713,7 +713,7 @@ namespace CMS.API.Controllers
         public decimal? NextServiceKm        { get; set; }
         public decimal? Cost                 { get; set; }
         public string?  Currency             { get; set; }
-        public string?  SupplierName         { get; set; }
+        public string?  VendorName           { get; set; }
         public string?  InvoiceNumber        { get; set; }
         public bool     VehicleOutOfService  { get; set; }
         public string?  Notes                { get; set; }

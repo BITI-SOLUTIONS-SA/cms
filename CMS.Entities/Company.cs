@@ -9,6 +9,7 @@
 
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using CMS.Entities.EInvoice;
 
 namespace CMS.Entities
 {
@@ -30,8 +31,8 @@ namespace CMS.Entities
         [Column("is_tenant")]
         public bool IsTenant { get; set; }
 
-        [Column("id_type_id")]
-        public int TypeIdId { get; set; }
+        [Column("id_electronic_document_identification_type")]
+        public int IdElectronicDocumentIdentificationType { get; set; }
 
         [Column("company_schema")]
         [Required]
@@ -313,7 +314,7 @@ namespace CMS.Entities
         // ===== NAVEGACIÓN =====
         public virtual Company? ParentCompany { get; set; }
         public virtual ICollection<Company> ChildCompanies { get; set; } = new List<Company>();
-        public virtual TypeId TypeId { get; set; } = default!;
+        public virtual ElectronicDocumentIdentificationType IdentificationType { get; set; } = default!;
         public virtual Country? Country { get; set; }
         public virtual SubscriptionStatus SubscriptionStatus { get; set; } = default!;
         public virtual ICollection<Subscription> Subscriptions { get; set; } = new List<Subscription>();

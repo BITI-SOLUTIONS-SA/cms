@@ -102,12 +102,12 @@
                                 <label class="form-label text-white">
                                     <i class="bi bi-rulers me-1"></i>Unidad de Medida
                                 </label>
-                                <select asp-for="IdUnitOfMeasure" class="form-select"
+                                <select asp-for="IdElectronicDocumentUnitOfMeasure" class="form-select"
                                         style="background-color: #1e293b; color: #f0f0f0; border-color: rgba(6, 182, 212, 0.5);">
                                     <option value="">-- Seleccione --</option>
                                     @foreach (var unit in Model.UnitsOfMeasure)
                                     {
-                                        <option value="@unit.Id" selected="@(Model.IdUnitOfMeasure == unit.Id)">@unit.Name (@unit.Symbol)</option>
+                                        <option value="@unit.Id" selected="@(Model.IdElectronicDocumentUnitOfMeasure == unit.Id)">@unit.Name (@unit.Symbol)</option>
                                     }
                                 </select>
                             </div>
@@ -479,6 +479,39 @@
 
             isLabelItem.addEventListener('change', toggleLabelFields);
             toggleLabelFields();
+
+            // ===== Autocompletado de valores por defecto =====
+            // Si el usuario no digita Descripción / Nombre de Etiqueta, el sistema
+            // usa el mismo valor de "Nombre". Barcode y LabelItemBarcode se generan
+            // en el servidor a partir del id (14 dígitos con ceros a la izquierda).
+            const nameInput = document.querySelector('[name="Name"]');
+            const descInput = document.querySelector('[name="Description"]');
+            const labelItemInput = document.querySelector('[name="LabelItem"]');
+
+            // Marcamos si el usuario tocó manualmente cada campo
+            let descTouched = false;
+            let labelTouched = false;
+            if (descInput) descInput.addEventListener('input', () => descTouched = descInput.value.trim().length > 0);
+            if (labelItemInput) labelItemInput.addEventListener('input', () => labelTouched = labelItemInput.value.trim().length > 0);
+
+            function syncDefaultsFromName() {
+                if (!nameInput) return;
+                const nameVal = nameInput.value;
+                if (descInput && !descTouched) descInput.value = nameVal;
+                if (labelItemInput && !labelTouched) labelItemInput.value = nameVal;
+            }
+
+            if (nameInput) nameInput.addEventListener('input', syncDefaultsFromName);
+
+            // Garantía final al enviar el formulario
+            const form = nameInput ? nameInput.closest('form') : null;
+            if (form) {
+                form.addEventListener('submit', function() {
+                    const nameVal = nameInput.value;
+                    if (descInput && descInput.value.trim() === '') descInput.value = nameVal;
+                    if (labelItemInput && labelItemInput.value.trim() === '') labelItemInput.value = nameVal;
+                });
+            }
         });
     </script>
 }

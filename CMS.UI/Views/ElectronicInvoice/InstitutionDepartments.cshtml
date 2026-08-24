@@ -1,0 +1,277 @@
+@{
+    ViewData["Title"] = "Institución Exoneración";
+    var apiBaseUrl = ViewBag.ApiBaseUrl as string ?? "";
+    var apiToken = ViewBag.ApiToken as string ?? "";
+}
+
+<style>
+    .dea-card { background: #16213e; border: 1px solid #23305c; border-radius: .75rem; }
+    .dea-table { color: #1e293b; background-color: #ffffff; }
+    .dea-table thead th { color: #334155; border-color: #cbd5e1; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; background-color: #f1f5f9; }
+    .dea-table td, .dea-table th { border-color: #cbd5e1; vertical-align: middle; }
+    .dea-table td { color: #1e293b; }
+    .dea-code { font-family: monospace; font-weight: 700; color: #1d4ed8; }
+    .badge-flag { font-size: .68rem; }
+    small, .form-text, small.text-muted, .text-muted small { color: #cbd5e1 !important; }
+    .modal-content { background: #16213e; color: #e0e0e0; border: 1px solid #23305c; }
+    .modal-header, .modal-footer { border-color: #23305c; }
+    .form-check-label { color: #e0e0e0; }
+    .dea-table td small, .dea-table .text-muted { color: #475569 !important; }
+</style>
+
+<div class="container-fluid py-3 text-light">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-bank me-2"></i>Institución o dependencia de exoneración</h4>
+        <div>
+            <a asp-action="ExemptionAuthorizationTypes" class="btn btn-outline-light btn-sm"><i class="bi bi-patch-check"></i> Tipo Doc. Exoneración</a>
+            <a asp-action="TaxTypes" class="btn btn-outline-light btn-sm"><i class="bi bi-percent-square"></i> Tipos de Impuesto</a>
+            <button id="edidNewBtn" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nueva institución</button>
+        </div>
+    </div>
+
+    <div class="card dea-card mb-3">
+        <div class="card-body">
+            <p class="text-light mb-3">
+                Catálogo central de <strong>nombre de institución o dependencia que emitió la exoneración</strong>
+                (<code>NombreInstitucion</code>, formato <code>00</code>) del Ministerio de Hacienda.
+                Es compartido por todas las compañías. Las instituciones marcadas como <strong>activas</strong>
+                aparecen en el selector "Nombre de institución o dependencia que emitió la exoneración" del modal
+                de impuesto en la pantalla de emisión <em>"/ElectronicInvoice/Emit"</em>.
+            </p>
+
+            <div class="row g-2 mb-3 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label text-light">Buscar (código o nombre)</label>
+                    <div class="input-group input-group-sm">
+                        <input type="text" id="edidSearch" class="form-control" placeholder="Ej: Hacienda..." />
+                        <button class="btn btn-outline-info" type="button" id="edidSearchBtn"><i class="bi bi-search"></i></button>
+                        <button class="btn btn-outline-secondary" type="button" id="edidSearchClear" title="Limpiar"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" id="edidOnlyActive" />
+                        <label class="form-check-label" for="edidOnlyActive">Solo activas</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table dea-table align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width: 80px;">Código</th>
+                            <th>Nombre</th>
+                            <th class="text-center" style="width: 90px;">Orden</th>
+                            <th class="text-center" style="width: 80px;">Activo</th>
+                            <th class="text-end" style="width: 130px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="edidTableBody">
+                        <tr><td colspan="5" class="text-center text-muted py-4">Cargando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center">
+                <small class="text-light" id="edidInfo"></small>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-light" id="edidPrev"><i class="bi bi-chevron-left"></i></button>
+                    <button class="btn btn-outline-light" id="edidNext"><i class="bi bi-chevron-right"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal edición/creación -->
+<div class="modal fade" id="edidModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i><span id="edidModalTitle">Editar institución</span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="fi_id" />
+                <div class="row g-2">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Código</label>
+                        <input type="text" id="fi_code" class="form-control" maxlength="2" placeholder="00" />
+                        <small class="form-text">Formato Hacienda: 00</small>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Orden</label>
+                        <input type="number" id="fi_displayOrder" class="form-control" min="0" max="999" value="0" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="form-check mt-4">
+                            <input class="form-check-input" type="checkbox" id="fi_isActive" checked />
+                            <label class="form-check-label" for="fi_isActive">Activo</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Nombre</label>
+                    <input type="text" id="fi_name" class="form-control" maxlength="300" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Descripción</label>
+                    <textarea id="fi_description" class="form-control" rows="2" maxlength="1000"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="edidSaveBtn"><i class="bi bi-check-lg"></i> Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const EDID = { api: '@Html.Raw(apiBaseUrl)', token: '@Html.Raw(apiToken)' };
+    let edidPage = 1, edidPageSize = 50, edidTotal = 0;
+
+    function escapeHtml(s) {
+        return String(s ?? '').replace(/[&<>"']/g, m =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    async function edidFetch(path, options = {}) {
+        const opts = Object.assign({ headers: {} }, options);
+        if (EDID.token) opts.headers['Authorization'] = `Bearer ${EDID.token}`;
+        if (options.body) opts.headers['Content-Type'] = 'application/json';
+        return fetch(EDID.api + path, opts);
+    }
+
+    function boolBadge(v) {
+        return v
+            ? '<span class="badge bg-success badge-flag">Sí</span>'
+            : '<span class="badge bg-secondary badge-flag">No</span>';
+    }
+
+    async function loadInstitutions() {
+        const body = document.getElementById('edidTableBody');
+        body.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Cargando...</td></tr>';
+        const search = document.getElementById('edidSearch').value.trim();
+        const onlyActive = document.getElementById('edidOnlyActive').checked;
+        const qs = new URLSearchParams({ page: edidPage, pageSize: edidPageSize, onlyActive });
+        if (search) qs.set('search', search);
+        try {
+            const r = await edidFetch('/api/electronicdocumentinstitutiondepartment?' + qs.toString());
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const data = await r.json();
+            edidTotal = data.total;
+            const rows = data.items || [];
+            if (!rows.length) {
+                body.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Sin resultados.</td></tr>';
+            } else {
+                body.innerHTML = rows.map(a => `
+                    <tr>
+                        <td><span class="dea-code">${escapeHtml(a.code)}</span></td>
+                        <td>${escapeHtml(a.name)}</td>
+                        <td class="text-center">${a.displayOrder ?? 0}</td>
+                        <td class="text-center">${boolBadge(a.isActive)}</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-primary" onclick='edidEdit(${JSON.stringify(a).replace(/'/g, "&#39;")})'><i class="bi bi-pencil"></i></button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="edidDelete(${a.id})"><i class="bi bi-trash"></i></button>
+                        </td>
+                    </tr>`).join('');
+            }
+            const from = edidTotal === 0 ? 0 : (edidPage - 1) * edidPageSize + 1;
+            const to = Math.min(edidPage * edidPageSize, edidTotal);
+            document.getElementById('edidInfo').textContent = `Mostrando ${from}-${to} de ${edidTotal}`;
+        } catch (e) {
+            console.error(e);
+            body.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">Error al cargar.</td></tr>';
+        }
+    }
+
+    function edidOpenModal(title) {
+        document.getElementById('edidModalTitle').textContent = title;
+        new bootstrap.Modal(document.getElementById('edidModal')).show();
+    }
+
+    function edidNew() {
+        document.getElementById('fi_id').value = '';
+        document.getElementById('fi_code').value = '';
+        document.getElementById('fi_name').value = '';
+        document.getElementById('fi_description').value = '';
+        document.getElementById('fi_displayOrder').value = '0';
+        document.getElementById('fi_isActive').checked = true;
+        document.getElementById('fi_code').disabled = false;
+        edidOpenModal('Nueva institución');
+    }
+
+    function edidEdit(a) {
+        document.getElementById('fi_id').value = a.id;
+        document.getElementById('fi_code').value = a.code;
+        document.getElementById('fi_name').value = a.name;
+        document.getElementById('fi_description').value = a.description ?? '';
+        document.getElementById('fi_displayOrder').value = a.displayOrder ?? 0;
+        document.getElementById('fi_isActive').checked = a.isActive;
+        document.getElementById('fi_code').disabled = false;
+        edidOpenModal('Editar institución');
+    }
+
+    async function edidSave() {
+        const id = document.getElementById('fi_id').value;
+        const payload = {
+            code: document.getElementById('fi_code').value.trim(),
+            name: document.getElementById('fi_name').value.trim(),
+            description: document.getElementById('fi_description').value.trim(),
+            displayOrder: parseInt(document.getElementById('fi_displayOrder').value, 10) || 0,
+            isActive: document.getElementById('fi_isActive').checked
+        };
+        if (!payload.code || !payload.name) {
+            alert('Código y nombre son obligatorios.');
+            return;
+        }
+        try {
+            const r = id
+                ? await edidFetch('/api/electronicdocumentinstitutiondepartment/' + id, { method: 'PUT', body: JSON.stringify(payload) })
+                : await edidFetch('/api/electronicdocumentinstitutiondepartment', { method: 'POST', body: JSON.stringify(payload) });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                alert(err.message || 'Error al guardar.');
+                return;
+            }
+            bootstrap.Modal.getInstance(document.getElementById('edidModal')).hide();
+            await loadInstitutions();
+        } catch (e) { console.error(e); alert('Error de red.'); }
+    }
+
+    async function edidDelete(id) {
+        if (!confirm('¿Eliminar esta institución/dependencia?')) return;
+        try {
+            const r = await edidFetch('/api/electronicdocumentinstitutiondepartment/' + id, { method: 'DELETE' });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                alert(err.message || 'Error al eliminar.');
+                return;
+            }
+            await loadInstitutions();
+        } catch (e) { console.error(e); alert('Error de red.'); }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Mover modal al body para evitar problemas de z-index con el sidebar
+        ['edidModal'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) document.body.appendChild(el);
+        });
+
+        document.getElementById('edidNewBtn').addEventListener('click', edidNew);
+        document.getElementById('edidSaveBtn').addEventListener('click', edidSave);
+        document.getElementById('edidSearchBtn').addEventListener('click', () => { edidPage = 1; loadInstitutions(); });
+        document.getElementById('edidSearch').addEventListener('keyup', e => { if (e.key === 'Enter') { edidPage = 1; loadInstitutions(); } });
+        document.getElementById('edidSearchClear').addEventListener('click', () => { document.getElementById('edidSearch').value = ''; edidPage = 1; loadInstitutions(); });
+        document.getElementById('edidOnlyActive').addEventListener('change', () => { edidPage = 1; loadInstitutions(); });
+        document.getElementById('edidPrev').addEventListener('click', () => { if (edidPage > 1) { edidPage--; loadInstitutions(); } });
+        document.getElementById('edidNext').addEventListener('click', () => { if (edidPage * edidPageSize < edidTotal) { edidPage++; loadInstitutions(); } });
+
+        loadInstitutions();
+    });
+</script>
+}

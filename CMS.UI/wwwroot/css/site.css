@@ -62,19 +62,15 @@ body {
     background: var(--bg-dark);
 }
 
-.layout-wrapper.sidebar-collapsed .main-content {
-    margin-left: var(--sidebar-collapsed-width);
-    max-width: calc(100vw - var(--sidebar-collapsed-width));
-}
-
+/* El contenido SIEMPRE ocupa el 100% del ancho: el menú es un overlay
+   que se despliega encima (como un modal), no empuja el contenido. */
 .main-content {
     flex: 1;
-    margin-left: var(--sidebar-width);
-    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    margin-left: 0;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    max-width: calc(100vw - var(--sidebar-width));
+    max-width: 100vw;
     width: 100%;
     background: linear-gradient(180deg, var(--bg-dark) 0%, #0c1222 100%);
     position: relative;
@@ -85,7 +81,7 @@ body {
     content: '';
     position: fixed;
     top: 0;
-    left: var(--sidebar-width);
+    left: 0;
     right: 0;
     bottom: 0;
     background-image: 
@@ -94,33 +90,49 @@ body {
     background-size: 40px 40px;
     pointer-events: none;
     z-index: 0;
-    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.layout-wrapper.sidebar-collapsed .main-content::before {
-    left: var(--sidebar-collapsed-width);
 }
 
 
-/* ===== SIDEBAR ===== */
+/* ===== SIDEBAR (OVERLAY) ===== */
+/* Oculto por defecto (fuera de pantalla a la izquierda). Se despliega encima
+   del contenido con una transición, igual que un panel/drawer modal. */
 .sidebar {
     position: fixed;
     top: 0;
     left: 0;
     width: var(--sidebar-width);
+    max-width: 85vw;
     height: 100vh;
     background: var(--bg-medium);
     border-right: 1px solid var(--border-color);
     color: var(--text-white);
-    z-index: 1000;
-    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1060;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
-    box-shadow: 4px 0 25px rgba(0, 0, 0, 0.3);
+    box-shadow: 4px 0 25px rgba(0, 0, 0, 0.5);
 }
 
-.layout-wrapper.sidebar-collapsed .sidebar {
-    width: var(--sidebar-collapsed-width);
+.layout-wrapper.sidebar-open .sidebar {
+    transform: translateX(0);
+}
+
+/* Backdrop oscuro detrás del menú desplegado (como el de un modal). */
+.sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+    z-index: 1055;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.layout-wrapper.sidebar-open .sidebar-backdrop {
+    opacity: 1;
+    visibility: visible;
 }
 
 .sidebar-header {
@@ -474,6 +486,25 @@ body {
 .top-navbar .navbar-toggler:hover {
     background: rgba(6, 182, 212, 0.2);
     box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);
+}
+
+/* Botón "Menú" de la navbar superior (abre el drawer overlay) */
+.menu-toggle-btn {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.menu-toggle-btn .menu-toggle-text {
+    color: var(--accent-cyan);
+}
+
+@media (max-width: 576px) {
+    .menu-toggle-btn .menu-toggle-text {
+        display: none;
+    }
 }
 
 .top-navbar .navbar-toggler-icon {
@@ -889,15 +920,6 @@ body {
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 992px) {
-    .sidebar {
-        transform: translateX(-100%);
-        z-index: 1050;
-    }
-
-    .layout-wrapper:not(.sidebar-collapsed) .sidebar {
-        transform: translateX(0);
-    }
-
     .main-content {
         margin-left: 0 !important;
         max-width: 100vw;
@@ -905,10 +927,6 @@ body {
 
     .main-content::before {
         left: 0;
-    }
-
-    .layout-wrapper.sidebar-collapsed .main-content {
-        margin-left: 0 !important;
     }
 }
 

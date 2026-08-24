@@ -162,6 +162,7 @@ builder.Services.AddScoped<ICustomerService, CustomerService>(); // ⭐ Nuevo se
 // ================================================================================
 // FACTURACIÓN ELECTRÓNICA CR v4.4 (HACIENDA-CORE)
 // ================================================================================
+builder.Services.AddScoped<CMS.Data.Services.EInvoice.IElectronicDocumentTypeCatalogService, CMS.Data.Services.EInvoice.ElectronicDocumentTypeCatalogService>();
 builder.Services.AddSingleton<CMS.Data.Services.EInvoice.IEInvoiceVaultService, CMS.Data.Services.EInvoice.EInvoiceVaultService>();
 builder.Services.AddScoped<CMS.Data.Services.EInvoice.IClaveNumericaGenerator, CMS.Data.Services.EInvoice.ClaveNumericaGenerator>();
 builder.Services.AddScoped<CMS.Data.Services.EInvoice.IElectronicDocumentXmlBuilder, CMS.Data.Services.EInvoice.ElectronicDocumentXmlBuilder>();
@@ -269,6 +270,10 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
+    // Usa el nombre completo del tipo como schemaId para evitar colisiones
+    // cuando existen DTOs con el mismo nombre corto en distintos controladores/namespaces.
+    c.CustomSchemaIds(type => type.FullName?.Replace("+", "."));
+
     c.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = $"CMS API - {companyConfig.COMPANY_NAME}",

@@ -177,6 +177,12 @@ namespace CMS.API.Controllers
 
             if (issuerCred == null) return NotFound(new { message = "Credencial de emisor no encontrada" });
 
+            // La actividad económica ya NO se guarda en la credencial: se valida contra
+            // {schema}.customer_economic_activity (al menos una actividad activa del cliente).
+            var tieneActividad = issuerCred.IdCustomer.HasValue && issuerCred.IdCustomer.Value != 0
+                && await db.CustomerEconomicActivities.AsNoTracking()
+                    .AnyAsync(a => a.IdCustomer == issuerCred.IdCustomer.Value && a.IsActive);
+
             var checks = new
             {
                 emisorNombre = issuerCred.Name,
@@ -185,11 +191,11 @@ namespace CMS.API.Controllers
                 tieneCertificado = issuerCred.P12Cipher != null && issuerCred.P12Cipher.Length > 0,
                 tieneOAuth = issuerCred.OAuthUsername != null,
                 certificadoVigente = issuerCred.CertNotAfter == null || issuerCred.CertNotAfter > DateTime.UtcNow,
-                actividadEconomica = !string.IsNullOrEmpty(issuerCred.EconomicActivity),
+                actividadEconomica = tieneActividad,
                 listoParaEmitir = issuerCred.P12Cipher != null && issuerCred.P12Cipher.Length > 0
                     && issuerCred.OAuthUsername != null
                     && (issuerCred.CertNotAfter == null || issuerCred.CertNotAfter > DateTime.UtcNow)
-                    && !string.IsNullOrEmpty(issuerCred.EconomicActivity)
+                    && tieneActividad
             };
             return Ok(checks);
         }

@@ -8,10 +8,14 @@
 // ================================================================================
 
 using System.Security.Claims;
+using CMS.API.Helpers;
+using CMS.Data;
 using CMS.Data.Services;
 using CMS.Entities.Operational;
+using CMS.Shared.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace CMS.API.Controllers
 {
@@ -21,13 +25,19 @@ namespace CMS.API.Controllers
     public class CustomerController : ControllerBase
     {
         private readonly ICustomerService _service;
+        private readonly ICompanyDbContextFactory _factory;
+        private readonly AppDbContext _centralDb;
         private readonly ILogger<CustomerController> _logger;
 
         public CustomerController(
             ICustomerService service,
+            ICompanyDbContextFactory factory,
+            AppDbContext centralDb,
             ILogger<CustomerController> logger)
         {
             _service = service;
+            _factory = factory;
+            _centralDb = centralDb;
             _logger = logger;
         }
 
@@ -239,6 +249,162 @@ namespace CMS.API.Controllers
             {
                 _logger.LogError(ex, "Error al verificar existencia de customer {Code}", code);
                 return StatusCode(500, new { message = "Error al verificar existencia", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Busca receptores (clientes) con filtros para el selector de la pantalla de emisión.
+        /// El receptor de un documento electrónico proviene del maestro de clientes (customer).
+        /// </summary>
+        [HttpGet("search-receptors")]
+        public async Task<ActionResult<List<ReceptorSearchResultDto>>> SearchReceptors(
+            [FromQuery] string? searchTerm = null,
+            [FromQuery] string? identificationType = null,
+            [FromQuery] int? customerType = null,
+            [FromQuery] bool includeInactive = false)
+        {
+            try
+            {
+                var companyId = GetCompanyId();
+                await using var db = await _factory.CreateDbContextAsync(companyId);
+
+                var query = db.Customers.AsNoTracking();
+
+                if (!includeInactive)
+                    query = query.Where(c => c.IsActive);
+
+                if (!string.IsNullOrWhiteSpace(searchTerm))
+                {
+                    var term = searchTerm.ToLower();
+                    query = query.Where(c =>
+                        c.Name.ToLower().Contains(term) ||
+                        c.Code.ToLower().Contains(term) ||
+                        (c.Identification != null && c.Identification.Contains(term)));
+                }
+
+                if (customerType.HasValue)
+                    query = query.Where(c => c.IdCustomerType == customerType.Value);
+
+                var customers = await query
+                    .OrderBy(c => c.Name)
+                    .Take(50)
+                    .ToListAsync();
+
+                // Resolver el código Hacienda del tipo de identificación desde el catálogo central.
+                var typeIds = customers
+                    .Where(c => c.IdElectronicDocumentIdentificationType.HasValue)
+                    .Select(c => c.IdElectronicDocumentIdentificationType!.Value)
+                    .Distinct()
+                    .ToList();
+
+                var typeMap = typeIds.Count == 0
+                    ? new Dictionary<int, string>()
+                    : await _centralDb.ElectronicDocumentIdentificationTypes
+                        .AsNoTracking()
+                        .Where(t => typeIds.Contains(t.Id))
+                        .ToDictionaryAsync(t => t.Id, t => t.Code);
+
+                if (identificationType != null)
+                {
+                    customers = customers
+                        .Where(c => c.IdElectronicDocumentIdentificationType.HasValue
+                            && typeMap.TryGetValue(c.IdElectronicDocumentIdentificationType.Value, out var code)
+                            && code == identificationType)
+                        .ToList();
+                }
+
+                var results = customers.Select(c => new ReceptorSearchResultDto
+                {
+                    IdCustomer = c.Id,
+                    Code = c.Code,
+                    Name = c.Name,
+                    CommercialName = c.CommercialName,
+                    IdentificationType = c.IdElectronicDocumentIdentificationType.HasValue
+                        && typeMap.TryGetValue(c.IdElectronicDocumentIdentificationType.Value, out var t) ? t : null,
+                    Identification = c.Identification,
+                    ForeignIdentification = c.ForeignIdentification,
+                    Email = c.Email,
+                    Phone = c.Phone,
+                    PhoneCode = c.PhoneCode,
+                    IdCustomerType = c.IdCustomerType,
+                    IsExonerated = c.IsExonerated,
+                    IsActive = c.IsActive
+                }).ToList();
+
+                return Ok(results);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al buscar receptores");
+                return StatusCode(500, new { message = "Error al buscar receptores", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Detalle del receptor (cliente) para la tarjeta resumen de la pantalla de emisión.
+        /// Devuelve nombre, cédula, dirección fiscal resuelta, contacto y los datos de exoneración.
+        /// </summary>
+        [HttpGet("{id:int}/emit-detail")]
+        public async Task<ActionResult<PartyEmitDetailDto>> GetEmitDetail(int id)
+        {
+            try
+            {
+                var companyId = GetCompanyId();
+                await using var db = await _factory.CreateDbContextAsync(companyId);
+
+                var customer = await db.Customers
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.Id == id);
+
+                if (customer == null)
+                    return NotFound(new { message = $"Customer {id} no encontrado" });
+
+                var addressText = await HaciendaAddressResolver.BuildAddressTextAsync(
+                    _centralDb,
+                    customer.Province,
+                    customer.Canton,
+                    customer.District,
+                    customer.OtherSigns);
+
+                var identificationType = customer.IdElectronicDocumentIdentificationType.HasValue
+                    ? await _centralDb.ElectronicDocumentIdentificationTypes
+                        .AsNoTracking()
+                        .Where(t => t.Id == customer.IdElectronicDocumentIdentificationType.Value)
+                        .Select(t => t.Code)
+                        .FirstOrDefaultAsync()
+                    : null;
+
+                var dto = new PartyEmitDetailDto
+                {
+                    Id = customer.Id,
+                    Name = customer.Name,
+                    CommercialName = customer.CommercialName,
+                    IdentificationType = identificationType,
+                    Identification = customer.Identification,
+                    AddressText = addressText,
+                    Email = customer.Email,
+                    PhoneCode = customer.PhoneCode,
+                    Phone = customer.Phone,
+
+                    // Exoneración
+                    IsExonerated = customer.IsExonerated,
+                    ExonDocumentType = customer.ExonDocumentType,
+                    ExonDocumentTypeOther = customer.ExonDocumentTypeOther,
+                    ExonDocumentNumber = customer.ExonDocumentNumber,
+                    ExonArticle = customer.ExonArticle,
+                    ExonSubsection = customer.ExonSubsection,
+                    ExonInstitutionCode = customer.ExonInstitutionCode,
+                    ExonInstitutionOther = customer.ExonInstitutionOther,
+                    ExonIssueDate = customer.ExonIssueDate?.ToString("yyyy-MM-dd"),
+                    ExonTariffPercent = customer.ExonTariffPercent
+                };
+
+                return Ok(dto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener detalle de receptor {Id}", id);
+                return StatusCode(500, new { message = "Error al obtener detalle de receptor", error = ex.Message });
             }
         }
     }

@@ -230,7 +230,7 @@ namespace CMS.API.Controllers
         /// GET: api/item/code/{code}
         /// </summary>
         [HttpGet("code/{code}")]
-        public async Task<ActionResult<ItemDto>> GetItemByCode(string code)
+        public async Task<ActionResult<ItemDto>> GetItemByCode(string code, [FromQuery] int? customerId = null)
         {
             try
             {
@@ -240,6 +240,12 @@ namespace CMS.API.Controllers
                 if (item == null)
                 {
                     return NotFound(new { message = "Artículo no encontrado" });
+                }
+
+                // Si se especifica el emisor (cliente), el ítem debe pertenecerle.
+                if (customerId.HasValue && item.IdCustomer != customerId.Value)
+                {
+                    return NotFound(new { message = "El artículo no pertenece al emisor seleccionado" });
                 }
 
                 return Ok(MapToDto(item));
@@ -278,8 +284,10 @@ namespace CMS.API.Controllers
                         Description = i.Description,
                         SalePrice = i.SalePrice,
                         TaxRate = i.TaxRate,
-                        TaxRateCode = i.TaxRateCode,
+                        // Código de tarifa derivado del id (code = id con 2 dígitos: 1 -> '01', 8 -> '08').
+                        TaxRateCode = i.IdElectronicDocumentTaxRate.ToString("D2"),
                         CabysCode = i.CabysCode,
+                        IdElectronicDocumentTaxType = i.IdElectronicDocumentTaxType,
                         IdCustomer = i.IdCustomer
                     })
                     .ToList();
@@ -316,16 +324,16 @@ namespace CMS.API.Controllers
                 {
                     Code = request.Code,
                     Name = request.Name,
-                    Description = request.Description,
-                    Barcode = request.Barcode,
-                    IdClassification1 = request.IdClassification1,
-                    IdClassification2 = request.IdClassification2,
-                    IdClassification3 = request.IdClassification3,
-                    IdClassification4 = request.IdClassification4,
-                    IdClassification5 = request.IdClassification5,
-                    IdClassification6 = request.IdClassification6,
-                    Brand = request.Brand,
-                    IdUnitOfMeasure = request.IdUnitOfMeasure,
+                    Description = string.IsNullOrWhiteSpace(request.Description) ? request.Name : request.Description,
+                    Barcode = request.Barcode ?? string.Empty,
+                    IdClassification1 = (request.IdClassification1 is int c1 && c1 > 0) ? c1 : 1,
+                    IdClassification2 = (request.IdClassification2 is int c2 && c2 > 0) ? c2 : 2,
+                    IdClassification3 = (request.IdClassification3 is int c3 && c3 > 0) ? c3 : 3,
+                    IdClassification4 = (request.IdClassification4 is int c4 && c4 > 0) ? c4 : 4,
+                    IdClassification5 = (request.IdClassification5 is int c5 && c5 > 0) ? c5 : 5,
+                    IdClassification6 = (request.IdClassification6 is int c6 && c6 > 0) ? c6 : 6,
+                    Brand = string.IsNullOrWhiteSpace(request.Brand) ? "Marca A" : request.Brand,
+                    IdElectronicDocumentUnitOfMeasure = (request.IdElectronicDocumentUnitOfMeasure.HasValue && request.IdElectronicDocumentUnitOfMeasure.Value > 0) ? request.IdElectronicDocumentUnitOfMeasure.Value : 1,
                     CostPrice = request.CostPrice,
                     SalePrice = request.SalePrice,
                     TaxRate = request.TaxRate,
@@ -341,13 +349,15 @@ namespace CMS.API.Controllers
 
                     // Facturación electrónica (Fase B)
                     IdCustomer = request.IdCustomer ?? 1,
-                    TaxRateCode = string.IsNullOrWhiteSpace(request.TaxRateCode) ? "08" : request.TaxRateCode,
+                    // El DTO público trae el code (string); se convierte al id interno (code '08' -> 8). Default 8.
+                    IdElectronicDocumentTaxRate = ResolveTaxRateId(request.TaxRateCode),
                     CabysCode = string.IsNullOrWhiteSpace(request.CabysCode) ? "9799000000000" : request.CabysCode,
+                    IdElectronicDocumentTaxType = (request.IdElectronicDocumentTaxType.HasValue && request.IdElectronicDocumentTaxType.Value > 0) ? request.IdElectronicDocumentTaxType.Value : 1,
 
                     // Label Item fields
-                    LabelItem = request.LabelItem,
+                    LabelItem = string.IsNullOrWhiteSpace(request.LabelItem) ? request.Name : request.LabelItem,
                     LabelPrice = request.LabelPrice,
-                    LabelItemBarcode = request.LabelItemBarcode,
+                    LabelItemBarcode = request.LabelItemBarcode ?? string.Empty,
                     IsLabelItem = request.IsLabelItem
                 };
 
@@ -380,16 +390,16 @@ namespace CMS.API.Controllers
                     Id = id,
                     Code = request.Code,
                     Name = request.Name,
-                    Description = request.Description,
-                    Barcode = request.Barcode,
-                    IdClassification1 = request.IdClassification1,
-                    IdClassification2 = request.IdClassification2,
-                    IdClassification3 = request.IdClassification3,
-                    IdClassification4 = request.IdClassification4,
-                    IdClassification5 = request.IdClassification5,
-                    IdClassification6 = request.IdClassification6,
-                    Brand = request.Brand,
-                    IdUnitOfMeasure = request.IdUnitOfMeasure,
+                    Description = string.IsNullOrWhiteSpace(request.Description) ? request.Name : request.Description,
+                    Barcode = request.Barcode ?? string.Empty,
+                    IdClassification1 = (request.IdClassification1 is int c1 && c1 > 0) ? c1 : 1,
+                    IdClassification2 = (request.IdClassification2 is int c2 && c2 > 0) ? c2 : 2,
+                    IdClassification3 = (request.IdClassification3 is int c3 && c3 > 0) ? c3 : 3,
+                    IdClassification4 = (request.IdClassification4 is int c4 && c4 > 0) ? c4 : 4,
+                    IdClassification5 = (request.IdClassification5 is int c5 && c5 > 0) ? c5 : 5,
+                    IdClassification6 = (request.IdClassification6 is int c6 && c6 > 0) ? c6 : 6,
+                    Brand = string.IsNullOrWhiteSpace(request.Brand) ? "Marca A" : request.Brand,
+                    IdElectronicDocumentUnitOfMeasure = (request.IdElectronicDocumentUnitOfMeasure.HasValue && request.IdElectronicDocumentUnitOfMeasure.Value > 0) ? request.IdElectronicDocumentUnitOfMeasure.Value : 1,
                     CostPrice = request.CostPrice,
                     SalePrice = request.SalePrice,
                     TaxRate = request.TaxRate,
@@ -405,13 +415,15 @@ namespace CMS.API.Controllers
 
                     // Facturación electrónica (Fase B)
                     IdCustomer = request.IdCustomer ?? 1,
-                    TaxRateCode = string.IsNullOrWhiteSpace(request.TaxRateCode) ? "08" : request.TaxRateCode,
+                    // El DTO público trae el code (string); se convierte al id interno (code '08' -> 8). Default 8.
+                    IdElectronicDocumentTaxRate = ResolveTaxRateId(request.TaxRateCode),
                     CabysCode = string.IsNullOrWhiteSpace(request.CabysCode) ? "9799000000000" : request.CabysCode,
+                    IdElectronicDocumentTaxType = (request.IdElectronicDocumentTaxType.HasValue && request.IdElectronicDocumentTaxType.Value > 0) ? request.IdElectronicDocumentTaxType.Value : 1,
 
                     // Label Item fields
-                    LabelItem = request.LabelItem,
+                    LabelItem = string.IsNullOrWhiteSpace(request.LabelItem) ? request.Name : request.LabelItem,
                     LabelPrice = request.LabelPrice,
-                    LabelItemBarcode = request.LabelItemBarcode,
+                    LabelItemBarcode = request.LabelItemBarcode ?? string.Empty,
                     IsLabelItem = request.IsLabelItem
                 };
 
@@ -772,6 +784,22 @@ namespace CMS.API.Controllers
 
         // ===== MAPPERS Y DTOS =====
 
+        /// <summary>
+        /// Resuelve el id del catálogo central admin.electronic_document_tax_rate a partir del
+        /// code Hacienda (CodigoTarifaIVA). El code '01'..'11' corresponde exactamente al id 1..11.
+        /// Valores nulos/inválidos → 8 (Tarifa general 13% = default).
+        /// </summary>
+        private static int ResolveTaxRateId(string? taxRateCode)
+        {
+            if (!string.IsNullOrWhiteSpace(taxRateCode)
+                && int.TryParse(taxRateCode.Trim(), out var id)
+                && id >= 1 && id <= 11)
+            {
+                return id;
+            }
+            return 8;
+        }
+
             private static ItemDto MapToDto(Item item) => new()
                 {
                     Id = item.Id,
@@ -786,7 +814,7 @@ namespace CMS.API.Controllers
                     IdClassification5 = item.IdClassification5,
                     IdClassification6 = item.IdClassification6,
                     Brand = item.Brand,
-                    IdUnitOfMeasure = item.IdUnitOfMeasure,
+                    IdElectronicDocumentUnitOfMeasure = item.IdElectronicDocumentUnitOfMeasure,
                     CostPrice = item.CostPrice,
                     SalePrice = item.SalePrice,
                     TaxRate = item.TaxRate,
@@ -802,8 +830,10 @@ namespace CMS.API.Controllers
 
                     // Facturación electrónica (Fase B)
                     IdCustomer = item.IdCustomer,
-                    TaxRateCode = item.TaxRateCode,
+                    // Código de tarifa derivado del id (code = id con 2 dígitos: 8 -> '08').
+                    TaxRateCode = item.IdElectronicDocumentTaxRate.ToString("D2"),
                     CabysCode = item.CabysCode,
+                    IdElectronicDocumentTaxType = item.IdElectronicDocumentTaxType,
 
                     // Label Item fields
                     LabelItem = item.LabelItem,
@@ -854,6 +884,7 @@ namespace CMS.API.Controllers
             public decimal TaxRate { get; set; }
             public string TaxRateCode { get; set; } = "08";
             public string CabysCode { get; set; } = string.Empty;
+            public int IdElectronicDocumentTaxType { get; set; } = 1;
             public int IdCustomer { get; set; }
         }
 
@@ -880,7 +911,7 @@ namespace CMS.API.Controllers
             public int? IdClassification5 { get; set; }
             public int? IdClassification6 { get; set; }
             public string? Brand { get; set; }
-            public int? IdUnitOfMeasure { get; set; }
+            public int IdElectronicDocumentUnitOfMeasure { get; set; } = 1;
             public decimal CostPrice { get; set; }
             public decimal SalePrice { get; set; }
             public decimal TaxRate { get; set; }
@@ -898,6 +929,7 @@ namespace CMS.API.Controllers
             public int IdCustomer { get; set; }
             public string TaxRateCode { get; set; } = "08";
             public string CabysCode { get; set; } = string.Empty;
+            public int IdElectronicDocumentTaxType { get; set; } = 1;
 
             // Label Item fields
             public string? LabelItem { get; set; }
@@ -947,7 +979,7 @@ namespace CMS.API.Controllers
             public int? IdClassification5 { get; set; }
             public int? IdClassification6 { get; set; }
             public string? Brand { get; set; }
-            public int? IdUnitOfMeasure { get; set; }
+            public int? IdElectronicDocumentUnitOfMeasure { get; set; }
             public decimal CostPrice { get; set; }
             public decimal SalePrice { get; set; }
             public decimal TaxRate { get; set; }
@@ -965,6 +997,7 @@ namespace CMS.API.Controllers
             public int? IdCustomer { get; set; }
             public string? TaxRateCode { get; set; }
             public string? CabysCode { get; set; }
+            public int? IdElectronicDocumentTaxType { get; set; }
 
             // Label Item fields
             public string? LabelItem { get; set; }
@@ -989,7 +1022,7 @@ namespace CMS.API.Controllers
             public int? IdClassification5 { get; set; }
             public int? IdClassification6 { get; set; }
             public string? Brand { get; set; }
-            public int? IdUnitOfMeasure { get; set; }
+            public int? IdElectronicDocumentUnitOfMeasure { get; set; }
         public decimal CostPrice { get; set; }
         public decimal SalePrice { get; set; }
         public decimal TaxRate { get; set; }
@@ -1007,6 +1040,7 @@ namespace CMS.API.Controllers
         public int? IdCustomer { get; set; }
         public string? TaxRateCode { get; set; }
         public string? CabysCode { get; set; }
+        public int? IdElectronicDocumentTaxType { get; set; }
 
         // Label Item fields
         public string? LabelItem { get; set; }

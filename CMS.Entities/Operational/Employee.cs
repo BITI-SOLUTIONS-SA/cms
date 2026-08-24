@@ -63,9 +63,9 @@ namespace CMS.Entities.Operational
         [Required][MaxLength(30)][Column("id_number")]
         public string IdNumber { get; set; } = string.Empty;
 
-        /// <summary>FK lógica cross-DB a admin.type_id (BD central cms)</summary>
-        [Column("id_type_id")]
-        public int? IdTypeId { get; set; }
+        /// <summary>FK lógica cross-DB a admin.electronic_document_identification_type (BD central cms)</summary>
+        [Column("id_electronic_document_identification_type")]
+        public int? IdElectronicDocumentIdentificationType { get; set; }
 
         [Required]
         [Column("birth_date")]

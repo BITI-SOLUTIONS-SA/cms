@@ -325,10 +325,10 @@ namespace CMS.Entities.Operational
         [Column("currency")]
         public string? Currency { get; set; }
 
-        /// <summary>Nombre del taller / proveedor</summary>
+        /// <summary>Nombre del taller / vendor</summary>
         [MaxLength(200)]
-        [Column("supplier_name")]
-        public string? SupplierName { get; set; }
+        [Column("vendor_name")]
+        public string? VendorName { get; set; }
 
         /// <summary>Número de factura o comprobante</summary>
         [MaxLength(50)]

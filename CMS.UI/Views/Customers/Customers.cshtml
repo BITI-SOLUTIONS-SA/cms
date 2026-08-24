@@ -6,15 +6,26 @@
 
 <style>
     small, .form-text, small.text-muted, .text-muted small { color: #cbd5e1 !important; }
+    #ceaModal .modal-content { background: #16213e; color: #e0e0e0; border: 1px solid #23305c; }
+    #ceaModal .modal-header, #ceaModal .modal-footer { border-color: #23305c; }
+    #ceaModal .form-check-label { color: #e0e0e0; }
+    .cea-table { color: #1e293b; background-color: #ffffff; }
+    .cea-table thead th { color: #334155; background-color: #f1f5f9; border-color: #cbd5e1; font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; }
+    .cea-table td, .cea-table th { border-color: #cbd5e1; vertical-align: middle; }
+    .cea-table td { color: #1e293b; }
+    .cea-code { font-family: monospace; font-weight: 700; color: #1d4ed8; }
 </style>
+
 
 <div class="container-fluid py-3 text-light">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="mb-0"><i class="bi bi-people-fill me-2"></i>Customers</h4>
-        <a href="/Customers/Create" class="btn btn-primary btn-sm">
+        <button type="button" class="btn btn-primary btn-sm" id="btnCreateCustomer">
             <i class="bi bi-plus-circle"></i> Crear Customer
-        </a>
+        </button>
     </div>
+
+    @Html.AntiForgeryToken()
 
     @if (TempData["Error"] != null)
     {
@@ -99,7 +110,7 @@
                                     <td>@customer.Name</td>
                                     <td>@customer.Identification</td>
                                     <td>
-                                        <span class="badge bg-secondary">@customer.CustomerType</span>
+                                        <span class="badge bg-secondary">@(customer.IdCustomerType?.ToString() ?? "—")</span>
                                     </td>
                                     <td>
                                         @if (!string.IsNullOrEmpty(customer.Email))
@@ -126,16 +137,32 @@
                                     </td>
                                     <td class="text-end">
                                         <div class="btn-group btn-group-sm" role="group">
-                                            <a href="/Customers/Details/@customer.Id" 
-                                               class="btn btn-outline-info" 
-                                               title="Ver detalles">
-                                                <i class="bi bi-eye"></i>
-                                            </a>
-                                            <a href="/Customers/Edit/@customer.Id" 
-                                               class="btn btn-outline-warning" 
-                                               title="Editar">
-                                                <i class="bi bi-pencil"></i>
-                                            </a>
+                                            <button type="button"
+                                                        class="btn btn-outline-info cust-view-btn"
+                                                        title="Ver detalles"
+                                                        data-customer-id="@customer.Id">
+                                                    <i class="bi bi-eye"></i>
+                                                </button>
+                                                <button type="button"
+                                                        class="btn btn-outline-warning cust-edit-btn"
+                                                        title="Editar"
+                                                        data-customer-id="@customer.Id">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button type="button"
+                                                        class="btn btn-outline-danger cust-delete-btn"
+                                                        title="Eliminar"
+                                                        data-customer-id="@customer.Id"
+                                                        data-customer-name="@customer.Name">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            <button type="button"
+                                                    class="btn btn-outline-success cea-open-btn"
+                                                    title="Actividades económicas"
+                                                    data-customer-id="@customer.Id"
+                                                    data-customer-name="@customer.Name">
+                                                <i class="bi bi-briefcase"></i>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -152,11 +179,720 @@
     </div>
 </div>
 
+<!-- ================= MODAL: Actividades Económicas del Cliente ================= -->
+<div class="modal fade" id="ceaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-briefcase me-2"></i>Actividades económicas —
+                    <span id="ceaCustomerName" class="text-info"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="ceaAlert"></div>
+
+                <!-- Formulario para agregar/editar -->
+                <div class="card mb-3" style="background:#1a2540;border:1px solid #23305c;">
+                    <div class="card-body">
+                        <input type="hidden" id="ceaEditId" />
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-6">
+                                <label class="form-label text-light">Actividad económica</label>
+                                <select id="ceaActivitySelect" class="form-select form-select-sm">
+                                    <option value="">Cargando...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-light">Notas (opcional)</label>
+                                <input type="text" id="ceaNotes" class="form-control form-control-sm" maxlength="200" />
+                            </div>
+                        </div>
+                        <div class="row g-2 mt-1 align-items-center">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="ceaIsDefault" />
+                                    <label class="form-check-label text-light" for="ceaIsDefault">Predeterminada</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6 d-flex gap-1 justify-content-end">
+                                <button type="button" id="ceaSaveBtn" class="btn btn-primary btn-sm">
+                                    <i class="bi bi-check-lg"></i> Guardar
+                                </button>
+                                <button type="button" id="ceaCancelBtn" class="btn btn-outline-light btn-sm" style="display:none;">
+                                    <i class="bi bi-x-lg"></i> Cancelar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de actividades del cliente -->
+                <div class="table-responsive">
+                    <table class="table cea-table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width:90px;">Código</th>
+                                <th>Descripción</th>
+                                <th style="width:110px;" class="text-center">Predet.</th>
+                                <th style="width:90px;" class="text-center">Estado</th>
+                                <th style="width:120px;" class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ceaListBody">
+                            <tr><td colspan="5" class="text-center text-muted">Cargando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-light btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= MODAL: Crear / Editar Customer ================= -->
+<div class="modal fade" id="customerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content" style="background:#16213e;color:#e0e0e0;border:1px solid #23305c;">
+            <div class="modal-header" style="border-color:#23305c;">
+                <h5 class="modal-title">
+                    <i class="bi bi-person-vcard me-2"></i><span id="customerModalTitle">Nuevo Customer</span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="customerAlert"></div>
+                <form id="customerForm">
+                    <input type="hidden" id="cust_Id" />
+
+                    <ul class="nav nav-tabs mb-3" role="tablist">
+                        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-general" type="button">General</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-commercial" type="button">Comercial</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-contact" type="button">Contacto</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-location" type="button">Ubicaci&oacute;n</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-notes" type="button">Notas</button></li>
+                    </ul>
+
+                    <div class="tab-content">
+                        <!-- General -->
+                        <div class="tab-pane fade show active" id="tab-general" role="tabpanel">
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label text-light">C&oacute;digo *</label>
+                                    <input id="cust_Code" class="form-control bg-dark text-light border-secondary" maxlength="30" />
+                                </div>
+                                <div class="col-md-8 mb-3">
+                                    <label class="form-label text-light">Nombre / Raz&oacute;n social *</label>
+                                    <input id="cust_Name" class="form-control bg-dark text-light border-secondary" maxlength="200" />
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-light">Nombre comercial</label>
+                                    <input id="cust_CommercialName" class="form-control bg-dark text-light border-secondary" maxlength="200" />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-light">Tipo de cliente</label>
+                                    <select id="cust_IdCustomerType" class="form-select bg-dark text-light border-secondary">
+                                        <option value="">-- Seleccione --</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label text-light">Tipo identificaci&oacute;n (Hacienda)</label>
+                                    <input id="cust_IdElectronicDocumentIdentificationType" type="number" class="form-control bg-dark text-light border-secondary" />
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label text-light">Identificaci&oacute;n</label>
+                                    <input id="cust_Identification" class="form-control bg-dark text-light border-secondary" maxlength="20" />
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label text-light">Identificaci&oacute;n extranjero</label>
+                                    <input id="cust_ForeignIdentification" class="form-control bg-dark text-light border-secondary" maxlength="20" />
+                                </div>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input id="cust_IsActive" class="form-check-input" type="checkbox" checked />
+                                <label class="form-check-label text-light" for="cust_IsActive">Activo</label>
+                            </div>
+                        </div>
+
+                        <!-- Comercial -->
+                        <div class="tab-pane fade" id="tab-commercial" role="tabpanel">
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label text-light">L&iacute;mite de cr&eacute;dito</label>
+                                    <input id="cust_CreditLimit" type="number" step="0.01" class="form-control bg-dark text-light border-secondary" />
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label text-light">D&iacute;as de cr&eacute;dito</label>
+                                    <input id="cust_CreditDays" type="number" class="form-control bg-dark text-light border-secondary" />
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label text-light">Descuento %</label>
+                                    <input id="cust_DiscountPct" type="number" step="0.01" class="form-control bg-dark text-light border-secondary" />
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-light">Condiciones de pago</label>
+                                    <input id="cust_PaymentTerms" class="form-control bg-dark text-light border-secondary" maxlength="50" />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-light">Lista de precios</label>
+                                    <input id="cust_PriceList" class="form-control bg-dark text-light border-secondary" maxlength="30" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Contacto -->
+                        <div class="tab-pane fade" id="tab-contact" role="tabpanel">
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label text-light">C&oacute;d. tel.</label>
+                                    <input id="cust_PhoneCode" class="form-control bg-dark text-light border-secondary" maxlength="3" />
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label text-light">Tel&eacute;fono</label>
+                                    <input id="cust_Phone" class="form-control bg-dark text-light border-secondary" maxlength="20" />
+                                </div>
+                                <div class="col-md-5 mb-3">
+                                    <label class="form-label text-light">M&oacute;vil</label>
+                                    <input id="cust_Mobile" class="form-control bg-dark text-light border-secondary" maxlength="20" />
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-light">Email</label>
+                                    <input id="cust_Email" type="email" class="form-control bg-dark text-light border-secondary" maxlength="160" />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-light">Sitio web</label>
+                                    <input id="cust_Website" class="form-control bg-dark text-light border-secondary" maxlength="200" />
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-light">Nombre contacto</label>
+                                    <input id="cust_ContactName" class="form-control bg-dark text-light border-secondary" maxlength="200" />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-light">Cargo contacto</label>
+                                    <input id="cust_ContactPosition" class="form-control bg-dark text-light border-secondary" maxlength="100" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Ubicaci&oacute;n -->
+                        <div class="tab-pane fade" id="tab-location" role="tabpanel">
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label text-light">Provincia</label>
+                                    <input id="cust_Province" class="form-control bg-dark text-light border-secondary" maxlength="1" />
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label text-light">Cant&oacute;n</label>
+                                    <input id="cust_Canton" class="form-control bg-dark text-light border-secondary" maxlength="2" />
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label text-light">Distrito</label>
+                                    <input id="cust_District" class="form-control bg-dark text-light border-secondary" maxlength="2" />
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-light">Otras se&ntilde;as</label>
+                                <textarea id="cust_OtherSigns" rows="2" class="form-control bg-dark text-light border-secondary" maxlength="250"></textarea>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-light">Latitud GPS</label>
+                                    <input id="cust_GpsLatitude" type="number" step="any" class="form-control bg-dark text-light border-secondary" />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-light">Longitud GPS</label>
+                                    <input id="cust_GpsLongitude" type="number" step="any" class="form-control bg-dark text-light border-secondary" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Notas -->
+                        <div class="tab-pane fade" id="tab-notes" role="tabpanel">
+                            <div class="mb-3">
+                                <label class="form-label text-light">Notas (visibles)</label>
+                                <textarea id="cust_Notes" rows="3" class="form-control bg-dark text-light border-secondary" maxlength="2000"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-light">Notas internas</label>
+                                <textarea id="cust_InternalNotes" rows="3" class="form-control bg-dark text-light border-secondary" maxlength="2000"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-light">Raz&oacute;n de bloqueo</label>
+                                <input id="cust_BlockedReason" class="form-control bg-dark text-light border-secondary" maxlength="500" />
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer" style="border-color:#23305c;">
+                <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="customerSaveBtn">
+                    <i class="bi bi-save me-1"></i>Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= MODAL: Ver Customer ================= -->
+<div class="modal fade" id="customerViewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content" style="background:#16213e;color:#e0e0e0;border:1px solid #23305c;">
+            <div class="modal-header" style="border-color:#23305c;">
+                <h5 class="modal-title"><i class="bi bi-eye me-2"></i>Detalle del Customer</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="customerViewBody">
+                <div class="text-center text-muted">Cargando...</div>
+            </div>
+            <div class="modal-footer" style="border-color:#23305c;">
+                <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
-    <!-- Modales se mueven al body para evitar problemas de z-index -->
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            // No hay modales en esta vista actualmente
-        });
+        (function () {
+            let currentCustomerId = null;
+            let catalogLoaded = false;
+            let ceaModalInstance = null;
+            const ceaToken = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+
+            function ceaPost(url, body) {
+                const headers = { 'RequestVerificationToken': ceaToken };
+                if (body !== undefined) headers['Content-Type'] = 'application/json';
+                return fetch(url, {
+                    method: 'POST',
+                    headers: headers,
+                    body: body !== undefined ? JSON.stringify(body) : undefined
+                });
+            }
+
+            function ceaAlert(msg, type) {
+                document.getElementById('ceaAlert').innerHTML =
+                    '<div class="alert alert-' + (type || 'danger') + ' alert-dismissible fade show py-2">' +
+                    msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+            }
+            function ceaClearAlert() { document.getElementById('ceaAlert').innerHTML = ''; }
+
+            async function loadCatalog() {
+                if (catalogLoaded) return;
+                try {
+                    const res = await fetch('/Customers/EconomicActivities');
+                    if (!res.ok) throw new Error('No se pudo cargar el catálogo (' + res.status + ')');
+                    const data = await res.json();
+                    const sel = document.getElementById('ceaActivitySelect');
+                    sel.innerHTML = '<option value="">-- Seleccione --</option>';
+                    data.forEach(function (a) {
+                        const id = a.id || a.Id;
+                        const code = a.code || a.Code;
+                        const desc = a.description || a.Description || '';
+                        const opt = document.createElement('option');
+                        opt.value = id;
+                        opt.textContent = code + ' — ' + desc;
+                        opt.setAttribute('data-desc', desc);
+                        sel.appendChild(opt);
+                    });
+                    catalogLoaded = true;
+                } catch (e) {
+                    ceaAlert('Error cargando catálogo: ' + e.message);
+                }
+            }
+
+            async function loadCustomerActivities(customerId) {
+                const body = document.getElementById('ceaListBody');
+                body.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Cargando...</td></tr>';
+                try {
+                    const res = await fetch('/Customers/CustomerActivities?customerId=' + customerId);
+                    if (!res.ok) throw new Error('Error ' + res.status);
+                    const data = await res.json();
+                    if (!data.length) {
+                        body.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Sin actividades registradas.</td></tr>';
+                        return;
+                    }
+                    body.innerHTML = '';
+                    data.forEach(function (a) {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML =
+                            '<td><span class="cea-code">' + a.economicActivityCode + '</span></td>' +
+                            '<td>' + (a.description || '<span class="text-muted">-</span>') + '</td>' +
+                            '<td class="text-center">' + (a.isDefault
+                                ? '<span class="badge bg-primary">Predeterminada</span>'
+                                : '<button class="btn btn-outline-primary btn-sm cea-setdefault" data-id="' + a.id + '">Marcar</button>') + '</td>' +
+                            '<td class="text-center">' + (a.isActive
+                                ? '<span class="badge bg-success">Activa</span>'
+                                : '<span class="badge bg-secondary">Inactiva</span>') + '</td>' +
+                            '<td class="text-end">' +
+                                '<button class="btn btn-outline-warning btn-sm cea-edit" data-id="' + a.id + '" ' +
+                                    'data-actid="' + a.idElectronicDocumentEconomicActivity + '" data-notes="' + (a.notes || '') + '" ' +
+                                    'data-active="' + a.isActive + '" data-default="' + a.isDefault + '"><i class="bi bi-pencil"></i></button> ' +
+                                '<button class="btn btn-outline-danger btn-sm cea-delete" data-id="' + a.id + '"><i class="bi bi-trash"></i></button>' +
+                            '</td>';
+                        body.appendChild(tr);
+                    });
+                } catch (e) {
+                    body.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error: ' + e.message + '</td></tr>';
+                }
+            }
+
+            function resetForm() {
+                document.getElementById('ceaEditId').value = '';
+                document.getElementById('ceaActivitySelect').value = '';
+                document.getElementById('ceaNotes').value = '';
+                document.getElementById('ceaIsDefault').checked = false;
+                document.getElementById('ceaCancelBtn').style.display = 'none';
+            }
+
+            async function saveActivity() {
+                ceaClearAlert();
+                const editId = document.getElementById('ceaEditId').value;
+                const idActivity = parseInt(document.getElementById('ceaActivitySelect').value, 10);
+                const notes = document.getElementById('ceaNotes').value;
+                const isDefault = document.getElementById('ceaIsDefault').checked;
+
+                if (!idActivity) { ceaAlert('Seleccione una actividad económica.'); return; }
+
+                const payload = {
+                    idElectronicDocumentEconomicActivity: idActivity,
+                    isDefault: isDefault,
+                    isActive: true,
+                    notes: notes
+                };
+
+                try {
+                    let res;
+                    if (editId) {
+                        res = await ceaPost('/Customers/UpdateCustomerActivity?id=' + editId, payload);
+                    } else {
+                        res = await ceaPost('/Customers/CreateCustomerActivity?customerId=' + currentCustomerId, payload);
+                    }
+                    if (!res.ok) {
+                        const err = await res.json().catch(function () { return { message: 'Error ' + res.status }; });
+                        throw new Error(err.message || 'Error ' + res.status);
+                    }
+                    resetForm();
+                    ceaAlert('Actividad guardada correctamente.', 'success');
+                    await loadCustomerActivities(currentCustomerId);
+                } catch (e) {
+                    ceaAlert(e.message);
+                }
+            }
+
+            async function setDefault(id) {
+                ceaClearAlert();
+                try {
+                    const res = await ceaPost('/Customers/SetDefaultCustomerActivity?id=' + id);
+                    if (!res.ok) throw new Error('Error ' + res.status);
+                    await loadCustomerActivities(currentCustomerId);
+                } catch (e) { ceaAlert(e.message); }
+            }
+
+            async function deleteActivity(id) {
+                if (!confirm('¿Eliminar esta actividad económica del cliente?')) return;
+                ceaClearAlert();
+                try {
+                    const res = await ceaPost('/Customers/DeleteCustomerActivity?id=' + id);
+                    if (!res.ok) {
+                        const err = await res.json().catch(function () { return { message: 'Error ' + res.status }; });
+                        throw new Error(err.message || 'Error ' + res.status);
+                    }
+                    await loadCustomerActivities(currentCustomerId);
+                } catch (e) { ceaAlert(e.message); }
+            }
+
+            function startEdit(btn) {
+                document.getElementById('ceaEditId').value = btn.getAttribute('data-id');
+                document.getElementById('ceaActivitySelect').value = btn.getAttribute('data-actid');
+                document.getElementById('ceaNotes').value = btn.getAttribute('data-notes') || '';
+                document.getElementById('ceaIsDefault').checked = btn.getAttribute('data-default') === 'true';
+                document.getElementById('ceaCancelBtn').style.display = '';
+                document.getElementById('ceaActivitySelect').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            document.addEventListener('DOMContentLoaded', function () {
+                // Mover modal al body para evitar z-index con el sidebar
+                const modalEl = document.getElementById('ceaModal');
+                if (modalEl) document.body.appendChild(modalEl);
+                ceaModalInstance = new bootstrap.Modal(modalEl);
+
+                // Abrir modal desde cada fila
+                document.querySelectorAll('.cea-open-btn').forEach(function (b) {
+                    b.addEventListener('click', async function () {
+                        currentCustomerId = this.getAttribute('data-customer-id');
+                        document.getElementById('ceaCustomerName').textContent = this.getAttribute('data-customer-name') || '';
+                        ceaClearAlert();
+                        resetForm();
+                        ceaModalInstance.show();
+                        await loadCatalog();
+                        await loadCustomerActivities(currentCustomerId);
+                    });
+                });
+
+                document.getElementById('ceaSaveBtn').addEventListener('click', saveActivity);
+                document.getElementById('ceaCancelBtn').addEventListener('click', resetForm);
+
+                // Delegación de eventos en la tabla
+                document.getElementById('ceaListBody').addEventListener('click', function (e) {
+                    const setDef = e.target.closest('.cea-setdefault');
+                    const edit = e.target.closest('.cea-edit');
+                    const del = e.target.closest('.cea-delete');
+                    if (setDef) setDefault(setDef.getAttribute('data-id'));
+                    else if (edit) startEdit(edit);
+                    else if (del) deleteActivity(del.getAttribute('data-id'));
+                });
+            });
+        })();
+    </script>
+
+    <script>
+        // ===================== CRUD Customer via CustomersController (JSON) =====================
+        (function () {
+            const antiforgeryToken = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+
+            const fieldMap = {
+                Id: 'cust_Id',
+                Code: 'cust_Code',
+                Name: 'cust_Name',
+                CommercialName: 'cust_CommercialName',
+                IdCustomerType: 'cust_IdCustomerType',
+                IdElectronicDocumentIdentificationType: 'cust_IdElectronicDocumentIdentificationType',
+                Identification: 'cust_Identification',
+                ForeignIdentification: 'cust_ForeignIdentification',
+                CreditLimit: 'cust_CreditLimit',
+                CreditDays: 'cust_CreditDays',
+                DiscountPct: 'cust_DiscountPct',
+                PaymentTerms: 'cust_PaymentTerms',
+                PriceList: 'cust_PriceList',
+                PhoneCode: 'cust_PhoneCode',
+                Phone: 'cust_Phone',
+                Mobile: 'cust_Mobile',
+                Email: 'cust_Email',
+                Website: 'cust_Website',
+                ContactName: 'cust_ContactName',
+                ContactPosition: 'cust_ContactPosition',
+                Province: 'cust_Province',
+                Canton: 'cust_Canton',
+                District: 'cust_District',
+                OtherSigns: 'cust_OtherSigns',
+                GpsLatitude: 'cust_GpsLatitude',
+                GpsLongitude: 'cust_GpsLongitude',
+                Notes: 'cust_Notes',
+                InternalNotes: 'cust_InternalNotes',
+                BlockedReason: 'cust_BlockedReason'
+            };
+            const numericFields = ['IdCustomerType', 'IdElectronicDocumentIdentificationType', 'CreditLimit', 'CreditDays', 'DiscountPct', 'GpsLatitude', 'GpsLongitude'];
+
+            let customerModal = null;
+            let customerViewModal = null;
+            let typesLoaded = false;
+
+            function el(id) { return document.getElementById(id); }
+
+            function custAlert(msg, type) {
+                el('customerAlert').innerHTML =
+                    '<div class="alert alert-' + (type || 'danger') + ' alert-dismissible fade show py-2">' +
+                    msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+            }
+            function custClearAlert() { el('customerAlert').innerHTML = ''; }
+
+            async function loadTypes() {
+                if (typesLoaded) return;
+                try {
+                    const res = await fetch('/Customers/CustomerTypes');
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    const sel = el('cust_IdCustomerType');
+                    sel.innerHTML = '<option value="">-- Seleccione --</option>';
+                    data.forEach(function (t) {
+                        const id = t.id ?? t.Id;
+                        const name = t.name ?? t.Name ?? t.description ?? t.Description ?? ('Tipo ' + id);
+                        const opt = document.createElement('option');
+                        opt.value = id;
+                        opt.textContent = name;
+                        sel.appendChild(opt);
+                    });
+                    typesLoaded = true;
+                } catch (e) { /* silencioso */ }
+            }
+
+            function clearForm() {
+                Object.values(fieldMap).forEach(function (fid) {
+                    const f = el(fid);
+                    if (f) f.value = '';
+                });
+                el('cust_IsActive').checked = true;
+            }
+
+            function fillForm(c) {
+                Object.keys(fieldMap).forEach(function (key) {
+                    const f = el(fieldMap[key]);
+                    if (!f) return;
+                    const val = c[key.charAt(0).toLowerCase() + key.slice(1)] ?? c[key];
+                    f.value = (val === null || val === undefined) ? '' : val;
+                });
+                el('cust_IsActive').checked = !!(c.isActive ?? c.IsActive);
+            }
+
+            function collectForm() {
+                const payload = {};
+                Object.keys(fieldMap).forEach(function (key) {
+                    const f = el(fieldMap[key]);
+                    if (!f) return;
+                    let v = f.value;
+                    if (v === '') { payload[key] = null; return; }
+                    if (numericFields.indexOf(key) >= 0) {
+                        v = Number(v);
+                        if (isNaN(v)) v = null;
+                    }
+                    payload[key] = v;
+                });
+                payload.IsActive = el('cust_IsActive').checked;
+                return payload;
+            }
+
+            async function openCreate() {
+                custClearAlert();
+                clearForm();
+                el('customerModalTitle').textContent = 'Nuevo Customer';
+                el('cust_Id').value = '';
+                await loadTypes();
+                customerModal.show();
+            }
+
+            async function openEdit(id) {
+                custClearAlert();
+                clearForm();
+                el('customerModalTitle').textContent = 'Editar Customer';
+                await loadTypes();
+                try {
+                    const res = await fetch('/Customers/GetCustomer/' + id);
+                    if (!res.ok) throw new Error('No se pudo cargar el customer.');
+                    const c = await res.json();
+                    fillForm(c);
+                    customerModal.show();
+                } catch (e) {
+                    alert(e.message);
+                }
+            }
+
+            async function saveCustomer() {
+                custClearAlert();
+                const payload = collectForm();
+                if (!payload.Code || !payload.Name) {
+                    custAlert('C&oacute;digo y Nombre son obligatorios.');
+                    return;
+                }
+                const id = el('cust_Id').value;
+                const url = id ? '/Customers/Edit/' + id : '/Customers/Create';
+                try {
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': antiforgeryToken
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    const result = await res.json().catch(function () { return {}; });
+                    if (res.ok && result.success) {
+                        customerModal.hide();
+                        window.location.reload();
+                    } else {
+                        custAlert(result.message || 'Error al guardar el customer.');
+                    }
+                } catch (e) {
+                    custAlert('Error al guardar: ' + e.message);
+                }
+            }
+
+            async function deleteCustomer(id, name) {
+                if (!confirm('¿Eliminar el customer "' + name + '"?')) return;
+                try {
+                    const res = await fetch('/Customers/Delete/' + id, {
+                        method: 'POST',
+                        headers: { 'RequestVerificationToken': antiforgeryToken }
+                    });
+                    const result = await res.json().catch(function () { return {}; });
+                    if (res.ok && result.success) {
+                        window.location.reload();
+                    } else {
+                        alert(result.message || 'Error al eliminar el customer.');
+                    }
+                } catch (e) {
+                    alert('Error al eliminar: ' + e.message);
+                }
+            }
+
+            function row(label, value) {
+                return '<div class="row mb-2"><div class="col-4 text-info">' + label + '</div>' +
+                    '<div class="col-8">' + (value === null || value === undefined || value === '' ? '<span class="text-muted">-</span>' : value) + '</div></div>';
+            }
+
+            async function openView(id) {
+                el('customerViewBody').innerHTML = '<div class="text-center text-muted">Cargando...</div>';
+                customerViewModal.show();
+                try {
+                    const res = await fetch('/Customers/GetCustomer/' + id);
+                    if (!res.ok) throw new Error('No se pudo cargar el customer.');
+                    const c = await res.json();
+                    el('customerViewBody').innerHTML =
+                        row('C&oacute;digo', c.code) +
+                        row('Nombre', c.name) +
+                        row('Nombre comercial', c.commercialName) +
+                        row('Identificaci&oacute;n', c.identification) +
+                        row('Email', c.email) +
+                        row('Tel&eacute;fono', c.phone) +
+                        row('M&oacute;vil', c.mobile) +
+                        row('Contacto', c.contactName) +
+                        row('L&iacute;mite cr&eacute;dito', c.creditLimit) +
+                        row('D&iacute;as cr&eacute;dito', c.creditDays) +
+                        row('Descuento %', c.discountPct) +
+                        row('Estado', (c.isActive ? '<span class="badge bg-success">Activo</span>' : '<span class="badge bg-secondary">Inactivo</span>'));
+                } catch (e) {
+                    el('customerViewBody').innerHTML = '<div class="text-danger">' + e.message + '</div>';
+                }
+            }
+
+            document.addEventListener('DOMContentLoaded', function () {
+                // Mover modales al body para evitar problemas de z-index con el sidebar
+                ['customerModal', 'customerViewModal'].forEach(function (mid) {
+                    const m = el(mid);
+                    if (m) document.body.appendChild(m);
+                });
+                customerModal = new bootstrap.Modal(el('customerModal'));
+                customerViewModal = new bootstrap.Modal(el('customerViewModal'));
+
+                el('btnCreateCustomer').addEventListener('click', openCreate);
+                el('customerSaveBtn').addEventListener('click', saveCustomer);
+
+                document.querySelectorAll('.cust-view-btn').forEach(function (b) {
+                    b.addEventListener('click', function () { openView(this.getAttribute('data-customer-id')); });
+                });
+                document.querySelectorAll('.cust-edit-btn').forEach(function (b) {
+                    b.addEventListener('click', function () { openEdit(this.getAttribute('data-customer-id')); });
+                });
+                document.querySelectorAll('.cust-delete-btn').forEach(function (b) {
+                    b.addEventListener('click', function () {
+                        deleteCustomer(this.getAttribute('data-customer-id'), this.getAttribute('data-customer-name'));
+                    });
+                });
+            });
+        })();
     </script>
 }
+

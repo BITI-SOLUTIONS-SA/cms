@@ -32,6 +32,9 @@
 
     <div class="layout-wrapper">
 
+        <!-- ===== BACKDROP DEL MENÚ (overlay tipo modal) ===== -->
+        <div class="sidebar-backdrop" onclick="closeSidebar()"></div>
+
         <!-- ===== SIDEBAR ===== -->
         <aside class="sidebar">
             <div class="sidebar-header">
@@ -48,8 +51,8 @@
                     </div>
                 </div>
 
-                <button class="sidebar-close-btn" onclick="toggleSidebar()" title="Colapsar menú">
-                    <i class="bi bi-chevron-left"></i>
+                <button class="sidebar-close-btn" onclick="closeSidebar()" title="Ocultar menú">
+                    <i class="bi bi-x-lg"></i>
                 </button>
             </div>
 
@@ -79,8 +82,9 @@
             <nav class="navbar navbar-expand-lg top-navbar">
                 <div class="container-fluid">
 
-                    <button class="navbar-toggler" type="button" onclick="toggleSidebar()">
+                    <button class="navbar-toggler menu-toggle-btn" type="button" onclick="toggleSidebar()" title="Desplegar menú">
                         <i class="bi bi-list"></i>
+                        <span class="menu-toggle-text">Menú</span>
                     </button>
 
                     <!-- Breadcrumb -->

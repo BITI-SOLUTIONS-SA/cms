@@ -53,9 +53,9 @@ namespace CMS.Entities.Operational
 
         // ===== UNIDAD DE MEDIDA =====
 
-        /// <summary>FK lógica cross-DB a cms.admin.unit_of_measure</summary>
-        [Column("id_unit_of_measure")]
-        public int? IdUnitOfMeasure { get; set; }
+        /// <summary>FK lógica cross-DB a cms.admin.electronic_document_unit_of_measure (MH v4.4)</summary>
+        [Column("id_electronic_document_unit_of_measure")]
+        public int? IdElectronicDocumentUnitOfMeasure { get; set; }
 
         [MaxLength(10)]
         [Column("unit_of_measure_code")]
